@@ -37,8 +37,8 @@ Hoặc kết nối GitHub repo tại [vercel.com/new](https://vercel.com/new).
 | Key | Value |
 |-----|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxx.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJh...` (anon key) |
-| `SUPABASE_SERVICE_ROLE_KEY` | `eyJh...` (service_role key — bí mật) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | publishable key (thay thế anon key cũ) |
+| `SUPABASE_SERVICE_ROLE_KEY` | service_role key — bí mật |
 | `ANTHROPIC_API_KEY` | `sk-ant-...` |
 | `ADMIN_PASSWORD` | mật khẩu của bạn |
 | `NEXT_PUBLIC_ADMIN_HASH` | `admin-` + mật khẩu (VD: `admin-matkhau123`) |
