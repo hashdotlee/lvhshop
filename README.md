@@ -37,11 +37,13 @@ Hoặc kết nối GitHub repo tại [vercel.com/new](https://vercel.com/new).
 | Key | Value |
 |-----|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxx.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | publishable key (thay thế anon key cũ) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` | publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role key — bí mật |
-| `ANTHROPIC_API_KEY` | `sk-ant-...` |
+| `OPENROUTER_API_KEY` | `sk-or-v1-...` từ openrouter.ai/keys |
+| `OPENROUTER_MODEL` | `google/gemini-flash-1.5` (hoặc model khác) |
+| `NEXT_PUBLIC_SITE_URL` | URL app của bạn (dùng làm Referer) |
 | `ADMIN_PASSWORD` | mật khẩu của bạn |
-| `NEXT_PUBLIC_ADMIN_HASH` | `admin-` + mật khẩu (VD: `admin-matkhau123`) |
+| `NEXT_PUBLIC_ADMIN_HASH` | `admin-` + mật khẩu |
 
 ---
 
