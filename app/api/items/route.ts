@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const body = await req.json()
-  const { title, description, price, condition, category, type, phone, location, images, image_url } = body
+  const { title, description, price, condition, category, type, phone, location, images, image_url, expected_date } = body
   if (!title || !type) return NextResponse.json({ error: 'missing fields' }, { status: 400 })
   const imgs: string[] = images && images.length > 0 ? images : image_url ? [image_url] : []
   const db = adminClient()
@@ -33,7 +33,8 @@ export async function POST(req: NextRequest) {
       condition, category, type, phone, location,
       images: imgs,
       image_url: imgs[0] ?? null,
-      status: 'available',
+      status: expected_date ? 'incoming' : 'available',
+      expected_date: expected_date || null,
     })
     .select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

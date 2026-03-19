@@ -109,3 +109,6 @@ update items set images = array[image_url] where image_url is not null and (imag
 -- Drop old check constraint and recreate with incoming
 alter table items drop constraint if exists items_status_check;
 alter table items add constraint items_status_check check (status in ('available','sold','incoming'));
+
+-- Add expected_date column for incoming items
+alter table items add column if not exists expected_date date;

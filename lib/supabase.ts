@@ -19,6 +19,7 @@ export type Item = {
   image_url: string        // legacy single (keep for compat)
   images: string[]         // new: array of URLs
   status: 'available' | 'sold' | 'incoming'
+  expected_date: string | null
   created_at: string
 }
 

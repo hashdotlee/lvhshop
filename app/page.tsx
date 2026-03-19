@@ -151,13 +151,14 @@ export default function Home() {
   }
 
   // ── fetch ─────────────────────────────────────────────────────
-  async function fetchItems() {
-    setLoadingItems(true)
+  async function fetchItems(silent = false) {
+    if (!silent) setLoadingItems(true)
     try {
       const r = await fetch('/api/items'); const d = await r.json()
       setItems(Array.isArray(d) ? d : [])
-    } catch { showToast('Không thể tải danh sách') }
-    finally { setLoadingItems(false) }
+      setLastUpdated(new Date())
+    } catch { if (!silent) showToast('Không thể tải danh sách') }
+    finally { if (!silent) setLoadingItems(false) }
   }
   async function fetchCustomers() {
     setLoadingCust(true)
@@ -167,6 +168,9 @@ export default function Home() {
     } catch { showToast('Không thể tải khách hàng') }
     finally { setLoadingCust(false) }
   }
+
+  const [lastUpdated, setLastUpdated] = useState<Date|null>(null)
+  const autoReloadRef = useRef<ReturnType<typeof setInterval>>()
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -178,6 +182,13 @@ export default function Home() {
       setIsAdmin(true)
     }
     fetchItems()
+
+    // Auto-reload every 5s for buyers
+    autoReloadRef.current = setInterval(() => {
+      fetchItems(true)
+    }, 5000)
+
+    return () => clearInterval(autoReloadRef.current)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -200,11 +211,36 @@ export default function Home() {
   function handleImgs(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []).filter(f => f.size <= 8*1024*1024)
     if (files.length < (e.target.files?.length ?? 0)) showToast('Một số ảnh vượt 8MB, đã bỏ qua')
-    const newFiles = [...imgFiles, ...files].slice(0, 8) // max 8 images
+    const newFiles = [...imgFiles, ...files].slice(0, 8)
     setImgFiles(newFiles)
     setImgPreviews(newFiles.map(f => URL.createObjectURL(f)))
     if (fileRef.current) fileRef.current.value = ''
   }
+
+  function addImageFiles(newFiles: File[]) {
+    const valid = newFiles.filter(f => f.type.startsWith('image/') && f.size <= 8*1024*1024)
+    if (!valid.length) return
+    const merged = [...imgFiles, ...valid].slice(0, 8)
+    setImgFiles(merged)
+    setImgPreviews(merged.map(f => URL.createObjectURL(f)))
+  }
+
+  // Paste from clipboard
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      if (!preview) return
+      const items = Array.from(e.clipboardData?.items ?? [])
+      const imageItems = items.filter(i => i.type.startsWith('image/'))
+      if (!imageItems.length) return
+      e.preventDefault()
+      const files = imageItems.map(i => i.getAsFile()).filter(Boolean) as File[]
+      addImageFiles(files)
+      showToast(`Đã dán ${files.length} ảnh từ clipboard`)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview, imgFiles])
   function removeImgAt(i: number) {
     setImgFiles(p => p.filter((_,j) => j!==i))
     setImgPreviews(p => p.filter((_,j) => j!==i))
@@ -216,11 +252,30 @@ export default function Home() {
     if (!nlText.trim()) return
     setAnalyzing(true)
     try {
-      const r = await fetch('/api/analyze', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: nlText }) })
+      const r = await fetch('/api/analyze', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ text: nlText }),
+      })
       const d = await r.json()
-      setPreview({ title:'', description:'', price:null, condition:'Cũ - Còn tốt', category:'', type:'ban', phone:'', location:'', images:[], status:'available', ...d })
-    } catch { showToast('Lỗi kết nối AI') }
-    finally { setAnalyzing(false) }
+      if (!r.ok || d.error) {
+        showToast(`Lỗi AI: ${d.error ?? r.status}`)
+        return
+      }
+      // Guard: nếu không có title thì không mở form trống
+      if (!d.title && !d.description) {
+        showToast('AI không trích xuất được thông tin, thử lại hoặc nhập thủ công')
+        return
+      }
+      setPreview({
+        title:'', description:'', price:null, condition:'Cũ - Còn tốt',
+        category:'', type:'ban', phone:'', location:'', images:[],
+        status:'available', expected_date: null,
+        ...d
+      })
+    } catch (e) {
+      console.error(e)
+      showToast('Không thể kết nối server')
+    } finally { setAnalyzing(false) }
   }
 
   // ── publish ───────────────────────────────────────────────────
@@ -434,7 +489,10 @@ export default function Home() {
                   <div className="preview-card">
                     {/* Multi-image upload */}
                     <div>
-                      <div className="lbl" style={{marginBottom:8}}>Ảnh sản phẩm <span style={{fontWeight:400,color:'var(--muted)'}}>({imgPreviews.length}/8)</span></div>
+                      <div className="lbl" style={{marginBottom:8}}>
+                        Ảnh sản phẩm <span style={{fontWeight:400,color:'var(--muted)'}}>({imgPreviews.length}/8)</span>
+                        <span className="paste-hint">· Ctrl+V để dán ảnh</span>
+                      </div>
                       <div className="img-grid">
                         {imgPreviews.map((src,i) => (
                           <div key={i} className="img-thumb-wrap">
@@ -444,7 +502,7 @@ export default function Home() {
                           </div>
                         ))}
                         {imgPreviews.length < 8 && (
-                          <label className="img-add-btn">
+                          <label className="img-add-btn" title="Chọn file hoặc Ctrl+V để paste">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14M5 12h14"/></svg>
                             <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleImgs} style={{display:'none'}}/>
                           </label>
@@ -483,6 +541,35 @@ export default function Home() {
                       <div className="fg"><div className="lbl">Địa điểm</div>
                         <input className="inp" value={preview.location??''} onChange={e=>setPreview(p=>({...p,location:e.target.value}))}/>
                       </div>
+
+                      {/* Incoming toggle + expected date */}
+                      <div className="fg full">
+                        <label className="incoming-toggle">
+                          <input type="checkbox"
+                            checked={!!preview.expected_date}
+                            onChange={e => setPreview(p => ({
+                              ...p,
+                              expected_date: e.target.checked
+                                ? new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0]
+                                : null
+                            }))}
+                          />
+                          <span className="incoming-toggle-label">
+                            <span className="badge-incoming" style={{fontSize:11}}>Sắp về</span>
+                            Hàng chưa có, sắp nhập về
+                          </span>
+                        </label>
+                        {preview.expected_date && (
+                          <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
+                            <label className="lbl" style={{margin:0,whiteSpace:'nowrap'}}>Ngày dự kiến về</label>
+                            <input className="inp" type="date" style={{flex:1}}
+                              value={preview.expected_date??''}
+                              min={new Date().toISOString().split('T')[0]}
+                              onChange={e=>setPreview(p=>({...p,expected_date:e.target.value||null}))}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="preview-actions">
                       <button className="btn-ghost" onClick={()=>{setPreview(null);setNlText('');clearImgs()}}>Hủy</button>
@@ -519,7 +606,13 @@ export default function Home() {
               <button className={`filter-chip${condFilter==='all'?' active':''}`} onClick={()=>setCondFilter('all')}>Tất cả</button>
               <button className={`filter-chip${condFilter==='Mới'?' active':''}`} onClick={()=>setCondFilter('Mới')}>Mới</button>
               <button className={`filter-chip${condFilter==='Cũ'?' active':''}`} onClick={()=>setCondFilter('Cũ')}>Đã qua dùng</button>
-              <div style={{marginLeft:'auto',display:'flex',gap:6}}>
+              <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6}}>
+                {lastUpdated && (
+                  <span className="auto-reload-indicator" title="Tự động cập nhật mỗi 5 giây">
+                    <span className="auto-reload-dot"/>
+                    {lastUpdated.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+                  </span>
+                )}
                 <button className={`filter-chip${statusFilter==='available'?' active':''}`} onClick={()=>setStatusFilter('available')}>Còn hàng</button>
                 <button className={`filter-chip incoming-chip${statusFilter==='incoming'?' active':''}`} onClick={()=>setStatusFilter('incoming')}>Sắp về</button>
                 <button className={`filter-chip sold-chip${statusFilter==='sold'?' active':''}`} onClick={()=>setStatusFilter('sold')}>Đã bán</button>
@@ -547,8 +640,11 @@ export default function Home() {
                           <span className="item-code-icon">⎘</span>
                         </div>
                         {item.status==='sold' ? <span className="badge-sold">Đã bán</span>
-                        : item.status==='incoming' ? <span className="badge-incoming">Sắp về</span>
-                        : <span className="badge-avail">Còn hàng</span>}
+                        : item.status==='incoming' ? (
+                          <span className="badge-incoming">
+                            📦 Sắp về{item.expected_date ? ` · ${new Date(item.expected_date).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'})}` : ''}
+                          </span>
+                        ) : <span className="badge-avail">Còn hàng</span>}
                         {imgs.length>1 && <span className="badge-imgs">📷 {imgs.length} ảnh</span>}
                       </div>
                       <div className="item-title">{item.title}</div>
@@ -572,6 +668,7 @@ export default function Home() {
                           </>
                         )}
                         <button className="btn-copy" onClick={()=>copyInfo(item)}>Copy</button>
+                      <a className="btn-copy" href={`/item/${item.id}`} target="_blank" rel="noopener noreferrer" style={{textAlign:'center',textDecoration:'none'}}>🔗 Chi tiết</a>
                         {isAdmin&&(
                           <>
                             {item.status==='available' && (
@@ -802,6 +899,11 @@ textarea::placeholder{color:#c0bdb5}
 .img-remove{position:absolute;top:-6px;right:-6px;background:var(--red);color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;line-height:1}
 .img-add-btn{width:80px;height:80px;border:1.5px dashed var(--border);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);flex-shrink:0;transition:all .15s}
 .img-add-btn:hover{border-color:var(--accent);color:var(--text);background:var(--tag-bg)}
+.paste-hint{font-size:10px;font-weight:400;color:var(--muted);margin-left:4px;letter-spacing:0}
+.incoming-toggle{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s;background:var(--tag-bg)}
+.incoming-toggle:hover{border-color:#a8bfff;background:#f0f5ff}
+.incoming-toggle input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:#2563eb;flex-shrink:0}
+.incoming-toggle-label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer}
 
 /* PREVIEW CARD */
 .preview-card{border-top:1px solid var(--border);padding:20px;display:flex;flex-direction:column;gap:14px}
@@ -850,6 +952,9 @@ textarea::placeholder{color:#c0bdb5}
 .filter-chip.active{background:var(--accent);border-color:var(--accent);color:white}
 .sold-chip.active{background:#c44f00;border-color:#c44f00}
 .incoming-chip.active{background:#2563eb;border-color:#2563eb}
+.auto-reload-indicator{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);padding:4px 8px;background:var(--tag-bg);border-radius:20px;white-space:nowrap}
+.auto-reload-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
 
 /* LISTING */
 .listing{display:flex;flex-direction:column;gap:8px}
