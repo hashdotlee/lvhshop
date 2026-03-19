@@ -16,8 +16,9 @@ export type Item = {
   type: 'ban' | 'mua'
   phone: string
   location: string
-  image_url: string
-  status: 'available' | 'sold'
+  image_url: string        // legacy single (keep for compat)
+  images: string[]         // new: array of URLs
+  status: 'available' | 'sold' | 'incoming'
   created_at: string
 }
 

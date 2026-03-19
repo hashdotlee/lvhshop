@@ -98,3 +98,14 @@ create policy "public upload"
   on storage.objects for insert with check (bucket_id = 'item-images');
 create policy "public read storage"
   on storage.objects for select using (bucket_id = 'item-images');
+
+-- Add images array column (run if upgrading from single image_url)
+alter table items add column if not exists images text[] default '{}';
+
+-- Migrate existing image_url into images array
+update items set images = array[image_url] where image_url is not null and (images is null or array_length(images,1) is null);
+
+-- Add 'incoming' status (run if upgrading)
+-- Drop old check constraint and recreate with incoming
+alter table items drop constraint if exists items_status_check;
+alter table items add constraint items_status_check check (status in ('available','sold','incoming'));
