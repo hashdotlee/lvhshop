@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-export const metadata: Metadata = { title: 'Chợ Nhanh', description: 'Mua bán nhanh bằng AI' }
+export const metadata: Metadata = { title: 'leviethoang.shop', description: 'Mua bán nhanh bằng AI' }
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi">

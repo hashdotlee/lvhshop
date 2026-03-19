@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Item } from '@/lib/supabase'
 
-const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH ?? 'admin-chorquanh2025'
+const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH ?? 'admin-lvh2025'
 
 // ─── helpers ──────────────────────────────────────────────────
 function esc(s: string) {
@@ -183,7 +183,7 @@ export default function Home() {
       {showAuthGate && (
         <div className="auth-gate">
           <div className="auth-box">
-            <div className="auth-logo">Chợ Nhanh <span>/ Admin</span></div>
+            <div className="auth-logo">leviethoang<span>.shop / Admin</span></div>
             <label className="auth-label">Mật khẩu quản trị</label>
             <input
               className="auth-input" type="password" placeholder="Nhập mật khẩu..."
@@ -202,7 +202,7 @@ export default function Home() {
 
       {/* HEADER */}
       <header>
-        <div className="logo">Chợ Nhanh <span>/ by AI</span></div>
+        <div className="logo">leviethoang<span>.shop</span></div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {isAdmin && (
             <div className="admin-badge">

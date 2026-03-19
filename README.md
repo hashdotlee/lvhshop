@@ -1,4 +1,4 @@
-# Chợ Nhanh 🛒
+# leviethoang.shop 🛒
 
 Nhập đơn hàng bằng ngôn ngữ tự nhiên, AI tự động trích xuất, listing mua/bán, nhắn tin Messenger.
 
@@ -63,5 +63,5 @@ cp .env.example .env.local
 npm install
 npm run dev
 # → http://localhost:3000
-# → http://localhost:3000/#admin-chorquanh2025
+# → http://localhost:3000/#admin-lvh2025
 ```

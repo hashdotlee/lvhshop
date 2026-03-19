@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-      'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cho-nhanh.vercel.app',
+      'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop',
     },
     body: JSON.stringify({
       model: process.env.OPENROUTER_MODEL ?? 'google/gemini-flash-1.5',
