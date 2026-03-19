@@ -14,6 +14,11 @@ function reltime(iso: string) {
   return `${Math.floor(diff / 86400)} ngày trước`
 }
 
+function formatVND(price: number | null | undefined): string {
+  if (!price) return 'Thương lượng'
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price)
+}
+
 export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [showAuthGate, setShowAuthGate] = useState(false)
@@ -117,7 +122,7 @@ export default function Home() {
         body: JSON.stringify({ text: nlText }),
       })
       const data = await res.json()
-      setPreview({ title: '', description: '', price: 'Thương lượng', condition: 'Cũ - Còn tốt', category: '', type: 'ban', phone: '', location: '', image_url: '', ...data })
+      setPreview({ title: '', description: '', price: null, condition: 'Cũ - Còn tốt', category: '', type: 'ban', phone: '', location: '', image_url: '', ...data })
     } catch { showToast('Lỗi kết nối AI') }
     finally { setAnalyzing(false) }
   }
@@ -165,7 +170,7 @@ export default function Home() {
 
   function openMessenger(item: Item) {
     const msg = item.type === 'ban'
-      ? `Xin chào! Mình thấy bạn đang bán "${item.title}" với giá ${item.price}. Cho mình hỏi thêm được không? 🙏`
+      ? `Xin chào! Mình thấy bạn đang bán "${item.title}" với giá ${formatVND(item.price)}. Cho mình hỏi thêm được không? 🙏`
       : `Chào bạn! Mình thấy bạn đang tìm mua "${item.title}". Mình có thể có hàng bạn cần, trao đổi thêm nhé! 😊`
     setMessengerItem(item); setMessengerPhone(item.phone ?? ''); setMessengerMsg(msg)
   }
@@ -180,7 +185,7 @@ export default function Home() {
 
   function openFacebook(item: Item) {
     const msg = item.type === 'ban'
-      ? `Mình quan tâm sản phẩm "${item.title}" giá ${item.price}. Còn hàng không bạn?`
+      ? `Mình quan tâm sản phẩm "${item.title}" giá ${formatVND(item.price)}. Còn hàng không bạn?`
       : `Mình có hàng bạn đang tìm: "${item.title}". Liên hệ mình nhé!`
     const target = FB_PAGE_ID
       ? `https://m.me/${FB_PAGE_ID}?text=${encodeURIComponent(msg)}`
@@ -189,7 +194,7 @@ export default function Home() {
   }
 
   function copyInfo(item: Item) {
-    const text = `${item.title}\n${item.description}\nGiá: ${item.price} | ${item.condition}${item.phone ? '\nLH: ' + item.phone : ''}${item.location ? ' | ' + item.location : ''}`
+    const text = `${item.title}\n${item.description}\nGiá: ${formatVND(item.price)} | ${item.condition}${item.phone ? '\nLH: ' + item.phone : ''}${item.location ? ' | ' + item.location : ''}`
     navigator.clipboard.writeText(text).then(() => showToast('Đã sao chép!'))
   }
 
@@ -281,8 +286,19 @@ export default function Home() {
                     <input className="field-value" value={preview.description??''} onChange={e=>setPreview(p=>({...p,description:e.target.value}))}/>
                   </div>
                   <div className="field-group">
-                    <div className="field-label">Giá</div>
-                    <input className="field-value price-field" value={preview.price??''} onChange={e=>setPreview(p=>({...p,price:e.target.value}))}/>
+                    <div className="field-label">Giá (VNĐ)</div>
+                    <div className="price-input-wrap">
+                      <input
+                        className="field-value price-field"
+                        type="number" min="0" step="1000"
+                        placeholder="0"
+                        value={preview.price ?? ''}
+                        onChange={e => setPreview(p => ({ ...p, price: e.target.value ? Number(e.target.value) : null }))}
+                      />
+                      <span className="price-preview">
+                        {preview.price ? formatVND(preview.price) : 'Thương lượng'}
+                      </span>
+                    </div>
                   </div>
                   <div className="field-group">
                     <div className="field-label">Tình trạng</div>
@@ -369,7 +385,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="item-right">
-                <div className="item-price">{item.price}</div>
+                <div className="item-price">{formatVND(item.price)}</div>
                 <div className="item-actions">
                   {item.phone&&(
                     <button className="btn-messenger" onClick={()=>openMessenger(item)}>
@@ -454,6 +470,9 @@ textarea::placeholder{color:#c0bdb5}
 .spinner{width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--muted);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.price-input-wrap{display:flex;flex-direction:column;gap:4px}
+.price-preview{font-size:13px;color:var(--green);font-weight:500;padding:2px 0}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{opacity:1}
 .img-upload-label{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px dashed var(--border);border-radius:8px;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;margin:0 20px 0}
 .img-upload-label:hover{border-color:var(--accent);color:var(--text);background:var(--tag-bg)}
 .img-preview-wrap{position:relative;display:block;margin:0 20px 0}

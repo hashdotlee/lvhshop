@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { title, description, price, condition, category, type, phone, location } = body
+  const { title, description, price, condition, category, type, phone, location, image_url } = body
 
   if (!title || !type) {
     return NextResponse.json({ error: 'missing fields' }, { status: 400 })
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   const db = adminClient()
   const { data, error } = await db
     .from('items')
-    .insert({ title, description, price, condition, category, type, phone, location })
+    .insert({ title, description, price: price ? Number(price) : null, condition, category, type, phone, location, image_url: image_url || null })
     .select()
     .single()
 

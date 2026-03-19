@@ -20,13 +20,14 @@ export async function POST(req: NextRequest) {
 {
   "title": "tên sản phẩm ngắn gọn",
   "description": "mô tả chi tiết 1-2 câu, bổ sung thông tin hữu ích nếu cần",
-  "price": "giá có đơn vị đ (ví dụ: 1.200.000đ), nếu không có thì Thương lượng",
+  "price": 1200000,
   "condition": "Mới | Cũ - Như mới | Cũ - Còn tốt | Cũ - Có lỗi nhỏ",
   "category": "danh mục phù hợp",
   "type": "ban | mua",
   "phone": "số điện thoại nếu có, để trống nếu không",
   "location": "địa điểm nếu có, để trống nếu không"
-}`,
+}
+Quan trọng: price là số nguyên VNĐ, không có chữ, không có dấu chấm/phẩy. VD: 4 triệu = 4000000, 500k = 500000. Nếu không có giá thì để null.`,
         },
         { role: 'user', content: text },
       ],
@@ -37,6 +38,13 @@ export async function POST(req: NextRequest) {
   const raw = data.choices?.[0]?.message?.content ?? '{}'
   try {
     const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
+    // Normalize price to number
+    if (parsed.price !== null && parsed.price !== undefined) {
+      const n = typeof parsed.price === 'number'
+        ? parsed.price
+        : Number(String(parsed.price).replace(/[^0-9]/g, ''))
+      parsed.price = isNaN(n) || n === 0 ? null : n
+    }
     return NextResponse.json(parsed)
   } catch {
     return NextResponse.json({}, { status: 422 })

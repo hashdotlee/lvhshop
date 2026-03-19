@@ -10,7 +10,7 @@ export type Item = {
   id: number
   title: string
   description: string
-  price: string
+  price: number | null
   condition: string
   category: string
   type: 'ban' | 'mua'

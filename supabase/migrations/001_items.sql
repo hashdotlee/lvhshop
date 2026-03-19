@@ -5,7 +5,7 @@ create table if not exists items (
   id          bigserial primary key,
   title       text        not null,
   description text,
-  price       text        not null default 'Thương lượng',
+  price       bigint,
   condition   text        not null default 'Cũ - Còn tốt',
   category    text,
   type        text        not null check (type in ('ban','mua')),
@@ -17,6 +17,14 @@ create table if not exists items (
 
 -- Thêm cột image_url nếu table đã tồn tại
 alter table items add column if not exists image_url text;
+
+-- Đổi price sang bigint nếu table đã tồn tại (bỏ default cũ trước)
+alter table items alter column price drop default;
+alter table items alter column price type bigint using (
+  case when price ~ '^\d+$' then price::bigint
+       when price ~ '[0-9]' then regexp_replace(price, '[^0-9]', '', 'g')::bigint
+       else null end
+);
 
 -- Enable Row Level Security
 alter table items enable row level security;
