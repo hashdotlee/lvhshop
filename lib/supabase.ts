@@ -16,5 +16,6 @@ export type Item = {
   type: 'ban' | 'mua'
   phone: string
   location: string
+  image_url: string
   created_at: string
 }
