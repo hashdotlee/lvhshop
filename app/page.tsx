@@ -130,6 +130,9 @@ export default function Home() {
   const [soldItem, setSoldItem]       = useState<Item|null>(null)
   const [custForm, setCustForm]       = useState({ name:'', phone:'', address:'', note:'' })
   const [savingSold, setSavingSold]   = useState(false)
+  const [soldCustMode, setSoldCustMode] = useState<'search'|'new'>('search')
+  const [soldCustSearch, setSoldCustSearch] = useState('')
+  const [selectedCust, setSelectedCust] = useState<Customer|null>(null)
 
   const [customers, setCustomers]     = useState<Customer[]>([])
   const [loadingCust, setLoadingCust] = useState(false)
@@ -252,12 +255,20 @@ export default function Home() {
     if (!soldItem) return; setSavingSold(true)
     try {
       await fetch('/api/items', { method:'PATCH', headers:{'Content-Type':'application/json','x-admin-key':adminKey.current}, body: JSON.stringify({ id:soldItem.id, status:'sold' }) })
-      if (custForm.name || custForm.phone) {
-        await fetch('/api/customers', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':adminKey.current}, body: JSON.stringify({ item_id:soldItem.id, order_code:soldItem.order_code, ...custForm }) })
+
+      if (soldCustMode === 'search' && selectedCust) {
+        // Link existing customer to this order
+        await fetch('/api/customers', { method:'PATCH', headers:{'Content-Type':'application/json','x-admin-key':adminKey.current},
+          body: JSON.stringify({ id: selectedCust.id, item_id: soldItem.id, order_code: soldItem.order_code }) })
+      } else if (soldCustMode === 'new' && (custForm.name || custForm.phone)) {
+        // Create new customer
+        await fetch('/api/customers', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':adminKey.current},
+          body: JSON.stringify({ item_id:soldItem.id, order_code:soldItem.order_code, ...custForm }) })
       }
+
       setItems(prev => prev.map(i => i.id===soldItem.id ? {...i,status:'sold'} : i))
       setSoldItem(null); showToast(`Đã bán · ${soldItem.order_code}`)
-      if (custForm.name||custForm.phone) fetchCustomers()
+      fetchCustomers()
     } finally { setSavingSold(false) }
   }
   async function markAvailable(item: Item) {
@@ -529,8 +540,12 @@ export default function Home() {
                       </div>
                     )}
                     <div className="item-body">
-                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,flexWrap:'wrap'}}>
-                        <code className="order-code">{item.order_code}</code>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}}>
+                        <div className="item-code" onClick={()=>{navigator.clipboard.writeText(item.order_code);showToast('Đã copy mã!')}} title="Click để copy mã">
+                          <span className="item-code-label">MÃ</span>
+                          <span className="item-code-value">{item.order_code}</span>
+                          <span className="item-code-icon">⎘</span>
+                        </div>
                         {item.status==='sold' ? <span className="badge-sold">Đã bán</span>
                         : item.status==='incoming' ? <span className="badge-incoming">Sắp về</span>
                         : <span className="badge-avail">Còn hàng</span>}
@@ -562,13 +577,13 @@ export default function Home() {
                             {item.status==='available' && (
                               <>
                                 <button className="btn-incoming" onClick={()=>markIncoming(item)}>📦 Sắp về</button>
-                                <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''})}}>✓ Đã bán</button>
+                                <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''});setSoldCustMode('search');setSoldCustSearch('');setSelectedCust(null)}}>✓ Đã bán</button>
                               </>
                             )}
                             {item.status==='incoming' && (
                               <>
                                 <button className="btn-ghost-sm" onClick={()=>markAvailable(item)}>✓ Có hàng</button>
-                                <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''})}}>✓ Đã bán</button>
+                                <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''});setSoldCustMode('search');setSoldCustSearch('');setSelectedCust(null)}}>✓ Đã bán</button>
                               </>
                             )}
                             {item.status==='sold' && (
@@ -595,17 +610,86 @@ export default function Home() {
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setSoldItem(null)}>
           <div className="modal">
             <h3>Đánh dấu đã bán</h3>
-            <div className="modal-item-info"><code className="order-code">{soldItem.order_code}</code><span style={{marginLeft:8}}>{soldItem.title}</span><span style={{marginLeft:8,color:'var(--green)',fontWeight:600}}>{fmtVND(soldItem.price)}</span></div>
-            <p>Thêm thông tin khách hàng (không bắt buộc)</p>
-            <div className="modal-grid">
-              <div><label className="lbl">Tên khách</label><input className="inp" placeholder="Nguyễn Văn A" value={custForm.name} onChange={e=>setCustForm(f=>({...f,name:e.target.value}))}/></div>
-              <div><label className="lbl">SĐT khách</label><input className="inp" placeholder="09xxxxxxxx" value={custForm.phone} onChange={e=>setCustForm(f=>({...f,phone:e.target.value}))}/></div>
-              <div style={{gridColumn:'1/-1'}}><label className="lbl">Địa chỉ giao hàng</label><input className="inp" placeholder="Số nhà, đường, quận..." value={custForm.address} onChange={e=>setCustForm(f=>({...f,address:e.target.value}))}/></div>
-              <div style={{gridColumn:'1/-1'}}><label className="lbl">Ghi chú</label><input className="inp" placeholder="Ghi chú thêm..." value={custForm.note} onChange={e=>setCustForm(f=>({...f,note:e.target.value}))}/></div>
+            <div className="modal-item-info">
+              <code className="order-code">{soldItem.order_code}</code>
+              <span style={{marginLeft:8,fontWeight:500}}>{soldItem.title}</span>
+              <span style={{marginLeft:8,color:'var(--green)',fontWeight:600}}>{fmtVND(soldItem.price)}</span>
             </div>
-            <div className="modal-actions">
+
+            {/* Mode toggle */}
+            <div className="sold-mode-tabs">
+              <button className={`sold-mode-tab${soldCustMode==='search'?' active':''}`}
+                onClick={()=>{setSoldCustMode('search');setSelectedCust(null)}}>
+                👤 Chọn khách có sẵn
+              </button>
+              <button className={`sold-mode-tab${soldCustMode==='new'?' active':''}`}
+                onClick={()=>{setSoldCustMode('new');setSelectedCust(null)}}>
+                ✏️ Nhập khách mới
+              </button>
+            </div>
+
+            {/* Search existing */}
+            {soldCustMode==='search' && (
+              <div className="sold-cust-search">
+                <input className="inp" placeholder="Tìm tên, SĐT khách hàng..."
+                  value={soldCustSearch} onChange={e=>setSoldCustSearch(e.target.value)} autoFocus />
+                <div className="sold-cust-list">
+                  {customers.length === 0 && (
+                    <div className="sold-cust-empty">Chưa có khách hàng nào. <button className="link-btn" onClick={()=>setSoldCustMode('new')}>Nhập mới →</button></div>
+                  )}
+                  {customers
+                    .filter(c => !soldCustSearch || [c.name,c.phone,c.address].some(v=>v?.toLowerCase().includes(soldCustSearch.toLowerCase())))
+                    .slice(0, 6)
+                    .map(c => (
+                      <div key={c.id}
+                        className={`sold-cust-item${selectedCust?.id===c.id?' selected':''}`}
+                        onClick={()=>setSelectedCust(selectedCust?.id===c.id ? null : c)}>
+                        <div className="sold-cust-avatar">{(c.name||'?')[0].toUpperCase()}</div>
+                        <div className="sold-cust-info">
+                          <div className="sold-cust-name">{c.name||'—'}</div>
+                          <div className="sold-cust-sub">{c.phone}{c.address ? ` · ${c.address}` : ''}</div>
+                        </div>
+                        {selectedCust?.id===c.id && <span className="sold-cust-check">✓</span>}
+                      </div>
+                    ))
+                  }
+                  {customers.filter(c => !soldCustSearch || [c.name,c.phone,c.address].some(v=>v?.toLowerCase().includes(soldCustSearch.toLowerCase()))).length === 0 && soldCustSearch && (
+                    <div className="sold-cust-empty">
+                      Không tìm thấy. <button className="link-btn" onClick={()=>{setSoldCustMode('new');setCustForm(f=>({...f,name:soldCustSearch}))}}>Tạo mới "{soldCustSearch}" →</button>
+                    </div>
+                  )}
+                </div>
+                {selectedCust && (
+                  <div className="sold-cust-selected">
+                    <span>✓ Đã chọn: <strong>{selectedCust.name}</strong> · {selectedCust.phone}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* New customer form */}
+            {soldCustMode==='new' && (
+              <div className="modal-grid" style={{marginTop:4}}>
+                <div><label className="lbl">Tên khách</label>
+                  <input className="inp" placeholder="Nguyễn Văn A" value={custForm.name} onChange={e=>setCustForm(f=>({...f,name:e.target.value}))} autoFocus />
+                </div>
+                <div><label className="lbl">SĐT khách</label>
+                  <input className="inp" placeholder="09xxxxxxxx" value={custForm.phone} onChange={e=>setCustForm(f=>({...f,phone:e.target.value}))} />
+                </div>
+                <div style={{gridColumn:'1/-1'}}><label className="lbl">Địa chỉ giao hàng</label>
+                  <input className="inp" placeholder="Số nhà, đường, quận..." value={custForm.address} onChange={e=>setCustForm(f=>({...f,address:e.target.value}))} />
+                </div>
+                <div style={{gridColumn:'1/-1'}}><label className="lbl">Ghi chú</label>
+                  <input className="inp" placeholder="Ghi chú thêm..." value={custForm.note} onChange={e=>setCustForm(f=>({...f,note:e.target.value}))} />
+                </div>
+              </div>
+            )}
+
+            <div className="modal-actions" style={{marginTop:16}}>
               <button className="btn-ghost" onClick={()=>setSoldItem(null)}>Hủy</button>
-              <button className="btn-sold" onClick={markSold} disabled={savingSold}>{savingSold?'Đang lưu...':'✓ Xác nhận đã bán'}</button>
+              <button className="btn-sold" onClick={markSold} disabled={savingSold}>
+                {savingSold ? 'Đang lưu...' : '✓ Xác nhận đã bán'}
+              </button>
             </div>
           </div>
         </div>
@@ -667,6 +751,12 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--te
 .auth-err{font-size:12px;color:var(--red);margin-top:10px;text-align:center}
 .auth-hint{font-size:11px;color:var(--muted);margin-top:20px;padding-top:16px;border-top:1px solid var(--border);line-height:1.6}
 .auth-hint code,.order-code{background:var(--tag-bg);padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace;color:var(--muted)}
+.item-code{display:inline-flex;align-items:center;gap:6px;background:#f0f4ff;border:1px solid #d4dfff;border-radius:7px;padding:5px 10px;cursor:pointer;transition:all .15s;user-select:none}
+.item-code:hover{background:#e4ecff;border-color:#a8bfff}
+.item-code:hover .item-code-icon{opacity:1}
+.item-code-label{font-size:9px;font-weight:700;letter-spacing:.8px;color:#6b7fd4;text-transform:uppercase}
+.item-code-value{font-size:13px;font-weight:600;font-family:monospace;color:#2d3a8c;letter-spacing:.3px}
+.item-code-icon{font-size:13px;color:#6b7fd4;opacity:0;transition:opacity .15s}
 
 /* HEADER */
 header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
@@ -826,6 +916,22 @@ textarea::placeholder{color:#c0bdb5}
 .modal h3{font-size:16px;font-weight:600;margin-bottom:8px}
 .modal p{font-size:13px;color:var(--muted);margin-bottom:16px}
 .modal-item-info{background:var(--tag-bg);border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:13px}
+.sold-mode-tabs{display:flex;gap:4px;background:var(--tag-bg);border-radius:8px;padding:4px;margin-bottom:14px}
+.sold-mode-tab{flex:1;background:none;border:none;padding:7px 10px;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .15s;text-align:center}
+.sold-mode-tab.active{background:white;color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.sold-cust-search{display:flex;flex-direction:column;gap:8px}
+.sold-cust-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto}
+.sold-cust-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s}
+.sold-cust-item:hover{border-color:#a8bfff;background:#f5f8ff}
+.sold-cust-item.selected{border-color:#2563eb;background:#eef4ff}
+.sold-cust-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0}
+.sold-cust-info{flex:1;min-width:0}
+.sold-cust-name{font-size:13px;font-weight:500;truncate:ellipsis}
+.sold-cust-sub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sold-cust-check{color:#2563eb;font-weight:700;font-size:15px;flex-shrink:0}
+.sold-cust-empty{font-size:13px;color:var(--muted);padding:12px;text-align:center;border:1px dashed var(--border);border-radius:8px}
+.sold-cust-selected{background:#eef4ff;border:1px solid #d4dfff;border-radius:7px;padding:8px 12px;font-size:12px;color:#2d3a8c}
+.link-btn{background:none;border:none;color:#2563eb;cursor:pointer;font-family:inherit;font-size:13px;text-decoration:underline;padding:0}
 .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--border)}
 
