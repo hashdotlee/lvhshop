@@ -6,6 +6,8 @@ const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
 const CHOT_TOT   = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
 const FB_PAGE_ID = process.env.NEXT_PUBLIC_FB_PAGE_ID   ?? ''
 
+const POSTERS = ['Hoàng', 'Kiên', 'Đạt']
+
 function reltime(iso: string) {
   const d = (Date.now() - new Date(iso).getTime()) / 1000
   if (d < 60) return 'Vừa đăng'
@@ -111,6 +113,7 @@ export default function Home() {
   const [condFilter, setCondFilter]   = useState<'all'|'Mới'|'Cũ'>('all')
   const [statusFilter, setStatusFilter] = useState<'available'|'sold'|'incoming'|'all'>('available')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [posterFilter, setPosterFilter]   = useState<string>('all')
   const [priceRange, setPriceRange]     = useState<'all'|'under1m'|'1to5m'|'5to10m'|'over10m'>('all')
   const [searchQuery, setSearchQuery]   = useState('')
   const [loadingItems, setLoadingItems] = useState(true)
@@ -406,6 +409,7 @@ export default function Home() {
       : statusFilter==='available' ? (i.status==='available' || i.status==='incoming')
       : i.status===statusFilter
     const catOk = categoryFilter==='all' || i.category===categoryFilter
+    const posterOk = posterFilter==='all' || i.posted_by===posterFilter
     const q = searchQuery.trim().toLowerCase()
     const searchOk = !q || i.title.toLowerCase().includes(q) || (i.order_code??'').toLowerCase().includes(q)
     const p = i.price ?? 0
@@ -414,7 +418,7 @@ export default function Home() {
       : priceRange==='1to5m'   ? (p >= 1_000_000 && p <= 5_000_000)
       : priceRange==='5to10m'  ? (p >= 5_000_000 && p <= 10_000_000)
       : p > 10_000_000
-    return typeOk && condOk && statOk && catOk && searchOk && priceOk
+    return typeOk && condOk && statOk && catOk && posterOk && searchOk && priceOk
   })
 
   const featuredItems = items
@@ -578,6 +582,12 @@ export default function Home() {
                       <div className="fg"><div className="lbl">Địa điểm</div>
                         <input className="inp" value={preview.location??''} onChange={e=>setPreview(p=>({...p,location:e.target.value}))}/>
                       </div>
+                      <div className="fg"><div className="lbl">Người đăng</div>
+                        <select className="inp" value={preview.posted_by??''} onChange={e=>setPreview(p=>({...p,posted_by:e.target.value||null}))}>
+                          <option value="">— Chọn người đăng —</option>
+                          {POSTERS.map(p=><option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
 
                       {/* Incoming toggle + expected date */}
                       <div className="fg full">
@@ -660,17 +670,15 @@ export default function Home() {
                   <button className={`sidebar-chip sold-chip${statusFilter==='sold'?' active':''}`} onClick={()=>setStatusFilter('sold')}>🏷 Đã bán</button>
                   {isAdmin&&<button className={`sidebar-chip${statusFilter==='all'?' active':''}`} onClick={()=>setStatusFilter('all')}>📋 Tất cả</button>}
                 </div>
-                {categories.length > 0 && (
-                  <div className="sidebar-section">
-                    <div className="sidebar-section-title">Ngành hàng</div>
-                    <button className={`sidebar-chip${categoryFilter==='all'?' active':''}`} onClick={()=>setCategoryFilter('all')}>Tất cả</button>
-                    {categories.map(cat => (
-                      <button key={cat} className={`sidebar-chip${categoryFilter===cat?' active':''}`} onClick={()=>setCategoryFilter(cat)}>
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <div className="sidebar-section">
+                  <div className="sidebar-section-title">Người đăng</div>
+                  <button className={`sidebar-chip${posterFilter==='all'?' active':''}`} onClick={()=>setPosterFilter('all')}>Tất cả</button>
+                  {POSTERS.map(p=>(
+                    <button key={p} className={`sidebar-chip poster-chip${posterFilter===p?' active':''}`} onClick={()=>setPosterFilter(p)}>
+                      👤 {p}
+                    </button>
+                  ))}
+                </div>
                 <div className="sidebar-section">
                   <div className="sidebar-section-title">Giá</div>
                   <button className={`sidebar-chip${priceRange==='all'?' active':''}`} onClick={()=>setPriceRange('all')}>Tất cả</button>
@@ -702,24 +710,32 @@ export default function Home() {
                   )}
                 </div>
 
+                {categories.length > 0 && (
+                  <div className="cat-tag-bar">
+                    <button className={`cat-tag${categoryFilter==='all'?' active':''}`} onClick={()=>setCategoryFilter('all')}>Tất cả</button>
+                    {categories.map(cat=>(
+                      <button key={cat} className={`cat-tag${categoryFilter===cat?' active':''}`} onClick={()=>setCategoryFilter(cat)}>{cat}</button>
+                    ))}
+                  </div>
+                )}
+
                 <div className="listing">
                   {loadingItems ? <div className="empty"><div className="spinner" style={{margin:'0 auto'}}/></div>
                   : filtered.length===0 ? <div className="empty"><div className="empty-icon">📦</div><p>Chưa có tin nào{isAdmin?'. Nhập đơn ở trên.':'.'}</p></div>
                   : filtered.map(item => {
                     const imgs = getImages(item)
                     return (
-                      <div key={item.id} className={`item${item.status==='sold'?' item-sold':''}`}>
+                      <a key={item.id} href={`/item/${item.id}`} className={`item${item.status==='sold'?' item-sold':''}`}>
                         {imgs.length > 0 && (
                           <div className="item-image-wrap">
-                            <Carousel images={imgs} sold={item.status==='sold'} onOpen={i=>{setLbImages(imgs);setLbIdx(i)}} />
+                            <Carousel images={imgs} sold={item.status==='sold'} onOpen={()=>{}} />
                           </div>
                         )}
                         <div className="item-body">
                           <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
-                            <div className="item-code" onClick={()=>{navigator.clipboard.writeText(item.order_code);showToast('Đã copy mã!')}} title="Click để copy mã">
+                            <div className="item-code">
                               <span className="item-code-label">MÃ</span>
                               <span className="item-code-value">{item.order_code}</span>
-                              <span className="item-code-icon">⎘</span>
                             </div>
                             {item.status==='sold' ? <span className="badge-sold">Đã bán</span>
                             : item.status==='incoming' ? (
@@ -736,87 +752,24 @@ export default function Home() {
                             <span className={`tag ${item.condition==='Mới'?'condition-moi':'condition-cu'}`}>{item.condition}</span>
                             {item.category&&<span className="tag">{item.category}</span>}
                             {item.location&&<span className="tag">📍 {item.location}</span>}
+                            {item.posted_by&&<span className="tag tag-poster">👤 {item.posted_by}</span>}
                             <span className="item-time"><span className="status-dot"/>{reltime(item.created_at)}</span>
                           </div>
                         </div>
                         <div className="item-footer">
                           <div className="item-price">{fmtVND(item.price)}</div>
-                          <div className="item-actions">
-                            {item.status==='available' && (
-                              <>
-                                {item.phone&&<button className="btn-messenger" onClick={()=>openMessenger(item)}><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.918 1.418 5.525 3.641 7.24V22l3.299-1.813A10.7 10.7 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2z"/></svg>Messenger</button>}
-                                <button className="btn-facebook" onClick={()=>openFB(item)}><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>Facebook</button>
-                                <a className="btn-chottot" href={CHOT_TOT} target="_blank" rel="noopener noreferrer">Xem thêm →</a>
-                              </>
-                            )}
-                            <button className="btn-copy" onClick={()=>copyInfo(item)}>Copy</button>
-                            <a className="btn-copy" href={`/item/${item.id}`} target="_blank" rel="noopener noreferrer" style={{textAlign:'center',textDecoration:'none'}}>🔗 Chi tiết</a>
-                            {isAdmin&&(
-                              <>
-                                {item.status==='available' && (
-                                  <>
-                                    <button className="btn-incoming" onClick={()=>markIncoming(item)}>📦 Sắp về</button>
-                                    <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''});setSoldCustMode('search');setSoldCustSearch('');setSelectedCust(null)}}>✓ Đã bán</button>
-                                  </>
-                                )}
-                                {item.status==='incoming' && (
-                                  <>
-                                    <button className="btn-ghost-sm" onClick={()=>markAvailable(item)}>✓ Có hàng</button>
-                                    <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''});setSoldCustMode('search');setSoldCustSearch('');setSelectedCust(null)}}>✓ Đã bán</button>
-                                  </>
-                                )}
-                                {item.status==='sold' && (
-                                  <button className="btn-ghost-sm" onClick={()=>markAvailable(item)}>↩ Mở lại</button>
-                                )}
-                                <button className="btn-delete" onClick={()=>deleteItem(item.id)}>Xoá</button>
-                              </>
-                            )}
-                          </div>
+                          <span className="item-cta">Xem chi tiết →</span>
                         </div>
-                      </div>
+                      </a>
                     )
                   })}
                 </div>
               </div>
 
-              {/* RIGHT SIDEBAR - Featured Products */}
-              <aside className="sidebar-right">
-                <div className="featured-header">
-                  <span className="featured-header-icon">⭐</span>
-                  <span>Sản phẩm nổi bật</span>
-                </div>
-                {featuredItems.length === 0 ? (
-                  <div style={{color:'var(--muted)',fontSize:12,textAlign:'center',padding:'24px 0'}}>
-                    Chưa có sản phẩm nổi bật
-                  </div>
-                ) : featuredItems.map(item => {
-                  const imgs = getImages(item)
-                  return (
-                    <a key={item.id} href={`/item/${item.id}`} target="_blank" rel="noopener noreferrer" className="featured-card">
-                      {imgs.length > 0 && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={imgs[0]} alt={item.title} className="featured-img" />
-                      )}
-                      <div className="featured-body">
-                        {item.status==='incoming'
-                          ? <span className="badge-incoming" style={{marginBottom:5,display:'inline-block'}}>📦 Sắp về</span>
-                          : <span className="badge-avail" style={{marginBottom:5,display:'inline-block'}}>Còn hàng</span>
-                        }
-                        <div className="featured-title">{item.title}</div>
-                        <div className="featured-price">{fmtVND(item.price)}</div>
-                      </div>
-                    </a>
-                  )
-                })}
-              </aside>
-
             </div>
           </>
         )}
       </main>
-
-      {/* LIGHTBOX */}
-      {lbImages.length>0 && <Lightbox images={lbImages} startIdx={lbIdx} onClose={()=>setLbImages([])} />}
 
       {/* SOLD MODAL */}
       {soldItem && (
@@ -1032,8 +985,8 @@ nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 /* LAYOUT - full width */
 main{width:100%;padding:24px 28px}
 
-/* PAGE LAYOUT - 3 columns */
-.page-layout{display:grid;grid-template-columns:220px 1fr 270px;gap:20px;align-items:start}
+/* PAGE LAYOUT - 2 columns */
+.page-layout{display:grid;grid-template-columns:220px 1fr;gap:20px;align-items:start}
 
 /* LEFT SIDEBAR */
 .sidebar-left{position:sticky;top:70px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:0}
@@ -1056,20 +1009,16 @@ main{width:100%;padding:24px 28px}
 .sidebar-chip.sold-chip.active{background:#c44f00}
 .sidebar-chip.incoming-chip.active{background:#2563eb}
 .sidebar-chip.avail-chip.active{background:var(--green)}
+.sidebar-chip.poster-chip.active{background:#6d28d9}
 
 /* CENTER content */
 .content-area{min-width:0}
 
-/* RIGHT SIDEBAR */
-.sidebar-right{position:sticky;top:70px;display:flex;flex-direction:column;gap:10px}
-.featured-header{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:4px}
-.featured-header-icon{font-size:14px}
-.featured-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:all .15s;text-decoration:none;color:var(--text);display:block}
-.featured-card:hover{border-color:#ccc9c1;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.07)}
-.featured-img{width:100%;height:130px;object-fit:cover;display:block}
-.featured-body{padding:10px 12px}
-.featured-title{font-size:12px;font-weight:500;margin-bottom:4px;line-height:1.4;color:var(--text)}
-.featured-price{font-size:13px;font-weight:700;color:var(--green)}
+/* CATEGORY TAG BAR */
+.cat-tag-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.cat-tag{background:var(--surface);border:1px solid var(--border);padding:5px 14px;border-radius:20px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .15s;white-space:nowrap}
+.cat-tag:hover{border-color:var(--accent);color:var(--text)}
+.cat-tag.active{background:var(--accent);border-color:var(--accent);color:white}
 
 /* FORM */
 .lbl{font-size:11px;font-weight:500;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
@@ -1157,8 +1106,8 @@ textarea::placeholder{color:#c0bdb5}
 .listing{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
 
 /* ITEM CARD - vertical layout */
-.item{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;animation:fadeIn .3s ease;transition:border-color .15s}
-.item:hover{border-color:#ccc9c1}
+.item{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;animation:fadeIn .3s ease;transition:all .15s;text-decoration:none;color:inherit;cursor:pointer}
+.item:hover{border-color:#bbb8b0;transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.07)}
 .item-sold{background:var(--sold);opacity:.85}
 .item-image-wrap{flex-shrink:0}
 .item-body{padding:11px 13px;flex:1}
@@ -1168,15 +1117,16 @@ textarea::placeholder{color:#c0bdb5}
 .tag{font-size:10px;background:var(--tag-bg);color:var(--muted);padding:2px 7px;border-radius:4px;font-weight:500}
 .tag.condition-moi{background:var(--green-bg);color:var(--green)}
 .tag.condition-cu{background:#fff8ec;color:#c47a1e}
+.tag-poster{background:#f3f0ff;color:#6d28d9}
 .item-time{font-size:10px;color:var(--muted);display:flex;align-items:center}
 .status-dot{width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block;margin-right:4px;flex-shrink:0}
 .badge-sold{font-size:10px;font-weight:600;background:#fef0e6;color:#c44f00;padding:2px 7px;border-radius:10px}
 .badge-avail{font-size:10px;font-weight:600;background:var(--green-bg);color:var(--green);padding:2px 7px;border-radius:10px}
 .badge-incoming{font-size:10px;font-weight:600;background:#eef4ff;color:#2563eb;padding:2px 7px;border-radius:10px}
 .badge-imgs{font-size:10px;font-weight:500;background:var(--tag-bg);color:var(--muted);padding:2px 7px;border-radius:10px}
-.item-footer{padding:10px 13px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.item-footer{padding:10px 13px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
 .item-price{font-size:15px;font-weight:700;white-space:nowrap;color:var(--text)}
-.item-actions{display:flex;flex-wrap:wrap;gap:4px}
+.item-cta{font-size:11px;color:var(--muted);white-space:nowrap}
 
 /* BUTTONS */
 .btn-dark{background:var(--accent);color:white;border:none;padding:8px 18px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:7px;transition:opacity .15s}
@@ -1246,12 +1196,8 @@ textarea::placeholder{color:#c0bdb5}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--accent);color:white;padding:10px 18px;border-radius:8px;font-size:13px;z-index:200;animation:fadeIn .2s ease}
 
 /* RESPONSIVE */
-@media(max-width:1200px){
-  .page-layout{grid-template-columns:200px 1fr 240px}
-}
 @media(max-width:960px){
   .page-layout{grid-template-columns:200px 1fr}
-  .sidebar-right{display:none}
 }
 @media(max-width:700px){
   main{padding:16px}

@@ -112,3 +112,6 @@ alter table items add constraint items_status_check check (status in ('available
 
 -- Add expected_date column for incoming items
 alter table items add column if not exists expected_date date;
+
+-- Add posted_by column for staff tracking
+alter table items add column if not exists posted_by text;

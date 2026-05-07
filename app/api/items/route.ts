@@ -20,7 +20,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { title, description, price, condition, category, type, phone, location, images, image_url, expected_date } = body
+  const { title, description, price, condition, category, type, phone, location, images, image_url, expected_date, posted_by } = body
   const isAdmin = checkAdmin(req)
   // Public users can only create buy requests; sell listings require admin
   if (type !== 'mua' && !isAdmin) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
       image_url: imgs[0] ?? null,
       status: (isAdmin && expected_date) ? 'incoming' : 'available',
       expected_date: (isAdmin && expected_date) || null,
+      posted_by: isAdmin ? (posted_by || null) : null,
     })
     .select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

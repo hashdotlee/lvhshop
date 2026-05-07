@@ -20,6 +20,7 @@ export type Item = {
   images: string[]         // new: array of URLs
   status: 'available' | 'sold' | 'incoming'
   expected_date: string | null
+  posted_by: string | null
   created_at: string
 }
 

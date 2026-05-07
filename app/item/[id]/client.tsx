@@ -1,5 +1,5 @@
 'use client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Item } from '@/lib/supabase'
 
 const CHOT_TOT  = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
@@ -67,6 +67,7 @@ export default function ItemDetailClient({ item }: { item: Item }) {
   const [mainIdx, setMainIdx] = useState(0)
   const [lbOpen, setLbOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [infoCopied, setInfoCopied] = useState(false)
   const [msgOpen, setMsgOpen] = useState(false)
   const [msgPhone, setMsgPhone] = useState(item.phone ?? '')
   const [msgText, setMsgText] = useState(
@@ -75,13 +76,40 @@ export default function ItemDetailClient({ item }: { item: Item }) {
       : `Chào bạn! Mình thấy bạn đang tìm mua "${item.title}". Mình có thể có hàng, trao đổi thêm nhé 😊`
   )
 
-  const isSold     = item.status === 'sold'
-  const isIncoming = item.status === 'incoming'
+  // Admin state
+  const [isAdmin, setIsAdmin]         = useState(false)
+  const adminKey                       = useRef('')
+  const [currentStatus, setCurrentStatus] = useState(item.status)
+  const [toast, setToast]             = useState('')
+  const toastTimer                     = useRef<ReturnType<typeof setTimeout>>()
+
+  useEffect(() => {
+    const key = sessionStorage.getItem('cq_admin_key')
+    if (key && sessionStorage.getItem('cq_admin')) { adminKey.current = key; setIsAdmin(true) }
+  }, [])
+
+  function showToast(m: string) {
+    setToast(m)
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(''), 2800)
+  }
+
+  const isSold     = currentStatus === 'sold'
+  const isIncoming = currentStatus === 'incoming'
+  const isAvailable = currentStatus === 'available'
 
   function copyLink() {
     navigator.clipboard.writeText(window.location.href)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  function copyInfo() {
+    const imgs = getImages(item)
+    const t = `[${item.order_code}] ${item.title}\n${item.description ?? ''}\nGiá: ${fmtVND(item.price)} | ${item.condition}${item.phone ? '\nLH: ' + item.phone : ''}${item.location ? ' | ' + item.location : ''}${imgs.length ? '\n🖼 ' + imgs.join(' ') : ''}`
+    navigator.clipboard.writeText(t)
+    setInfoCopied(true)
+    setTimeout(() => setInfoCopied(false), 2000)
   }
 
   function sendMessenger() {
@@ -97,6 +125,27 @@ export default function ItemDetailClient({ item }: { item: Item }) {
     window.open(FB_PAGE ? `https://m.me/${FB_PAGE}?text=${encodeURIComponent(m)}` : 'https://facebook.com', '_blank')
   }
 
+  async function patchStatus(status: string) {
+    const r = await fetch('/api/items', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey.current },
+      body: JSON.stringify({ id: item.id, status }),
+    })
+    if (r.ok) { setCurrentStatus(status as Item['status']); showToast(`Đã cập nhật: ${status}`) }
+    else showToast('Lỗi cập nhật')
+  }
+
+  async function deleteItem() {
+    if (!confirm('Xoá tin này? Hành động không thể hoàn tác.')) return
+    const r = await fetch('/api/items', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey.current },
+      body: JSON.stringify({ id: item.id }),
+    })
+    if (r.ok) window.location.href = '/'
+    else showToast('Lỗi xoá tin')
+  }
+
   return (
     <>
       <style>{css}</style>
@@ -107,6 +156,12 @@ export default function ItemDetailClient({ item }: { item: Item }) {
           leviethoang<span>.shop</span>
         </a>
         <div className="header-actions">
+          <button className="btn-icon-action" onClick={copyInfo} title="Copy thông tin">
+            {infoCopied
+              ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg> Đã copy</>
+              : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy info</>
+            }
+          </button>
           <button className="btn-share" onClick={copyLink}>
             {copied ? '✓ Đã copy' : (
               <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Chia sẻ</>
@@ -157,7 +212,7 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                   📦 Sắp về{item.expected_date ? ` · ${fmtExpected(item.expected_date)}` : ''}
                 </span>
               )}
-              {!isSold && !isIncoming && <span className="badge badge-avail">Còn hàng</span>}
+              {isAvailable && <span className="badge badge-avail">Còn hàng</span>}
             </div>
 
             <h1 className="item-title">{item.title}</h1>
@@ -170,6 +225,7 @@ export default function ItemDetailClient({ item }: { item: Item }) {
               <span className={`tag ${item.condition === 'Mới' ? 'tag-new' : 'tag-used'}`}>{item.condition}</span>
               {item.category && <span className="tag">{item.category}</span>}
               {item.location && <span className="tag">📍 {item.location}</span>}
+              {item.posted_by && <span className="tag tag-poster">👤 {item.posted_by}</span>}
             </div>
 
             {/* Description */}
@@ -197,7 +253,7 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                 {item.phone && (
                   <>
                     <a href={`tel:${item.phone}`} className="btn-call">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 0116 3.18 2 2 0 0117.07 3a2 2 0 012 2v3a2 2 0 01-1.72 1.99 16 16 0 01-6.97 2.98 16 16 0 00-2.73 3.06A2 2 0 0117.07 19l-1.64-1.64"/></svg>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 016 3.18 2 2 0 018.07 3a2 2 0 012 2v3a2 2 0 01-1.72 1.99 16 16 0 00-6.97 2.98 16 16 0 002.73 3.06A2 2 0 0117.07 19l-1.64-1.64"/></svg>
                       Gọi {item.phone}
                     </a>
                     <button className="btn-msg" onClick={() => setMsgOpen(true)}>
@@ -220,6 +276,27 @@ export default function ItemDetailClient({ item }: { item: Item }) {
               <div className="sold-notice">
                 Sản phẩm này đã được bán. Xem các sản phẩm khác tại
                 <a href="/" style={{marginLeft:4}}>trang chủ</a>.
+              </div>
+            )}
+
+            {/* Admin panel */}
+            {isAdmin && (
+              <div className="admin-panel">
+                <div className="admin-panel-label">
+                  <span className="admin-dot"/>Quản trị
+                </div>
+                <div className="admin-actions">
+                  {(isAvailable || isIncoming) && (
+                    <button className="btn-admin-sold" onClick={()=>patchStatus('sold')}>✓ Đánh dấu đã bán</button>
+                  )}
+                  {isAvailable && (
+                    <button className="btn-admin-incoming" onClick={()=>patchStatus('incoming')}>📦 Đánh dấu sắp về</button>
+                  )}
+                  {(isSold || isIncoming) && (
+                    <button className="btn-admin-ghost" onClick={()=>patchStatus('available')}>↩ Mở lại (còn hàng)</button>
+                  )}
+                  <button className="btn-admin-delete" onClick={deleteItem}>🗑 Xoá tin</button>
+                </div>
               </div>
             )}
 
@@ -253,6 +330,8 @@ export default function ItemDetailClient({ item }: { item: Item }) {
           </div>
         </div>
       )}
+
+      {toast && <div className="detail-toast">{toast}</div>}
     </>
   )
 }
@@ -267,8 +346,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:16p
 .back-link span{color:var(--muted);font-weight:300}
 .back-link:hover{opacity:.7}
 .header-actions{display:flex;gap:8px}
-.btn-share{display:flex;align-items:center;gap:6px;background:none;border:1px solid var(--border);padding:6px 14px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted);transition:all .15s}
-.btn-share:hover{border-color:var(--accent);color:var(--text)}
+.btn-share,.btn-icon-action{display:flex;align-items:center;gap:6px;background:none;border:1px solid var(--border);padding:6px 14px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted);transition:all .15s}
+.btn-share:hover,.btn-icon-action:hover{border-color:var(--accent);color:var(--text)}
 
 main{max-width:1000px;margin:0 auto;padding:40px 24px}
 .detail-layout{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
@@ -303,6 +382,7 @@ main{max-width:1000px;margin:0 auto;padding:40px 24px}
 .tag{font-size:12px;background:var(--tag-bg);color:var(--muted);padding:4px 10px;border-radius:6px;font-weight:500}
 .tag-new{background:var(--green-bg);color:var(--green)}
 .tag-used{background:#fff8ec;color:#c47a1e}
+.tag-poster{background:#f3f0ff;color:#6d28d9}
 .description{background:var(--tag-bg);border-radius:10px;padding:14px 16px}
 .section-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 .description p{font-size:14px;line-height:1.7;color:var(--text)}
@@ -322,9 +402,26 @@ main{max-width:1000px;margin:0 auto;padding:40px 24px}
 .copy-link-btn{background:none;border:none;font-family:inherit;font-size:12px;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:5px;transition:all .15s}
 .copy-link-btn:hover{background:var(--tag-bg);color:var(--text)}
 
+/* Admin panel */
+.admin-panel{background:#fafafa;border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.admin-panel-label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
+.admin-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0}
+.admin-actions{display:flex;flex-direction:column;gap:6px}
+.btn-admin-sold{background:var(--accent);color:white;border:none;padding:9px 14px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;text-align:left;transition:opacity .15s}
+.btn-admin-sold:hover{opacity:.85}
+.btn-admin-incoming{background:#2563eb;color:white;border:none;padding:9px 14px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;text-align:left;transition:opacity .15s}
+.btn-admin-incoming:hover{opacity:.8}
+.btn-admin-ghost{background:none;border:1px solid var(--border);padding:9px 14px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted);text-align:left;transition:all .15s}
+.btn-admin-ghost:hover{border-color:var(--accent);color:var(--text)}
+.btn-admin-delete{background:none;border:1px solid #fcd0cc;padding:9px 14px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--red);text-align:left;transition:background .15s}
+.btn-admin-delete:hover{background:#fff0ee}
+
+/* Toast */
+.detail-toast{position:fixed;bottom:24px;right:24px;background:var(--accent);color:white;padding:10px 18px;border-radius:8px;font-size:13px;z-index:200;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
 /* Lightbox */
 .lb{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:200;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .lb-img{max-width:90vw;max-height:80vh;object-fit:contain;border-radius:4px;cursor:default}
 .lb-close{position:fixed;top:20px;right:24px;background:rgba(255,255,255,.15);color:white;border:none;width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:201}
 .lb-close:hover{background:rgba(255,255,255,.3)}
