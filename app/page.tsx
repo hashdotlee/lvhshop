@@ -110,6 +110,7 @@ export default function Home() {
   const [typeFilter, setTypeFilter]   = useState<'all'|'ban'|'mua'>('all')
   const [condFilter, setCondFilter]   = useState<'all'|'Mới'|'Cũ'>('all')
   const [statusFilter, setStatusFilter] = useState<'available'|'sold'|'incoming'|'all'>('available')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [loadingItems, setLoadingItems] = useState(true)
 
   const [nlText, setNlText]           = useState('')
@@ -372,13 +373,16 @@ export default function Home() {
     navigator.clipboard.writeText(t).then(() => showToast('Đã sao chép!'))
   }
 
+  const categories = Array.from(new Set(items.map(i => i.category).filter(Boolean))) as string[]
+
   const filtered = items.filter(i => {
     const typeOk = typeFilter==='all' || i.type===typeFilter
     const condOk = condFilter==='all' || i.condition.startsWith(condFilter)
     const statOk = statusFilter==='all' ? true
       : statusFilter==='available' ? (i.status==='available' || i.status==='incoming')
       : i.status===statusFilter
-    return typeOk && condOk && statOk
+    const catOk = categoryFilter==='all' || i.category===categoryFilter
+    return typeOk && condOk && statOk && catOk
   })
 
   const featuredItems = items
@@ -619,6 +623,17 @@ export default function Home() {
                   <button className={`sidebar-chip sold-chip${statusFilter==='sold'?' active':''}`} onClick={()=>setStatusFilter('sold')}>🏷 Đã bán</button>
                   {isAdmin&&<button className={`sidebar-chip${statusFilter==='all'?' active':''}`} onClick={()=>setStatusFilter('all')}>📋 Tất cả</button>}
                 </div>
+                {categories.length > 0 && (
+                  <div className="sidebar-section">
+                    <div className="sidebar-section-title">Ngành hàng</div>
+                    <button className={`sidebar-chip${categoryFilter==='all'?' active':''}`} onClick={()=>setCategoryFilter('all')}>Tất cả</button>
+                    {categories.map(cat => (
+                      <button key={cat} className={`sidebar-chip${categoryFilter===cat?' active':''}`} onClick={()=>setCategoryFilter(cat)}>
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {lastUpdated && (
                   <div className="auto-reload-indicator" style={{marginTop:4}}>
                     <span className="auto-reload-dot"/>
