@@ -23,6 +23,7 @@ insert into staff (name) values
 on conflict do nothing;
 
 -- 3. Liên kết items → staff
+alter table items add column if not exists posted_by text;
 alter table items add column if not exists staff_id bigint references staff(id) on delete set null;
 
 -- Backfill: map posted_by text → staff_id nếu đã có dữ liệu cũ
