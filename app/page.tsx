@@ -111,7 +111,13 @@ export default function Home() {
   const [condFilter, setCondFilter]   = useState<'all'|'Mới'|'Cũ'>('all')
   const [statusFilter, setStatusFilter] = useState<'available'|'sold'|'incoming'|'all'>('available')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [priceRange, setPriceRange]     = useState<'all'|'under1m'|'1to5m'|'5to10m'|'over10m'>('all')
+  const [searchQuery, setSearchQuery]   = useState('')
   const [loadingItems, setLoadingItems] = useState(true)
+
+  const [showBuyForm, setShowBuyForm]   = useState(false)
+  const [buyForm, setBuyForm]           = useState({ title:'', description:'', price:'', condition:'Mới', category:'', phone:'', location:'' })
+  const [submittingBuy, setSubmittingBuy] = useState(false)
 
   const [nlText, setNlText]           = useState('')
   const [analyzing, setAnalyzing]     = useState(false)
@@ -373,6 +379,24 @@ export default function Home() {
     navigator.clipboard.writeText(t).then(() => showToast('Đã sao chép!'))
   }
 
+  async function submitBuyRequest() {
+    if (!buyForm.title.trim()) { showToast('Nhập tên sản phẩm cần tìm'); return }
+    setSubmittingBuy(true)
+    try {
+      const r = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...buyForm, type: 'mua', price: buyForm.price ? Number(buyForm.price) : null }),
+      })
+      if (!r.ok) { showToast('Lỗi đăng yêu cầu'); return }
+      setShowBuyForm(false)
+      setBuyForm({ title:'', description:'', price:'', condition:'Mới', category:'', phone:'', location:'' })
+      showToast('Đã đăng yêu cầu tìm mua!')
+      fetchItems()
+    } catch { showToast('Không thể kết nối server') }
+    finally { setSubmittingBuy(false) }
+  }
+
   const categories = Array.from(new Set(items.map(i => i.category).filter(Boolean))) as string[]
 
   const filtered = items.filter(i => {
@@ -382,7 +406,15 @@ export default function Home() {
       : statusFilter==='available' ? (i.status==='available' || i.status==='incoming')
       : i.status===statusFilter
     const catOk = categoryFilter==='all' || i.category===categoryFilter
-    return typeOk && condOk && statOk && catOk
+    const q = searchQuery.trim().toLowerCase()
+    const searchOk = !q || i.title.toLowerCase().includes(q) || (i.order_code??'').toLowerCase().includes(q)
+    const p = i.price ?? 0
+    const priceOk = priceRange==='all' ? true
+      : priceRange==='under1m' ? p < 1_000_000
+      : priceRange==='1to5m'   ? (p >= 1_000_000 && p <= 5_000_000)
+      : priceRange==='5to10m'  ? (p >= 5_000_000 && p <= 10_000_000)
+      : p > 10_000_000
+    return typeOk && condOk && statOk && catOk && searchOk && priceOk
   })
 
   const featuredItems = items
@@ -602,6 +634,11 @@ export default function Home() {
 
               {/* LEFT SIDEBAR - Filters */}
               <aside className="sidebar-left">
+                <div className="sidebar-search">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                  <input placeholder="Tìm tên, mã hàng..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
+                  {searchQuery && <button className="sidebar-search-clear" onClick={()=>setSearchQuery('')}>✕</button>}
+                </div>
                 <div className="sidebar-section">
                   <div className="sidebar-section-title">Loại tin</div>
                   {(['all','ban','mua'] as const).map((v,i)=>(
@@ -634,6 +671,14 @@ export default function Home() {
                     ))}
                   </div>
                 )}
+                <div className="sidebar-section">
+                  <div className="sidebar-section-title">Giá</div>
+                  <button className={`sidebar-chip${priceRange==='all'?' active':''}`} onClick={()=>setPriceRange('all')}>Tất cả</button>
+                  <button className={`sidebar-chip${priceRange==='under1m'?' active':''}`} onClick={()=>setPriceRange('under1m')}>Dưới 1 triệu</button>
+                  <button className={`sidebar-chip${priceRange==='1to5m'?' active':''}`} onClick={()=>setPriceRange('1to5m')}>1 – 5 triệu</button>
+                  <button className={`sidebar-chip${priceRange==='5to10m'?' active':''}`} onClick={()=>setPriceRange('5to10m')}>5 – 10 triệu</button>
+                  <button className={`sidebar-chip${priceRange==='over10m'?' active':''}`} onClick={()=>setPriceRange('over10m')}>Trên 10 triệu</button>
+                </div>
                 {lastUpdated && (
                   <div className="auto-reload-indicator" style={{marginTop:4}}>
                     <span className="auto-reload-dot"/>
@@ -644,9 +689,17 @@ export default function Home() {
 
               {/* CENTER - Listings grid */}
               <div className="content-area">
-                <div className="section-title">
-                  {{ all:'Tất cả tin', ban:'Đang rao bán', mua:'Cần tìm mua' }[typeFilter]}
-                  <span style={{fontWeight:400,fontSize:12,textTransform:'none',letterSpacing:0,color:'var(--muted)',marginLeft:6}}>{filtered.length} tin</span>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,gap:12}}>
+                  <div className="section-title" style={{margin:0,flex:1}}>
+                    {{ all:'Tất cả tin', ban:'Đang rao bán', mua:'Cần tìm mua' }[typeFilter]}
+                    <span style={{fontWeight:400,fontSize:12,textTransform:'none',letterSpacing:0,color:'var(--muted)',marginLeft:6}}>{filtered.length} tin</span>
+                  </div>
+                  {!isAdmin && (
+                    <button className="btn-request-buy" onClick={()=>setShowBuyForm(true)}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                      Đăng tìm mua
+                    </button>
+                  )}
                 </div>
 
                 <div className="listing">
@@ -892,6 +945,48 @@ export default function Home() {
         </div>
       )}
 
+      {/* BUY REQUEST MODAL */}
+      {showBuyForm && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowBuyForm(false)}>
+          <div className="modal">
+            <h3>Đăng yêu cầu tìm mua</h3>
+            <p>Điền thông tin sản phẩm bạn đang cần tìm. Người bán sẽ liên hệ lại.</p>
+            <div className="modal-grid">
+              <div style={{gridColumn:'1/-1'}}><label className="lbl">Tên sản phẩm cần tìm <span style={{color:'var(--red)'}}>*</span></label>
+                <input className="inp" placeholder="VD: iPhone 14 Pro Max 256GB..." autoFocus
+                  value={buyForm.title} onChange={e=>setBuyForm(f=>({...f,title:e.target.value}))} />
+              </div>
+              <div style={{gridColumn:'1/-1'}}><label className="lbl">Mô tả thêm</label>
+                <input className="inp" placeholder="Màu sắc, tình trạng, yêu cầu đặc biệt..."
+                  value={buyForm.description} onChange={e=>setBuyForm(f=>({...f,description:e.target.value}))} />
+              </div>
+              <div><label className="lbl">Giá mong muốn (VNĐ)</label>
+                <input className="inp" type="number" min="0" step="100000" placeholder="Để trống nếu thương lượng"
+                  value={buyForm.price} onChange={e=>setBuyForm(f=>({...f,price:e.target.value}))} />
+              </div>
+              <div><label className="lbl">Danh mục</label>
+                <input className="inp" placeholder="VD: Điện thoại, Laptop..."
+                  value={buyForm.category} onChange={e=>setBuyForm(f=>({...f,category:e.target.value}))} />
+              </div>
+              <div><label className="lbl">SĐT liên hệ</label>
+                <input className="inp" placeholder="09xxxxxxxx"
+                  value={buyForm.phone} onChange={e=>setBuyForm(f=>({...f,phone:e.target.value}))} />
+              </div>
+              <div><label className="lbl">Khu vực</label>
+                <input className="inp" placeholder="VD: Hà Nội, TP.HCM..."
+                  value={buyForm.location} onChange={e=>setBuyForm(f=>({...f,location:e.target.value}))} />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn-ghost" onClick={()=>setShowBuyForm(false)}>Hủy</button>
+              <button className="btn-request-buy" onClick={submitBuyRequest} disabled={submittingBuy} style={{padding:'8px 18px'}}>
+                {submittingBuy ? 'Đang đăng...' : '🔍 Đăng yêu cầu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && <div className="toast">{toast}</div>}
     </>
   )
@@ -942,6 +1037,16 @@ main{width:100%;padding:24px 28px}
 
 /* LEFT SIDEBAR */
 .sidebar-left{position:sticky;top:70px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:0}
+.sidebar-search{display:flex;align-items:center;gap:8px;background:var(--tag-bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:16px;transition:border-color .15s}
+.sidebar-search:focus-within{border-color:var(--accent);background:white}
+.sidebar-search svg{flex-shrink:0;color:var(--muted)}
+.sidebar-search input{flex:1;border:none;outline:none;background:transparent;font-family:inherit;font-size:13px;color:var(--text);min-width:0}
+.sidebar-search input::placeholder{color:var(--muted)}
+.sidebar-search-clear{background:none;border:none;cursor:pointer;color:var(--muted);font-size:12px;padding:0;line-height:1;flex-shrink:0}
+.sidebar-search-clear:hover{color:var(--text)}
+.btn-request-buy{display:inline-flex;align-items:center;gap:6px;background:#2563eb;color:white;border:none;padding:6px 14px;border-radius:7px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;transition:opacity .15s;flex-shrink:0}
+.btn-request-buy:hover{opacity:.85}
+.btn-request-buy:disabled{opacity:.5;cursor:not-allowed}
 .sidebar-section{margin-bottom:18px}
 .sidebar-section:last-child{margin-bottom:0}
 .sidebar-section-title{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;padding-left:4px}
@@ -1153,6 +1258,7 @@ textarea::placeholder{color:#c0bdb5}
   header{padding:12px 16px;flex-wrap:wrap;gap:8px}
   .page-layout{grid-template-columns:1fr}
   .sidebar-left{position:static;flex-direction:row;flex-wrap:wrap;gap:6px;padding:10px 12px}
+  .sidebar-search{width:100%;margin-bottom:6px}
   .sidebar-section{margin-bottom:0;display:contents}
   .sidebar-section-title{display:none}
   .sidebar-chip{width:auto;display:inline-block;padding:5px 10px;border:1px solid var(--border)}
