@@ -113,7 +113,6 @@ export default function Home() {
   const [condFilter, setCondFilter]   = useState<'all'|'Mới'|'Cũ'>('all')
   const [statusFilter, setStatusFilter] = useState<'available'|'sold'|'incoming'|'all'>('available')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
-  const [posterFilter, setPosterFilter]   = useState<string>('all')
   const [priceRange, setPriceRange]     = useState<'all'|'under1m'|'1to5m'|'5to10m'|'over10m'>('all')
   const [searchQuery, setSearchQuery]   = useState('')
   const [loadingItems, setLoadingItems] = useState(true)
@@ -409,7 +408,6 @@ export default function Home() {
       : statusFilter==='available' ? (i.status==='available' || i.status==='incoming')
       : i.status===statusFilter
     const catOk = categoryFilter==='all' || i.category===categoryFilter
-    const posterOk = posterFilter==='all' || i.posted_by===posterFilter
     const q = searchQuery.trim().toLowerCase()
     const searchOk = !q || i.title.toLowerCase().includes(q) || (i.order_code??'').toLowerCase().includes(q)
     const p = i.price ?? 0
@@ -418,7 +416,7 @@ export default function Home() {
       : priceRange==='1to5m'   ? (p >= 1_000_000 && p <= 5_000_000)
       : priceRange==='5to10m'  ? (p >= 5_000_000 && p <= 10_000_000)
       : p > 10_000_000
-    return typeOk && condOk && statOk && catOk && posterOk && searchOk && priceOk
+    return typeOk && condOk && statOk && catOk && searchOk && priceOk
   })
 
   const featuredItems = items
@@ -669,15 +667,6 @@ export default function Home() {
                   <button className={`sidebar-chip incoming-chip${statusFilter==='incoming'?' active':''}`} onClick={()=>setStatusFilter('incoming')}>📦 Sắp về</button>
                   <button className={`sidebar-chip sold-chip${statusFilter==='sold'?' active':''}`} onClick={()=>setStatusFilter('sold')}>🏷 Đã bán</button>
                   {isAdmin&&<button className={`sidebar-chip${statusFilter==='all'?' active':''}`} onClick={()=>setStatusFilter('all')}>📋 Tất cả</button>}
-                </div>
-                <div className="sidebar-section">
-                  <div className="sidebar-section-title">Người đăng</div>
-                  <button className={`sidebar-chip${posterFilter==='all'?' active':''}`} onClick={()=>setPosterFilter('all')}>Tất cả</button>
-                  {POSTERS.map(p=>(
-                    <button key={p} className={`sidebar-chip poster-chip${posterFilter===p?' active':''}`} onClick={()=>setPosterFilter(p)}>
-                      👤 {p}
-                    </button>
-                  ))}
                 </div>
                 <div className="sidebar-section">
                   <div className="sidebar-section-title">Giá</div>
@@ -1009,7 +998,6 @@ main{width:100%;padding:24px 28px}
 .sidebar-chip.sold-chip.active{background:#c44f00}
 .sidebar-chip.incoming-chip.active{background:#2563eb}
 .sidebar-chip.avail-chip.active{background:var(--green)}
-.sidebar-chip.poster-chip.active{background:#6d28d9}
 
 /* CENTER content */
 .content-area{min-width:0}
