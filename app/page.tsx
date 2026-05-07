@@ -670,17 +670,6 @@ export default function Home() {
                   <button className={`sidebar-chip sold-chip${statusFilter==='sold'?' active':''}`} onClick={()=>setStatusFilter('sold')}>🏷 Đã bán</button>
                   {isAdmin&&<button className={`sidebar-chip${statusFilter==='all'?' active':''}`} onClick={()=>setStatusFilter('all')}>📋 Tất cả</button>}
                 </div>
-                {categories.length > 0 && (
-                  <div className="sidebar-section">
-                    <div className="sidebar-section-title">Ngành hàng</div>
-                    <button className={`sidebar-chip${categoryFilter==='all'?' active':''}`} onClick={()=>setCategoryFilter('all')}>Tất cả</button>
-                    {categories.map(cat => (
-                      <button key={cat} className={`sidebar-chip${categoryFilter===cat?' active':''}`} onClick={()=>setCategoryFilter(cat)}>
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                )}
                 <div className="sidebar-section">
                   <div className="sidebar-section-title">Người đăng</div>
                   <button className={`sidebar-chip${posterFilter==='all'?' active':''}`} onClick={()=>setPosterFilter('all')}>Tất cả</button>
@@ -720,6 +709,15 @@ export default function Home() {
                     </button>
                   )}
                 </div>
+
+                {categories.length > 0 && (
+                  <div className="cat-tag-bar">
+                    <button className={`cat-tag${categoryFilter==='all'?' active':''}`} onClick={()=>setCategoryFilter('all')}>Tất cả</button>
+                    {categories.map(cat=>(
+                      <button key={cat} className={`cat-tag${categoryFilter===cat?' active':''}`} onClick={()=>setCategoryFilter(cat)}>{cat}</button>
+                    ))}
+                  </div>
+                )}
 
                 <div className="listing">
                   {loadingItems ? <div className="empty"><div className="spinner" style={{margin:'0 auto'}}/></div>
@@ -767,37 +765,6 @@ export default function Home() {
                   })}
                 </div>
               </div>
-
-              {/* RIGHT SIDEBAR - Featured Products */}
-              <aside className="sidebar-right">
-                <div className="featured-header">
-                  <span className="featured-header-icon">⭐</span>
-                  <span>Sản phẩm nổi bật</span>
-                </div>
-                {featuredItems.length === 0 ? (
-                  <div style={{color:'var(--muted)',fontSize:12,textAlign:'center',padding:'24px 0'}}>
-                    Chưa có sản phẩm nổi bật
-                  </div>
-                ) : featuredItems.map(item => {
-                  const imgs = getImages(item)
-                  return (
-                    <a key={item.id} href={`/item/${item.id}`} target="_blank" rel="noopener noreferrer" className="featured-card">
-                      {imgs.length > 0 && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={imgs[0]} alt={item.title} className="featured-img" />
-                      )}
-                      <div className="featured-body">
-                        {item.status==='incoming'
-                          ? <span className="badge-incoming" style={{marginBottom:5,display:'inline-block'}}>📦 Sắp về</span>
-                          : <span className="badge-avail" style={{marginBottom:5,display:'inline-block'}}>Còn hàng</span>
-                        }
-                        <div className="featured-title">{item.title}</div>
-                        <div className="featured-price">{fmtVND(item.price)}</div>
-                      </div>
-                    </a>
-                  )
-                })}
-              </aside>
 
             </div>
           </>
@@ -1018,8 +985,8 @@ nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 /* LAYOUT - full width */
 main{width:100%;padding:24px 28px}
 
-/* PAGE LAYOUT - 3 columns */
-.page-layout{display:grid;grid-template-columns:220px 1fr 270px;gap:20px;align-items:start}
+/* PAGE LAYOUT - 2 columns */
+.page-layout{display:grid;grid-template-columns:220px 1fr;gap:20px;align-items:start}
 
 /* LEFT SIDEBAR */
 .sidebar-left{position:sticky;top:70px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:0}
@@ -1047,16 +1014,11 @@ main{width:100%;padding:24px 28px}
 /* CENTER content */
 .content-area{min-width:0}
 
-/* RIGHT SIDEBAR */
-.sidebar-right{position:sticky;top:70px;display:flex;flex-direction:column;gap:10px}
-.featured-header{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:4px}
-.featured-header-icon{font-size:14px}
-.featured-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:all .15s;text-decoration:none;color:var(--text);display:block}
-.featured-card:hover{border-color:#ccc9c1;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.07)}
-.featured-img{width:100%;height:130px;object-fit:cover;display:block}
-.featured-body{padding:10px 12px}
-.featured-title{font-size:12px;font-weight:500;margin-bottom:4px;line-height:1.4;color:var(--text)}
-.featured-price{font-size:13px;font-weight:700;color:var(--green)}
+/* CATEGORY TAG BAR */
+.cat-tag-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.cat-tag{background:var(--surface);border:1px solid var(--border);padding:5px 14px;border-radius:20px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .15s;white-space:nowrap}
+.cat-tag:hover{border-color:var(--accent);color:var(--text)}
+.cat-tag.active{background:var(--accent);border-color:var(--accent);color:white}
 
 /* FORM */
 .lbl{font-size:11px;font-weight:500;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
@@ -1234,12 +1196,8 @@ textarea::placeholder{color:#c0bdb5}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--accent);color:white;padding:10px 18px;border-radius:8px;font-size:13px;z-index:200;animation:fadeIn .2s ease}
 
 /* RESPONSIVE */
-@media(max-width:1200px){
-  .page-layout{grid-template-columns:200px 1fr 240px}
-}
 @media(max-width:960px){
   .page-layout{grid-template-columns:200px 1fr}
-  .sidebar-right{display:none}
 }
 @media(max-width:700px){
   main{padding:16px}
