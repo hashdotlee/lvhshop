@@ -19,22 +19,26 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const body = await req.json()
   const { title, description, price, condition, category, type, phone, location, images, image_url, expected_date } = body
+  const isAdmin = checkAdmin(req)
+  // Public users can only create buy requests; sell listings require admin
+  if (type !== 'mua' && !isAdmin) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   if (!title || !type) return NextResponse.json({ error: 'missing fields' }, { status: 400 })
-  const imgs: string[] = images && images.length > 0 ? images : image_url ? [image_url] : []
+  // Public buy requests cannot have images or expected_date
+  const imgs: string[] = isAdmin && images && images.length > 0 ? images : isAdmin && image_url ? [image_url] : []
   const db = adminClient()
   const { data, error } = await db
     .from('items')
     .insert({
       title, description,
       price: price ? Number(price) : null,
-      condition, category, type, phone, location,
+      condition: condition || 'Mới',
+      category, type, phone, location,
       images: imgs,
       image_url: imgs[0] ?? null,
-      status: expected_date ? 'incoming' : 'available',
-      expected_date: expected_date || null,
+      status: (isAdmin && expected_date) ? 'incoming' : 'available',
+      expected_date: (isAdmin && expected_date) || null,
     })
     .select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
