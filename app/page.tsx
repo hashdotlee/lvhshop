@@ -261,7 +261,6 @@ export default function Home() {
         showToast(`Lỗi AI: ${d.error ?? r.status}`)
         return
       }
-      // Guard: nếu không có title thì không mở form trống
       if (!d.title && !d.description) {
         showToast('AI không trích xuất được thông tin, thử lại hoặc nhập thủ công')
         return
@@ -312,11 +311,9 @@ export default function Home() {
       await fetch('/api/items', { method:'PATCH', headers:{'Content-Type':'application/json','x-admin-key':adminKey.current}, body: JSON.stringify({ id:soldItem.id, status:'sold' }) })
 
       if (soldCustMode === 'search' && selectedCust) {
-        // Link existing customer to this order
         await fetch('/api/customers', { method:'PATCH', headers:{'Content-Type':'application/json','x-admin-key':adminKey.current},
           body: JSON.stringify({ id: selectedCust.id, item_id: soldItem.id, order_code: soldItem.order_code }) })
       } else if (soldCustMode === 'new' && (custForm.name || custForm.phone)) {
-        // Create new customer
         await fetch('/api/customers', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':adminKey.current},
           body: JSON.stringify({ item_id:soldItem.id, order_code:soldItem.order_code, ...custForm }) })
       }
@@ -383,6 +380,10 @@ export default function Home() {
       : i.status===statusFilter
     return typeOk && condOk && statOk
   })
+
+  const featuredItems = items
+    .filter(i => (i.status === 'available' || i.status === 'incoming') && getImages(i).length > 0)
+    .slice(0, 5)
 
   const filteredCust = customers.filter(c =>
     !custSearch || [c.name,c.phone,c.order_code,c.address].some(v=>v?.toLowerCase().includes(custSearch.toLowerCase()))
@@ -592,108 +593,155 @@ export default function Home() {
               </div>
             )}
 
-            {/* Filters */}
-            {isAdmin && (
-              <div className="filter-bar" style={{marginBottom:8}}>
-                {(['all','ban','mua'] as const).map((v,i)=>(
-                  <button key={v} className={`filter-chip${typeFilter===v?' active':''}`} onClick={()=>setTypeFilter(v)}>{['Tất cả','Bán','Tìm mua'][i]}</button>
-                ))}
-              </div>
-            )}
-            <div className="section-title">{{ all:'Tất cả tin', ban:'Đang rao bán', mua:'Cần tìm mua' }[typeFilter]}</div>
-            <div className="filter-bar">
-              <span className="filter-count">{filtered.length} tin</span>
-              <button className={`filter-chip${condFilter==='all'?' active':''}`} onClick={()=>setCondFilter('all')}>Tất cả</button>
-              <button className={`filter-chip${condFilter==='Mới'?' active':''}`} onClick={()=>setCondFilter('Mới')}>Mới</button>
-              <button className={`filter-chip${condFilter==='Cũ'?' active':''}`} onClick={()=>setCondFilter('Cũ')}>Đã qua dùng</button>
-              <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:6}}>
+            {/* 3-column layout: filter | listing | featured ads */}
+            <div className="page-layout">
+
+              {/* LEFT SIDEBAR - Filters */}
+              <aside className="sidebar-left">
+                <div className="sidebar-section">
+                  <div className="sidebar-section-title">Loại tin</div>
+                  {(['all','ban','mua'] as const).map((v,i)=>(
+                    <button key={v} className={`sidebar-chip${typeFilter===v?' active':''}`} onClick={()=>setTypeFilter(v)}>
+                      {['🏪 Tất cả','🏷️ Bán','🔍 Tìm mua'][i]}
+                    </button>
+                  ))}
+                </div>
+                <div className="sidebar-section">
+                  <div className="sidebar-section-title">Tình trạng</div>
+                  <button className={`sidebar-chip${condFilter==='all'?' active':''}`} onClick={()=>setCondFilter('all')}>Tất cả</button>
+                  <button className={`sidebar-chip${condFilter==='Mới'?' active':''}`} onClick={()=>setCondFilter('Mới')}>✨ Mới</button>
+                  <button className={`sidebar-chip${condFilter==='Cũ'?' active':''}`} onClick={()=>setCondFilter('Cũ')}>🔄 Đã qua dùng</button>
+                </div>
+                <div className="sidebar-section">
+                  <div className="sidebar-section-title">Trạng thái</div>
+                  <button className={`sidebar-chip avail-chip${statusFilter==='available'?' active':''}`} onClick={()=>setStatusFilter('available')}>✅ Còn hàng</button>
+                  <button className={`sidebar-chip incoming-chip${statusFilter==='incoming'?' active':''}`} onClick={()=>setStatusFilter('incoming')}>📦 Sắp về</button>
+                  <button className={`sidebar-chip sold-chip${statusFilter==='sold'?' active':''}`} onClick={()=>setStatusFilter('sold')}>🏷 Đã bán</button>
+                  {isAdmin&&<button className={`sidebar-chip${statusFilter==='all'?' active':''}`} onClick={()=>setStatusFilter('all')}>📋 Tất cả</button>}
+                </div>
                 {lastUpdated && (
-                  <span className="auto-reload-indicator" title="Tự động cập nhật mỗi 5 giây">
+                  <div className="auto-reload-indicator" style={{marginTop:4}}>
                     <span className="auto-reload-dot"/>
                     {lastUpdated.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
-                  </span>
+                  </div>
                 )}
-                <button className={`filter-chip${statusFilter==='available'?' active':''}`} onClick={()=>setStatusFilter('available')}>Còn hàng</button>
-                <button className={`filter-chip incoming-chip${statusFilter==='incoming'?' active':''}`} onClick={()=>setStatusFilter('incoming')}>Sắp về</button>
-                <button className={`filter-chip sold-chip${statusFilter==='sold'?' active':''}`} onClick={()=>setStatusFilter('sold')}>Đã bán</button>
-                {isAdmin&&<button className={`filter-chip${statusFilter==='all'?' active':''}`} onClick={()=>setStatusFilter('all')}>Tất cả</button>}
-              </div>
-            </div>
+              </aside>
 
-            <div className="listing">
-              {loadingItems ? <div className="empty"><div className="spinner" style={{margin:'0 auto'}}/></div>
-              : filtered.length===0 ? <div className="empty"><div className="empty-icon">📦</div><p>Chưa có tin nào{isAdmin?'. Nhập đơn ở trên.':'.'}</p></div>
-              : filtered.map(item => {
-                const imgs = getImages(item)
-                return (
-                  <div key={item.id} className={`item${item.status==='sold'?' item-sold':''}`}>
-                    {imgs.length > 0 && (
-                      <div className="item-image-wrap">
-                        <Carousel images={imgs} sold={item.status==='sold'} onOpen={i=>{setLbImages(imgs);setLbIdx(i)}} />
-                      </div>
-                    )}
-                    <div className="item-body">
-                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexWrap:'wrap'}}>
-                        <div className="item-code" onClick={()=>{navigator.clipboard.writeText(item.order_code);showToast('Đã copy mã!')}} title="Click để copy mã">
-                          <span className="item-code-label">MÃ</span>
-                          <span className="item-code-value">{item.order_code}</span>
-                          <span className="item-code-icon">⎘</span>
-                        </div>
-                        {item.status==='sold' ? <span className="badge-sold">Đã bán</span>
-                        : item.status==='incoming' ? (
-                          <span className="badge-incoming">
-                            📦 Sắp về{item.expected_date ? ` · ${new Date(item.expected_date).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'})}` : ''}
-                          </span>
-                        ) : <span className="badge-avail">Còn hàng</span>}
-                        {imgs.length>1 && <span className="badge-imgs">📷 {imgs.length} ảnh</span>}
-                      </div>
-                      <div className="item-title">{item.title}</div>
-                      <div className="item-desc">{item.description}</div>
-                      <div className="item-meta">
-                        <span className="tag">{item.type==='ban'?'🏷️ Bán':'🔍 Tìm mua'}</span>
-                        <span className={`tag ${item.condition==='Mới'?'condition-moi':'condition-cu'}`}>{item.condition}</span>
-                        {item.category&&<span className="tag">{item.category}</span>}
-                        {item.location&&<span className="tag">📍 {item.location}</span>}
-                        <span className="item-time"><span className="status-dot"/>{reltime(item.created_at)}</span>
-                      </div>
-                    </div>
-                    <div className="item-right">
-                      <div className="item-price">{fmtVND(item.price)}</div>
-                      <div className="item-actions">
-                        {item.status==='available' && (
-                          <>
-                            {item.phone&&<button className="btn-messenger" onClick={()=>openMessenger(item)}><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.918 1.418 5.525 3.641 7.24V22l3.299-1.813A10.7 10.7 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2z"/></svg>Messenger</button>}
-                            <button className="btn-facebook" onClick={()=>openFB(item)}><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>Facebook</button>
-                            <a className="btn-chottot" href={CHOT_TOT} target="_blank" rel="noopener noreferrer">Xem thêm →</a>
-                          </>
+              {/* CENTER - Listings grid */}
+              <div className="content-area">
+                <div className="section-title">
+                  {{ all:'Tất cả tin', ban:'Đang rao bán', mua:'Cần tìm mua' }[typeFilter]}
+                  <span style={{fontWeight:400,fontSize:12,textTransform:'none',letterSpacing:0,color:'var(--muted)',marginLeft:6}}>{filtered.length} tin</span>
+                </div>
+
+                <div className="listing">
+                  {loadingItems ? <div className="empty"><div className="spinner" style={{margin:'0 auto'}}/></div>
+                  : filtered.length===0 ? <div className="empty"><div className="empty-icon">📦</div><p>Chưa có tin nào{isAdmin?'. Nhập đơn ở trên.':'.'}</p></div>
+                  : filtered.map(item => {
+                    const imgs = getImages(item)
+                    return (
+                      <div key={item.id} className={`item${item.status==='sold'?' item-sold':''}`}>
+                        {imgs.length > 0 && (
+                          <div className="item-image-wrap">
+                            <Carousel images={imgs} sold={item.status==='sold'} onOpen={i=>{setLbImages(imgs);setLbIdx(i)}} />
+                          </div>
                         )}
-                        <button className="btn-copy" onClick={()=>copyInfo(item)}>Copy</button>
-                      <a className="btn-copy" href={`/item/${item.id}`} target="_blank" rel="noopener noreferrer" style={{textAlign:'center',textDecoration:'none'}}>🔗 Chi tiết</a>
-                        {isAdmin&&(
-                          <>
+                        <div className="item-body">
+                          <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+                            <div className="item-code" onClick={()=>{navigator.clipboard.writeText(item.order_code);showToast('Đã copy mã!')}} title="Click để copy mã">
+                              <span className="item-code-label">MÃ</span>
+                              <span className="item-code-value">{item.order_code}</span>
+                              <span className="item-code-icon">⎘</span>
+                            </div>
+                            {item.status==='sold' ? <span className="badge-sold">Đã bán</span>
+                            : item.status==='incoming' ? (
+                              <span className="badge-incoming">
+                                📦 Sắp về{item.expected_date ? ` · ${new Date(item.expected_date).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'})}` : ''}
+                              </span>
+                            ) : <span className="badge-avail">Còn hàng</span>}
+                            {imgs.length>1 && <span className="badge-imgs">📷 {imgs.length}</span>}
+                          </div>
+                          <div className="item-title">{item.title}</div>
+                          <div className="item-desc">{item.description}</div>
+                          <div className="item-meta">
+                            <span className="tag">{item.type==='ban'?'🏷️ Bán':'🔍 Tìm mua'}</span>
+                            <span className={`tag ${item.condition==='Mới'?'condition-moi':'condition-cu'}`}>{item.condition}</span>
+                            {item.category&&<span className="tag">{item.category}</span>}
+                            {item.location&&<span className="tag">📍 {item.location}</span>}
+                            <span className="item-time"><span className="status-dot"/>{reltime(item.created_at)}</span>
+                          </div>
+                        </div>
+                        <div className="item-footer">
+                          <div className="item-price">{fmtVND(item.price)}</div>
+                          <div className="item-actions">
                             {item.status==='available' && (
                               <>
-                                <button className="btn-incoming" onClick={()=>markIncoming(item)}>📦 Sắp về</button>
-                                <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''});setSoldCustMode('search');setSoldCustSearch('');setSelectedCust(null)}}>✓ Đã bán</button>
+                                {item.phone&&<button className="btn-messenger" onClick={()=>openMessenger(item)}><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.918 1.418 5.525 3.641 7.24V22l3.299-1.813A10.7 10.7 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2z"/></svg>Messenger</button>}
+                                <button className="btn-facebook" onClick={()=>openFB(item)}><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>Facebook</button>
+                                <a className="btn-chottot" href={CHOT_TOT} target="_blank" rel="noopener noreferrer">Xem thêm →</a>
                               </>
                             )}
-                            {item.status==='incoming' && (
+                            <button className="btn-copy" onClick={()=>copyInfo(item)}>Copy</button>
+                            <a className="btn-copy" href={`/item/${item.id}`} target="_blank" rel="noopener noreferrer" style={{textAlign:'center',textDecoration:'none'}}>🔗 Chi tiết</a>
+                            {isAdmin&&(
                               <>
-                                <button className="btn-ghost-sm" onClick={()=>markAvailable(item)}>✓ Có hàng</button>
-                                <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''});setSoldCustMode('search');setSoldCustSearch('');setSelectedCust(null)}}>✓ Đã bán</button>
+                                {item.status==='available' && (
+                                  <>
+                                    <button className="btn-incoming" onClick={()=>markIncoming(item)}>📦 Sắp về</button>
+                                    <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''});setSoldCustMode('search');setSoldCustSearch('');setSelectedCust(null)}}>✓ Đã bán</button>
+                                  </>
+                                )}
+                                {item.status==='incoming' && (
+                                  <>
+                                    <button className="btn-ghost-sm" onClick={()=>markAvailable(item)}>✓ Có hàng</button>
+                                    <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''});setSoldCustMode('search');setSoldCustSearch('');setSelectedCust(null)}}>✓ Đã bán</button>
+                                  </>
+                                )}
+                                {item.status==='sold' && (
+                                  <button className="btn-ghost-sm" onClick={()=>markAvailable(item)}>↩ Mở lại</button>
+                                )}
+                                <button className="btn-delete" onClick={()=>deleteItem(item.id)}>Xoá</button>
                               </>
                             )}
-                            {item.status==='sold' && (
-                              <button className="btn-ghost-sm" onClick={()=>markAvailable(item)}>↩ Mở lại</button>
-                            )}
-                            <button className="btn-delete" onClick={()=>deleteItem(item.id)}>Xoá</button>
-                          </>
-                        )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* RIGHT SIDEBAR - Featured Products */}
+              <aside className="sidebar-right">
+                <div className="featured-header">
+                  <span className="featured-header-icon">⭐</span>
+                  <span>Sản phẩm nổi bật</span>
+                </div>
+                {featuredItems.length === 0 ? (
+                  <div style={{color:'var(--muted)',fontSize:12,textAlign:'center',padding:'24px 0'}}>
+                    Chưa có sản phẩm nổi bật
                   </div>
-                )
-              })}
+                ) : featuredItems.map(item => {
+                  const imgs = getImages(item)
+                  return (
+                    <a key={item.id} href={`/item/${item.id}`} target="_blank" rel="noopener noreferrer" className="featured-card">
+                      {imgs.length > 0 && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={imgs[0]} alt={item.title} className="featured-img" />
+                      )}
+                      <div className="featured-body">
+                        {item.status==='incoming'
+                          ? <span className="badge-incoming" style={{marginBottom:5,display:'inline-block'}}>📦 Sắp về</span>
+                          : <span className="badge-avail" style={{marginBottom:5,display:'inline-block'}}>Còn hàng</span>
+                        }
+                        <div className="featured-title">{item.title}</div>
+                        <div className="featured-price">{fmtVND(item.price)}</div>
+                      </div>
+                    </a>
+                  )
+                })}
+              </aside>
+
             </div>
           </>
         )}
@@ -848,15 +896,15 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--te
 .auth-err{font-size:12px;color:var(--red);margin-top:10px;text-align:center}
 .auth-hint{font-size:11px;color:var(--muted);margin-top:20px;padding-top:16px;border-top:1px solid var(--border);line-height:1.6}
 .auth-hint code,.order-code{background:var(--tag-bg);padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace;color:var(--muted)}
-.item-code{display:inline-flex;align-items:center;gap:6px;background:#f0f4ff;border:1px solid #d4dfff;border-radius:7px;padding:5px 10px;cursor:pointer;transition:all .15s;user-select:none}
+.item-code{display:inline-flex;align-items:center;gap:5px;background:#f0f4ff;border:1px solid #d4dfff;border-radius:6px;padding:3px 8px;cursor:pointer;transition:all .15s;user-select:none}
 .item-code:hover{background:#e4ecff;border-color:#a8bfff}
 .item-code:hover .item-code-icon{opacity:1}
-.item-code-label{font-size:9px;font-weight:700;letter-spacing:.8px;color:#6b7fd4;text-transform:uppercase}
-.item-code-value{font-size:13px;font-weight:600;font-family:monospace;color:#2d3a8c;letter-spacing:.3px}
-.item-code-icon{font-size:13px;color:#6b7fd4;opacity:0;transition:opacity .15s}
+.item-code-label{font-size:8px;font-weight:700;letter-spacing:.8px;color:#6b7fd4;text-transform:uppercase}
+.item-code-value{font-size:11px;font-weight:600;font-family:monospace;color:#2d3a8c;letter-spacing:.3px}
+.item-code-icon{font-size:11px;color:#6b7fd4;opacity:0;transition:opacity .15s}
 
 /* HEADER */
-header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
 .logo{font-size:16px;font-weight:600;letter-spacing:-.3px}
 .logo span{color:var(--muted);font-weight:300}
 nav{display:flex;gap:4px}
@@ -871,8 +919,37 @@ nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 .logout-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted);padding:2px 5px}
 .logout-btn:hover{color:var(--red)}
 
-/* LAYOUT */
-main{max-width:900px;margin:0 auto;padding:32px 24px}
+/* LAYOUT - full width */
+main{width:100%;padding:24px 28px}
+
+/* PAGE LAYOUT - 3 columns */
+.page-layout{display:grid;grid-template-columns:220px 1fr 270px;gap:20px;align-items:start}
+
+/* LEFT SIDEBAR */
+.sidebar-left{position:sticky;top:70px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:0}
+.sidebar-section{margin-bottom:18px}
+.sidebar-section:last-child{margin-bottom:0}
+.sidebar-section-title{font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;padding-left:4px}
+.sidebar-chip{width:100%;text-align:left;background:none;border:none;padding:7px 10px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted);transition:all .15s;display:block;margin-bottom:2px}
+.sidebar-chip:hover{background:var(--tag-bg);color:var(--text)}
+.sidebar-chip.active{background:var(--accent);color:white;font-weight:500}
+.sidebar-chip.sold-chip.active{background:#c44f00}
+.sidebar-chip.incoming-chip.active{background:#2563eb}
+.sidebar-chip.avail-chip.active{background:var(--green)}
+
+/* CENTER content */
+.content-area{min-width:0}
+
+/* RIGHT SIDEBAR */
+.sidebar-right{position:sticky;top:70px;display:flex;flex-direction:column;gap:10px}
+.featured-header{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.featured-header-icon{font-size:14px}
+.featured-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:all .15s;text-decoration:none;color:var(--text);display:block}
+.featured-card:hover{border-color:#ccc9c1;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.07)}
+.featured-img{width:100%;height:130px;object-fit:cover;display:block}
+.featured-body{padding:10px 12px}
+.featured-title{font-size:12px;font-weight:500;margin-bottom:4px;line-height:1.4;color:var(--text)}
+.featured-price{font-size:13px;font-weight:700;color:var(--green)}
 
 /* FORM */
 .lbl{font-size:11px;font-weight:500;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
@@ -881,7 +958,7 @@ main{max-width:900px;margin:0 auto;padding:32px 24px}
 .w-full{width:100%}
 
 /* INPUT SECTION */
-.input-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:28px}
+.input-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px}
 .input-label{padding:16px 20px 0;font-size:11px;font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
 textarea{width:100%;border:none;outline:none;resize:none;font-family:inherit;font-size:15px;color:var(--text);background:transparent;padding:12px 20px 16px;min-height:90px;line-height:1.6}
 textarea::placeholder{color:#c0bdb5}
@@ -915,18 +992,18 @@ textarea::placeholder{color:#c0bdb5}
 
 /* CAROUSEL */
 .carousel{position:relative;cursor:zoom-in;user-select:none;overflow:hidden;background:#000}
-.carousel-img{width:100%;max-height:320px;object-fit:cover;display:block;transition:opacity .2s}
-.car-btn{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);color:white;border:none;cursor:pointer;font-size:22px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background .15s;z-index:2}
+.carousel-img{width:100%;height:200px;object-fit:cover;display:block;transition:opacity .2s}
+.car-btn{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);color:white;border:none;cursor:pointer;font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background .15s;z-index:2}
 .car-btn:hover{background:rgba(0,0,0,.7)}
-.car-prev{left:10px}
-.car-next{right:10px}
-.car-dots{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px;z-index:2}
-.car-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.5);border:none;cursor:pointer;padding:0;transition:background .15s}
+.car-prev{left:8px}
+.car-next{right:8px}
+.car-dots{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:2}
+.car-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.5);border:none;cursor:pointer;padding:0;transition:background .15s}
 .car-dot-active{background:white}
-.car-counter{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.5);color:white;font-size:11px;padding:2px 8px;border-radius:10px;z-index:2}
-.car-zoom-hint{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,.4);color:white;font-size:12px;padding:3px 8px;border-radius:10px;z-index:2;opacity:0;transition:opacity .2s}
+.car-counter{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.5);color:white;font-size:10px;padding:2px 6px;border-radius:10px;z-index:2}
+.car-zoom-hint{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.4);color:white;font-size:11px;padding:2px 7px;border-radius:10px;z-index:2;opacity:0;transition:opacity .2s}
 .carousel:hover .car-zoom-hint{opacity:1}
-.sold-overlay{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:white;letter-spacing:3px;pointer-events:none}
+.sold-overlay{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:white;letter-spacing:3px;pointer-events:none}
 
 /* LIGHTBOX */
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:500;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
@@ -943,7 +1020,7 @@ textarea::placeholder{color:#c0bdb5}
 .lb-thumb-active{opacity:1;border-color:white}
 .lb-thumb:hover{opacity:.85}
 
-/* FILTER */
+/* FILTER (used in customer view) */
 .section-title{font-size:11px;font-weight:500;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:8px}
 .section-title::after{content:'';flex:1;height:1px;background:var(--border)}
 .filter-bar{display:flex;align-items:center;gap:6px;margin-bottom:16px;flex-wrap:wrap}
@@ -952,32 +1029,34 @@ textarea::placeholder{color:#c0bdb5}
 .filter-chip.active{background:var(--accent);border-color:var(--accent);color:white}
 .sold-chip.active{background:#c44f00;border-color:#c44f00}
 .incoming-chip.active{background:#2563eb;border-color:#2563eb}
-.auto-reload-indicator{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);padding:4px 8px;background:var(--tag-bg);border-radius:20px;white-space:nowrap}
+.auto-reload-indicator{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);padding:6px 10px;background:var(--tag-bg);border-radius:8px;white-space:nowrap}
 .auto-reload-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
 
-/* LISTING */
-.listing{display:flex;flex-direction:column;gap:8px}
-.item{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:grid;grid-template-columns:1fr auto;align-items:start;animation:fadeIn .3s ease;transition:border-color .15s}
+/* LISTING GRID */
+.listing{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+
+/* ITEM CARD - vertical layout */
+.item{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;animation:fadeIn .3s ease;transition:border-color .15s}
 .item:hover{border-color:#ccc9c1}
 .item-sold{background:var(--sold);opacity:.85}
-.item-image-wrap{grid-column:1/-1}
-.item-body{padding:16px 18px}
-.item-title{font-size:15px;font-weight:500;margin-bottom:4px}
-.item-desc{font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5}
-.item-meta{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
-.tag{font-size:11px;background:var(--tag-bg);color:var(--muted);padding:3px 8px;border-radius:4px;font-weight:500}
+.item-image-wrap{flex-shrink:0}
+.item-body{padding:11px 13px;flex:1}
+.item-title{font-size:13px;font-weight:600;margin-bottom:3px;line-height:1.4}
+.item-desc{font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.item-meta{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+.tag{font-size:10px;background:var(--tag-bg);color:var(--muted);padding:2px 7px;border-radius:4px;font-weight:500}
 .tag.condition-moi{background:var(--green-bg);color:var(--green)}
 .tag.condition-cu{background:#fff8ec;color:#c47a1e}
-.item-time{font-size:11px;color:var(--muted);display:flex;align-items:center}
-.status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:5px;flex-shrink:0}
-.badge-sold{font-size:10px;font-weight:600;background:#fef0e6;color:#c44f00;padding:2px 8px;border-radius:10px}
-.badge-avail{font-size:10px;font-weight:600;background:var(--green-bg);color:var(--green);padding:2px 8px;border-radius:10px}
-.badge-incoming{font-size:10px;font-weight:600;background:#eef4ff;color:#2563eb;padding:2px 8px;border-radius:10px}
-.badge-imgs{font-size:10px;font-weight:500;background:var(--tag-bg);color:var(--muted);padding:2px 8px;border-radius:10px}
-.item-right{padding:16px 18px 16px 0;display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:130px}
-.item-price{font-size:17px;font-weight:600;white-space:nowrap;text-align:right}
-.item-actions{display:flex;flex-direction:column;gap:5px}
+.item-time{font-size:10px;color:var(--muted);display:flex;align-items:center}
+.status-dot{width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block;margin-right:4px;flex-shrink:0}
+.badge-sold{font-size:10px;font-weight:600;background:#fef0e6;color:#c44f00;padding:2px 7px;border-radius:10px}
+.badge-avail{font-size:10px;font-weight:600;background:var(--green-bg);color:var(--green);padding:2px 7px;border-radius:10px}
+.badge-incoming{font-size:10px;font-weight:600;background:#eef4ff;color:#2563eb;padding:2px 7px;border-radius:10px}
+.badge-imgs{font-size:10px;font-weight:500;background:var(--tag-bg);color:var(--muted);padding:2px 7px;border-radius:10px}
+.item-footer{padding:10px 13px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.item-price{font-size:15px;font-weight:700;white-space:nowrap;color:var(--text)}
+.item-actions{display:flex;flex-wrap:wrap;gap:4px}
 
 /* BUTTONS */
 .btn-dark{background:var(--accent);color:white;border:none;padding:8px 18px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:7px;transition:opacity .15s}
@@ -988,22 +1067,22 @@ textarea::placeholder{color:#c0bdb5}
 .btn-green:disabled{opacity:.5;cursor:not-allowed}
 .btn-ghost{background:none;border:1px solid var(--border);padding:7px 16px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted);transition:all .15s}
 .btn-ghost:hover{border-color:var(--accent);color:var(--text)}
-.btn-ghost-sm{background:none;border:1px solid var(--border);padding:5px 10px;border-radius:7px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--muted);text-align:center}
+.btn-ghost-sm{background:none;border:1px solid var(--border);padding:4px 9px;border-radius:6px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--muted);text-align:center}
 .btn-ghost-sm:hover{border-color:var(--accent);color:var(--text)}
-.btn-messenger{display:flex;align-items:center;justify-content:center;gap:5px;background:#0084ff;color:white;border:none;padding:7px 10px;border-radius:7px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.btn-messenger{display:flex;align-items:center;justify-content:center;gap:4px;background:#0084ff;color:white;border:none;padding:5px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;transition:opacity .15s}
 .btn-messenger:hover{opacity:.85}
-.btn-facebook{display:flex;align-items:center;justify-content:center;gap:5px;background:var(--fb);color:white;border:none;padding:7px 10px;border-radius:7px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.btn-facebook{display:flex;align-items:center;justify-content:center;gap:4px;background:var(--fb);color:white;border:none;padding:5px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;transition:opacity .15s}
 .btn-facebook:hover{opacity:.85}
-.btn-chottot{display:flex;align-items:center;justify-content:center;background:var(--ct);color:white;border:none;padding:7px 10px;border-radius:7px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;text-decoration:none;transition:opacity .15s}
+.btn-chottot{display:flex;align-items:center;justify-content:center;background:var(--ct);color:white;border:none;padding:5px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;text-decoration:none;transition:opacity .15s}
 .btn-chottot:hover{opacity:.85}
-.btn-copy{background:none;border:1px solid var(--border);padding:5px 10px;border-radius:7px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--muted);transition:all .15s;text-align:center}
+.btn-copy{background:none;border:1px solid var(--border);padding:4px 9px;border-radius:6px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--muted);transition:all .15s;text-align:center}
 .btn-copy:hover{border-color:var(--accent);color:var(--text)}
-.btn-sold{background:var(--accent);color:white;border:none;padding:7px 12px;border-radius:7px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s;text-align:center}
+.btn-sold{background:var(--accent);color:white;border:none;padding:5px 10px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;transition:opacity .15s;text-align:center}
 .btn-sold:hover{opacity:.8}
 .btn-sold:disabled{opacity:.5;cursor:not-allowed}
-.btn-incoming{background:#2563eb;color:white;border:none;padding:7px 12px;border-radius:7px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s;text-align:center}
+.btn-incoming{background:#2563eb;color:white;border:none;padding:5px 10px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;transition:opacity .15s;text-align:center}
 .btn-incoming:hover{opacity:.8}
-.btn-delete{background:none;border:1px solid #fcd0cc;padding:5px 10px;border-radius:7px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--red);transition:background .15s;text-align:center}
+.btn-delete{background:none;border:1px solid #fcd0cc;padding:4px 9px;border-radius:6px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--red);transition:background .15s;text-align:center}
 .btn-delete:hover{background:#fff0ee}
 .btn-blue{background:#0084ff;color:white;border:none;padding:8px 18px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer}
 
@@ -1031,7 +1110,7 @@ textarea::placeholder{color:#c0bdb5}
 .sold-cust-item.selected{border-color:#2563eb;background:#eef4ff}
 .sold-cust-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0}
 .sold-cust-info{flex:1;min-width:0}
-.sold-cust-name{font-size:13px;font-weight:500;truncate:ellipsis}
+.sold-cust-name{font-size:13px;font-weight:500}
 .sold-cust-sub{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sold-cust-check{color:#2563eb;font-weight:700;font-size:15px;flex-shrink:0}
 .sold-cust-empty{font-size:13px;color:var(--muted);padding:12px;text-align:center;border:1px dashed var(--border);border-radius:8px}
@@ -1046,12 +1125,25 @@ textarea::placeholder{color:#c0bdb5}
 .empty p{font-size:14px}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--accent);color:white;padding:10px 18px;border-radius:8px;font-size:13px;z-index:200;animation:fadeIn .2s ease}
 
-@media(max-width:640px){
-  main{padding:20px 16px}
+/* RESPONSIVE */
+@media(max-width:1200px){
+  .page-layout{grid-template-columns:200px 1fr 240px}
+}
+@media(max-width:960px){
+  .page-layout{grid-template-columns:200px 1fr}
+  .sidebar-right{display:none}
+}
+@media(max-width:700px){
+  main{padding:16px}
   header{padding:12px 16px;flex-wrap:wrap;gap:8px}
-  .item{grid-template-columns:1fr}
-  .item-right{padding:0 16px 16px;flex-direction:row;align-items:center;flex-wrap:wrap;justify-content:space-between;min-width:unset;gap:6px}
-  .item-actions{flex-direction:row;flex-wrap:wrap;gap:5px}
+  .page-layout{grid-template-columns:1fr}
+  .sidebar-left{position:static;flex-direction:row;flex-wrap:wrap;gap:6px;padding:10px 12px}
+  .sidebar-section{margin-bottom:0;display:contents}
+  .sidebar-section-title{display:none}
+  .sidebar-chip{width:auto;display:inline-block;padding:5px 10px;border:1px solid var(--border)}
+  .sidebar-chip.active{border-color:transparent}
+  .listing{grid-template-columns:repeat(2,1fr);gap:8px}
+  .item-footer{flex-direction:column;align-items:stretch}
   .preview-grid{grid-template-columns:1fr}
   .lb-btn{width:38px;height:38px;font-size:22px}
   .lb-prev{left:8px}
