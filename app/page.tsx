@@ -1,12 +1,10 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Item, Customer } from '@/lib/supabase'
+import type { Item, Customer, Staff } from '@/lib/supabase'
 
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
 const CHOT_TOT   = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
 const FB_PAGE_ID = process.env.NEXT_PUBLIC_FB_PAGE_ID   ?? ''
-
-const POSTERS = ['Hoàng', 'Kiên', 'Đạt']
 
 function reltime(iso: string) {
   const d = (Date.now() - new Date(iso).getTime()) / 1000
@@ -148,6 +146,8 @@ export default function Home() {
   const [editCust, setEditCust]       = useState<Customer|null>(null)
   const [custSearch, setCustSearch]   = useState('')
 
+  const [staffList, setStaffList]     = useState<Staff[]>([])
+
   const [msgItem, setMsgItem]         = useState<Item|null>(null)
   const [msgPhone, setMsgPhone]       = useState('')
   const [msgText, setMsgText]         = useState('')
@@ -177,6 +177,13 @@ export default function Home() {
     } catch { showToast('Không thể tải khách hàng') }
     finally { setLoadingCust(false) }
   }
+  async function fetchStaff() {
+    try {
+      const r = await fetch('/api/staff')
+      const d = await r.json()
+      setStaffList(Array.isArray(d) ? d : [])
+    } catch { /* silent */ }
+  }
 
   const [lastUpdated, setLastUpdated] = useState<Date|null>(null)
   const autoReloadRef = useRef<ReturnType<typeof setInterval>>()
@@ -191,6 +198,7 @@ export default function Home() {
       setIsAdmin(true)
     }
     fetchItems()
+    fetchStaff()
 
     // Auto-reload every 5s for buyers
     autoReloadRef.current = setInterval(() => {
@@ -581,9 +589,15 @@ export default function Home() {
                         <input className="inp" value={preview.location??''} onChange={e=>setPreview(p=>({...p,location:e.target.value}))}/>
                       </div>
                       <div className="fg"><div className="lbl">Người đăng</div>
-                        <select className="inp" value={preview.posted_by??''} onChange={e=>setPreview(p=>({...p,posted_by:e.target.value||null}))}>
+                        <select className="inp"
+                          value={preview.staff_id ?? ''}
+                          onChange={e => {
+                            const id = e.target.value ? Number(e.target.value) : null
+                            const staff = staffList.find(s => s.id === id)
+                            setPreview(p => ({...p, staff_id: id, posted_by: staff?.name ?? null}))
+                          }}>
                           <option value="">— Chọn người đăng —</option>
-                          {POSTERS.map(p=><option key={p} value={p}>{p}</option>)}
+                          {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                       </div>
 

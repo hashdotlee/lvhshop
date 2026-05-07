@@ -5,6 +5,12 @@ export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
 )
 
+export type Staff = {
+  id: number
+  name: string
+  created_at: string
+}
+
 export type Item = {
   id: number
   order_code: string
@@ -21,6 +27,7 @@ export type Item = {
   status: 'available' | 'sold' | 'incoming'
   expected_date: string | null
   posted_by: string | null
+  staff_id: number | null
   created_at: string
 }
 
