@@ -225,6 +225,7 @@ export default function ItemDetailClient({ item }: { item: Item }) {
               <span className={`tag ${item.condition === 'Mới' ? 'tag-new' : 'tag-used'}`}>{item.condition}</span>
               {item.category && <span className="tag">{item.category}</span>}
               {item.location && <span className="tag">📍 {item.location}</span>}
+              {item.posted_by && <span className="tag tag-poster">👤 {item.posted_by}</span>}
             </div>
 
             {/* Description */}
@@ -381,6 +382,7 @@ main{max-width:1000px;margin:0 auto;padding:40px 24px}
 .tag{font-size:12px;background:var(--tag-bg);color:var(--muted);padding:4px 10px;border-radius:6px;font-weight:500}
 .tag-new{background:var(--green-bg);color:var(--green)}
 .tag-used{background:#fff8ec;color:#c47a1e}
+.tag-poster{background:#f3f0ff;color:#6d28d9}
 .description{background:var(--tag-bg);border-radius:10px;padding:14px 16px}
 .section-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 .description p{font-size:14px;line-height:1.7;color:var(--text)}

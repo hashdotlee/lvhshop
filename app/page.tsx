@@ -6,6 +6,8 @@ const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
 const CHOT_TOT   = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
 const FB_PAGE_ID = process.env.NEXT_PUBLIC_FB_PAGE_ID   ?? ''
 
+const POSTERS = ['Hoàng', 'Kiên', 'Đạt']
+
 function reltime(iso: string) {
   const d = (Date.now() - new Date(iso).getTime()) / 1000
   if (d < 60) return 'Vừa đăng'
@@ -111,6 +113,7 @@ export default function Home() {
   const [condFilter, setCondFilter]   = useState<'all'|'Mới'|'Cũ'>('all')
   const [statusFilter, setStatusFilter] = useState<'available'|'sold'|'incoming'|'all'>('available')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [posterFilter, setPosterFilter]   = useState<string>('all')
   const [priceRange, setPriceRange]     = useState<'all'|'under1m'|'1to5m'|'5to10m'|'over10m'>('all')
   const [searchQuery, setSearchQuery]   = useState('')
   const [loadingItems, setLoadingItems] = useState(true)
@@ -406,6 +409,7 @@ export default function Home() {
       : statusFilter==='available' ? (i.status==='available' || i.status==='incoming')
       : i.status===statusFilter
     const catOk = categoryFilter==='all' || i.category===categoryFilter
+    const posterOk = posterFilter==='all' || i.posted_by===posterFilter
     const q = searchQuery.trim().toLowerCase()
     const searchOk = !q || i.title.toLowerCase().includes(q) || (i.order_code??'').toLowerCase().includes(q)
     const p = i.price ?? 0
@@ -414,7 +418,7 @@ export default function Home() {
       : priceRange==='1to5m'   ? (p >= 1_000_000 && p <= 5_000_000)
       : priceRange==='5to10m'  ? (p >= 5_000_000 && p <= 10_000_000)
       : p > 10_000_000
-    return typeOk && condOk && statOk && catOk && searchOk && priceOk
+    return typeOk && condOk && statOk && catOk && posterOk && searchOk && priceOk
   })
 
   const featuredItems = items
@@ -578,6 +582,12 @@ export default function Home() {
                       <div className="fg"><div className="lbl">Địa điểm</div>
                         <input className="inp" value={preview.location??''} onChange={e=>setPreview(p=>({...p,location:e.target.value}))}/>
                       </div>
+                      <div className="fg"><div className="lbl">Người đăng</div>
+                        <select className="inp" value={preview.posted_by??''} onChange={e=>setPreview(p=>({...p,posted_by:e.target.value||null}))}>
+                          <option value="">— Chọn người đăng —</option>
+                          {POSTERS.map(p=><option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
 
                       {/* Incoming toggle + expected date */}
                       <div className="fg full">
@@ -672,6 +682,15 @@ export default function Home() {
                   </div>
                 )}
                 <div className="sidebar-section">
+                  <div className="sidebar-section-title">Người đăng</div>
+                  <button className={`sidebar-chip${posterFilter==='all'?' active':''}`} onClick={()=>setPosterFilter('all')}>Tất cả</button>
+                  {POSTERS.map(p=>(
+                    <button key={p} className={`sidebar-chip poster-chip${posterFilter===p?' active':''}`} onClick={()=>setPosterFilter(p)}>
+                      👤 {p}
+                    </button>
+                  ))}
+                </div>
+                <div className="sidebar-section">
                   <div className="sidebar-section-title">Giá</div>
                   <button className={`sidebar-chip${priceRange==='all'?' active':''}`} onClick={()=>setPriceRange('all')}>Tất cả</button>
                   <button className={`sidebar-chip${priceRange==='under1m'?' active':''}`} onClick={()=>setPriceRange('under1m')}>Dưới 1 triệu</button>
@@ -735,6 +754,7 @@ export default function Home() {
                             <span className={`tag ${item.condition==='Mới'?'condition-moi':'condition-cu'}`}>{item.condition}</span>
                             {item.category&&<span className="tag">{item.category}</span>}
                             {item.location&&<span className="tag">📍 {item.location}</span>}
+                            {item.posted_by&&<span className="tag tag-poster">👤 {item.posted_by}</span>}
                             <span className="item-time"><span className="status-dot"/>{reltime(item.created_at)}</span>
                           </div>
                         </div>
@@ -1022,6 +1042,7 @@ main{width:100%;padding:24px 28px}
 .sidebar-chip.sold-chip.active{background:#c44f00}
 .sidebar-chip.incoming-chip.active{background:#2563eb}
 .sidebar-chip.avail-chip.active{background:var(--green)}
+.sidebar-chip.poster-chip.active{background:#6d28d9}
 
 /* CENTER content */
 .content-area{min-width:0}
@@ -1134,6 +1155,7 @@ textarea::placeholder{color:#c0bdb5}
 .tag{font-size:10px;background:var(--tag-bg);color:var(--muted);padding:2px 7px;border-radius:4px;font-weight:500}
 .tag.condition-moi{background:var(--green-bg);color:var(--green)}
 .tag.condition-cu{background:#fff8ec;color:#c47a1e}
+.tag-poster{background:#f3f0ff;color:#6d28d9}
 .item-time{font-size:10px;color:var(--muted);display:flex;align-items:center}
 .status-dot{width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block;margin-right:4px;flex-shrink:0}
 .badge-sold{font-size:10px;font-weight:600;background:#fef0e6;color:#c44f00;padding:2px 7px;border-radius:10px}
