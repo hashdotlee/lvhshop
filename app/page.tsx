@@ -708,18 +708,17 @@ export default function Home() {
                   : filtered.map(item => {
                     const imgs = getImages(item)
                     return (
-                      <div key={item.id} className={`item${item.status==='sold'?' item-sold':''}`}>
+                      <a key={item.id} href={`/item/${item.id}`} className={`item${item.status==='sold'?' item-sold':''}`}>
                         {imgs.length > 0 && (
                           <div className="item-image-wrap">
-                            <Carousel images={imgs} sold={item.status==='sold'} onOpen={i=>{setLbImages(imgs);setLbIdx(i)}} />
+                            <Carousel images={imgs} sold={item.status==='sold'} onOpen={()=>{}} />
                           </div>
                         )}
                         <div className="item-body">
                           <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
-                            <div className="item-code" onClick={()=>{navigator.clipboard.writeText(item.order_code);showToast('Đã copy mã!')}} title="Click để copy mã">
+                            <div className="item-code">
                               <span className="item-code-label">MÃ</span>
                               <span className="item-code-value">{item.order_code}</span>
-                              <span className="item-code-icon">⎘</span>
                             </div>
                             {item.status==='sold' ? <span className="badge-sold">Đã bán</span>
                             : item.status==='incoming' ? (
@@ -741,39 +740,9 @@ export default function Home() {
                         </div>
                         <div className="item-footer">
                           <div className="item-price">{fmtVND(item.price)}</div>
-                          <div className="item-actions">
-                            {item.status==='available' && (
-                              <>
-                                {item.phone&&<button className="btn-messenger" onClick={()=>openMessenger(item)}><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.918 1.418 5.525 3.641 7.24V22l3.299-1.813A10.7 10.7 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2z"/></svg>Messenger</button>}
-                                <button className="btn-facebook" onClick={()=>openFB(item)}><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>Facebook</button>
-                                <a className="btn-chottot" href={CHOT_TOT} target="_blank" rel="noopener noreferrer">Xem thêm →</a>
-                              </>
-                            )}
-                            <button className="btn-copy" onClick={()=>copyInfo(item)}>Copy</button>
-                            <a className="btn-copy" href={`/item/${item.id}`} target="_blank" rel="noopener noreferrer" style={{textAlign:'center',textDecoration:'none'}}>🔗 Chi tiết</a>
-                            {isAdmin&&(
-                              <>
-                                {item.status==='available' && (
-                                  <>
-                                    <button className="btn-incoming" onClick={()=>markIncoming(item)}>📦 Sắp về</button>
-                                    <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''});setSoldCustMode('search');setSoldCustSearch('');setSelectedCust(null)}}>✓ Đã bán</button>
-                                  </>
-                                )}
-                                {item.status==='incoming' && (
-                                  <>
-                                    <button className="btn-ghost-sm" onClick={()=>markAvailable(item)}>✓ Có hàng</button>
-                                    <button className="btn-sold" onClick={()=>{setSoldItem(item);setCustForm({name:'',phone:'',address:'',note:''});setSoldCustMode('search');setSoldCustSearch('');setSelectedCust(null)}}>✓ Đã bán</button>
-                                  </>
-                                )}
-                                {item.status==='sold' && (
-                                  <button className="btn-ghost-sm" onClick={()=>markAvailable(item)}>↩ Mở lại</button>
-                                )}
-                                <button className="btn-delete" onClick={()=>deleteItem(item.id)}>Xoá</button>
-                              </>
-                            )}
-                          </div>
+                          <span className="item-cta">Xem chi tiết →</span>
                         </div>
-                      </div>
+                      </a>
                     )
                   })}
                 </div>
@@ -814,9 +783,6 @@ export default function Home() {
           </>
         )}
       </main>
-
-      {/* LIGHTBOX */}
-      {lbImages.length>0 && <Lightbox images={lbImages} startIdx={lbIdx} onClose={()=>setLbImages([])} />}
 
       {/* SOLD MODAL */}
       {soldItem && (
@@ -1157,8 +1123,8 @@ textarea::placeholder{color:#c0bdb5}
 .listing{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
 
 /* ITEM CARD - vertical layout */
-.item{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;animation:fadeIn .3s ease;transition:border-color .15s}
-.item:hover{border-color:#ccc9c1}
+.item{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;animation:fadeIn .3s ease;transition:all .15s;text-decoration:none;color:inherit;cursor:pointer}
+.item:hover{border-color:#bbb8b0;transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.07)}
 .item-sold{background:var(--sold);opacity:.85}
 .item-image-wrap{flex-shrink:0}
 .item-body{padding:11px 13px;flex:1}
@@ -1174,9 +1140,9 @@ textarea::placeholder{color:#c0bdb5}
 .badge-avail{font-size:10px;font-weight:600;background:var(--green-bg);color:var(--green);padding:2px 7px;border-radius:10px}
 .badge-incoming{font-size:10px;font-weight:600;background:#eef4ff;color:#2563eb;padding:2px 7px;border-radius:10px}
 .badge-imgs{font-size:10px;font-weight:500;background:var(--tag-bg);color:var(--muted);padding:2px 7px;border-radius:10px}
-.item-footer{padding:10px 13px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.item-footer{padding:10px 13px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
 .item-price{font-size:15px;font-weight:700;white-space:nowrap;color:var(--text)}
-.item-actions{display:flex;flex-wrap:wrap;gap:4px}
+.item-cta{font-size:11px;color:var(--muted);white-space:nowrap}
 
 /* BUTTONS */
 .btn-dark{background:var(--accent);color:white;border:none;padding:8px 18px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:7px;transition:opacity .15s}
