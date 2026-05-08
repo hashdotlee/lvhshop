@@ -194,13 +194,32 @@ export default function ItemDetailClient({ item }: { item: Item }) {
     setEditOpen(true)
   }
 
-  function addNewImages(files: FileList | null) {
-    if (!files) return
+  function addNewImages(files: File[]) {
     const total = keptImages.length + newImgFiles.length
-    const arr = Array.from(files).slice(0, 8 - total)
+    const arr = files.slice(0, 8 - total)
+    if (!arr.length) return
     setNewImgFiles(prev => [...prev, ...arr])
     setNewImgPreviews(prev => [...prev, ...arr.map(f => URL.createObjectURL(f))])
   }
+
+  useEffect(() => {
+    if (!editOpen) return
+    function onPaste(e: ClipboardEvent) {
+      const items = Array.from(e.clipboardData?.items ?? [])
+      const imgItems = items.filter(it => it.type.startsWith('image/'))
+      if (!imgItems.length) return
+      e.preventDefault()
+      const files = imgItems.map(it => it.getAsFile()).filter((f): f is File => f !== null)
+      if (!files.length) return
+      const total = keptImages.length + newImgFiles.length
+      const arr = files.slice(0, 8 - total)
+      if (!arr.length) return
+      setNewImgFiles(prev => [...prev, ...arr])
+      setNewImgPreviews(prev => [...prev, ...arr.map(f => URL.createObjectURL(f))])
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [editOpen, keptImages.length, newImgFiles.length])
 
   function removeKeptImage(idx: number) {
     setKeptImages(prev => prev.filter((_, i) => i !== idx))
@@ -487,7 +506,10 @@ export default function ItemDetailClient({ item }: { item: Item }) {
 
               {/* Image management */}
               <div style={{marginTop:16}}>
-                <label className="lbl" style={{marginBottom:8,display:'block'}}>Ảnh ({keptImages.length + newImgFiles.length}/8)</label>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                  <span className="lbl" style={{margin:0}}>Ảnh ({keptImages.length + newImgFiles.length}/8)</span>
+                  <span style={{fontSize:11,color:'var(--muted)'}}>· Ctrl+V để dán từ clipboard</span>
+                </div>
                 <div className="edit-img-grid">
                   {keptImages.map((src, i) => (
                     <div key={`kept-${i}`} className="edit-img-item">
@@ -507,7 +529,7 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                     <label className="edit-img-add">
                       <span>+ Thêm ảnh</span>
                       <input type="file" accept="image/*" multiple style={{display:'none'}}
-                        onChange={e => addNewImages(e.target.files)} />
+                        onChange={e => addNewImages(Array.from(e.target.files ?? []))} />
                     </label>
                   )}
                 </div>
