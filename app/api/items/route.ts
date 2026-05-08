@@ -58,6 +58,30 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json(data)
 }
 
+export async function PUT(req: NextRequest) {
+  if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const body = await req.json()
+  const { id, title, description, price, condition, category, type, phone, location, images, expected_date, posted_by, staff_id } = body
+  if (!id || !title || !type) return NextResponse.json({ error: 'missing fields' }, { status: 400 })
+  const db = adminClient()
+  const imgs: string[] = Array.isArray(images) ? images : []
+  const updateData: Record<string, unknown> = {
+    title, description,
+    price: price ? Number(price) : null,
+    condition: condition || 'Mới',
+    category, type, phone, location,
+    images: imgs,
+    image_url: imgs[0] ?? null,
+    expected_date: expected_date || null,
+    posted_by: posted_by || null,
+    staff_id: staff_id ? Number(staff_id) : null,
+  }
+  if (expected_date) updateData.status = 'incoming'
+  const { data, error } = await db.from('items').update(updateData).eq('id', id).select().single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}
+
 export async function DELETE(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const { id } = await req.json()
