@@ -377,25 +377,41 @@ export default function ItemDetailClient({ item }: { item: Item }) {
             {/* Contact actions */}
             {!isSold && (
               <div className="contact-actions">
-                {item.phone && (
-                  <>
-                    <a href={`tel:${item.phone}`} className="btn-call">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 016 3.18 2 2 0 018.07 3a2 2 0 012 2v3a2 2 0 01-1.72 1.99 16 16 0 00-6.97 2.98 16 16 0 002.73 3.06A2 2 0 0117.07 19l-1.64-1.64"/></svg>
-                      Gọi {item.phone}
+                {item.type === 'mua' ? (
+                  item.phone && (
+                    <a
+                      href={`https://zalo.me/${item.phone.replace(/^0/, '84')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-zalo"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="24" fill="#0068FF"/><text x="50%" y="54%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="18" fontWeight="700" fontFamily="sans-serif">Z</text></svg>
+                      Nhắn qua Zalo
                     </a>
-                    <button className="btn-msg" onClick={() => setMsgOpen(true)}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.918 1.418 5.525 3.641 7.24V22l3.299-1.813A10.7 10.7 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2z"/></svg>
-                      Messenger
+                  )
+                ) : (
+                  <>
+                    {item.phone && (
+                      <>
+                        <a href={`tel:${item.phone}`} className="btn-call">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 016 3.18 2 2 0 018.07 3a2 2 0 012 2v3a2 2 0 01-1.72 1.99 16 16 0 00-6.97 2.98 16 16 0 002.73 3.06A2 2 0 0117.07 19l-1.64-1.64"/></svg>
+                          Gọi điện
+                        </a>
+                        <button className="btn-msg" onClick={() => setMsgOpen(true)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.918 1.418 5.525 3.641 7.24V22l3.299-1.813A10.7 10.7 0 0012 20.486c5.523 0 10-4.145 10-9.243S17.523 2 12 2z"/></svg>
+                          Messenger
+                        </button>
+                      </>
+                    )}
+                    <button className="btn-fb" onClick={openFB}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
+                      Facebook
                     </button>
+                    <a href={CHOT_TOT} target="_blank" rel="noopener noreferrer" className="btn-chottot">
+                      Xem thêm trên Chợ Tốt →
+                    </a>
                   </>
                 )}
-                <button className="btn-fb" onClick={openFB}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
-                  Facebook
-                </button>
-                <a href={CHOT_TOT} target="_blank" rel="noopener noreferrer" className="btn-chottot">
-                  Xem thêm trên Chợ Tốt →
-                </a>
               </div>
             )}
 
@@ -627,6 +643,8 @@ main{max-width:1000px;margin:0 auto;padding:40px 24px}
 .btn-fb:hover{opacity:.85}
 .btn-chottot{display:flex;align-items:center;justify-content:center;background:var(--ct);color:white;border:none;padding:11px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;transition:opacity .15s}
 .btn-chottot:hover{opacity:.85}
+.btn-zalo{display:flex;align-items:center;justify-content:center;gap:10px;background:#0068FF;color:white;text-decoration:none;padding:12px;border-radius:10px;font-family:inherit;font-size:15px;font-weight:600;transition:opacity .15s}
+.btn-zalo:hover{opacity:.85}
 .sold-notice{background:#fff8ec;border:1px solid #fde68a;border-radius:10px;padding:14px 16px;font-size:13px;color:#92400e;line-height:1.6}
 .sold-notice a{color:#92400e;font-weight:600}
 .item-meta-footer{display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
