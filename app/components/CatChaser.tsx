@@ -86,8 +86,8 @@ export default function CatChaser() {
       <div ref={wrapRef} className="cat-wrap">
         <svg
           viewBox="0 0 170 112"
-          width="148"
-          height="98"
+          width="50"
+          height="33"
           className={`cat-svg cat-${expr}`}
           aria-hidden="true"
         >
