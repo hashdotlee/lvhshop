@@ -151,9 +151,13 @@ export default function ItemDetailClient({ item }: { item: Item }) {
     setMsgOpen(false)
   }
 
-  function openFB() {
+  async function openFB() {
     const m = `Mình quan tâm "${item.title}" (${item.order_code}) giá ${fmtVND(item.price)}. Còn hàng không?`
-    window.open(FB_PAGE ? `https://m.me/${FB_PAGE}?text=${encodeURIComponent(m)}` : 'https://facebook.com', '_blank')
+    await navigator.clipboard.writeText(m).catch(() => {})
+    showToast('Đã copy tin nhắn — dán vào Messenger nhé 📋')
+    setTimeout(() => {
+      window.open(FB_PAGE ? `https://m.me/${FB_PAGE}` : 'https://facebook.com', '_blank')
+    }, 400)
   }
 
   async function patchStatus(status: string) {
