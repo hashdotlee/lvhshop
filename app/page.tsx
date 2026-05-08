@@ -474,10 +474,11 @@ export default function Home() {
               </div>
             </>
           ) : (
-            <nav>
+            <nav style={{display:'flex',alignItems:'center',gap:4}}>
               {(['all','ban','mua'] as const).map((v,i)=>(
                 <button key={v} className={typeFilter===v?'active':''} onClick={()=>setTypeFilter(v)}>{['Tất cả','Bán','Tìm mua'][i]}</button>
               ))}
+              <a href="/blog" className="nav-blog-link">Blog</a>
             </nav>
           )}
         </div>
@@ -979,6 +980,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
 nav{display:flex;gap:4px}
 nav button{background:none;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--muted);transition:all .15s}
 nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
+.nav-blog-link{padding:6px 14px;border-radius:6px;font-size:13px;color:var(--muted);text-decoration:none;transition:all .15s;margin-left:4px;border-left:1px solid var(--border)}
+.nav-blog-link:hover{background:var(--tag-bg);color:var(--text)}
 .tab-btn{background:none;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--muted);transition:all .15s;display:flex;align-items:center;gap:5px}
 .tab-btn:hover,.tab-active{background:var(--tag-bg);color:var(--text)}
 .tab-active{font-weight:500}

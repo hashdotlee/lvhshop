@@ -49,11 +49,53 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
       description: desc,
       images: images[0] ? [images[0]] : [],
     },
+    alternates: {
+      canonical: `${siteUrl}/item/${item.id}`,
+    },
+  }
+}
+
+function buildJsonLd(item: Item, siteUrl: string) {
+  const images = item.images?.length ? item.images : item.image_url ? [item.image_url] : []
+  const price = item.price ?? 0
+  const availability = item.status === 'sold'
+    ? 'https://schema.org/SoldOut'
+    : item.status === 'incoming'
+    ? 'https://schema.org/PreOrder'
+    : 'https://schema.org/InStock'
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: item.title,
+    description: item.description ?? undefined,
+    image: images,
+    url: `${siteUrl}/item/${item.id}`,
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'VND',
+      price: price,
+      availability,
+      url: `${siteUrl}/item/${item.id}`,
+      seller: { '@type': 'Organization', name: 'leviethoang.shop', url: siteUrl },
+    },
   }
 }
 
 export default async function ItemPage({ params }: { params: { id: string } }) {
   const item = await getItem(params.id)
   if (!item) notFound()
-  return <ItemDetailClient item={item} />
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
+  const jsonLd = buildJsonLd(item, siteUrl)
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <ItemDetailClient item={item} />
+    </>
+  )
 }
