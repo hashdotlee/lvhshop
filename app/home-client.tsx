@@ -463,7 +463,7 @@ export default function HomeClient() {
       <header>
         <div className="logo-wrap">
           <div className="logo">leviethoang<span>.shop</span></div>
-          <div className="logo-tagline"><span className="tag-jp">🇯🇵 Săn hàng Nhật</span><span className="tag-sep">·</span><span className="tag-gen">Đồ dùng đại trà</span></div>
+          <div className="logo-tagline"><span className="tag-jp">🇯🇵 Săn hàng Nhật</span><span className="tag-sep">—</span><span className="tag-gen">Hàng chọn lọc · Giá chuẩn</span></div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           {isAdmin ? (
