@@ -83,10 +83,39 @@ export default function ItemDetailClient({ item }: { item: Item }) {
   const [toast, setToast]             = useState('')
   const toastTimer                     = useRef<ReturnType<typeof setTimeout>>()
 
+  // Edit state
+  const [editOpen, setEditOpen] = useState(false)
+  const [editForm, setEditForm] = useState<{
+    title: string; description: string; price: string; condition: string
+    category: string; type: 'ban' | 'mua'; phone: string; location: string
+    staff_id: string; expected_date: string
+  }>({
+    title: item.title,
+    description: item.description ?? '',
+    price: item.price?.toString() ?? '',
+    condition: item.condition ?? 'Mới',
+    category: item.category ?? '',
+    type: item.type,
+    phone: item.phone ?? '',
+    location: item.location ?? '',
+    staff_id: item.staff_id?.toString() ?? '',
+    expected_date: item.expected_date?.split('T')[0] ?? '',
+  })
+  const [keptImages, setKeptImages] = useState<string[]>(getImages(item))
+  const [newImgFiles, setNewImgFiles] = useState<File[]>([])
+  const [newImgPreviews, setNewImgPreviews] = useState<string[]>([])
+  const [staffList, setStaffList] = useState<Array<{id: number; name: string}>>([])
+  const [saving, setSaving] = useState(false)
+
   useEffect(() => {
     const key = sessionStorage.getItem('cq_admin_key')
     if (key && sessionStorage.getItem('cq_admin')) { adminKey.current = key; setIsAdmin(true) }
   }, [])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    fetch('/api/staff').then(r => r.json()).then(d => { if (Array.isArray(d)) setStaffList(d) })
+  }, [isAdmin])
 
   function showToast(m: string) {
     setToast(m)
@@ -144,6 +173,88 @@ export default function ItemDetailClient({ item }: { item: Item }) {
     })
     if (r.ok) window.location.href = '/'
     else showToast('Lỗi xoá tin')
+  }
+
+  function openEdit() {
+    setEditForm({
+      title: item.title,
+      description: item.description ?? '',
+      price: item.price?.toString() ?? '',
+      condition: item.condition ?? 'Mới',
+      category: item.category ?? '',
+      type: item.type,
+      phone: item.phone ?? '',
+      location: item.location ?? '',
+      staff_id: item.staff_id?.toString() ?? '',
+      expected_date: item.expected_date?.split('T')[0] ?? '',
+    })
+    setKeptImages(getImages(item))
+    setNewImgFiles([])
+    setNewImgPreviews([])
+    setEditOpen(true)
+  }
+
+  function addNewImages(files: FileList | null) {
+    if (!files) return
+    const total = keptImages.length + newImgFiles.length
+    const arr = Array.from(files).slice(0, 8 - total)
+    setNewImgFiles(prev => [...prev, ...arr])
+    setNewImgPreviews(prev => [...prev, ...arr.map(f => URL.createObjectURL(f))])
+  }
+
+  function removeKeptImage(idx: number) {
+    setKeptImages(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  function removeNewImage(idx: number) {
+    setNewImgFiles(prev => prev.filter((_, i) => i !== idx))
+    setNewImgPreviews(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  async function saveEdit() {
+    if (!editForm.title.trim()) { showToast('Tiêu đề không được để trống'); return }
+    setSaving(true)
+    try {
+      let uploadedUrls: string[] = []
+      if (newImgFiles.length > 0) {
+        const form = new FormData()
+        newImgFiles.forEach(f => form.append('files', f))
+        form.append('adminKey', adminKey.current)
+        const ur = await fetch('/api/upload', { method: 'POST', body: form })
+        if (!ur.ok) { showToast('Lỗi upload ảnh'); return }
+        uploadedUrls = (await ur.json()).urls ?? []
+      }
+      const images = [...keptImages, ...uploadedUrls]
+      const staff = staffList.find(s => s.id === Number(editForm.staff_id))
+      const r = await fetch('/api/items', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey.current },
+        body: JSON.stringify({
+          id: item.id,
+          title: editForm.title,
+          description: editForm.description,
+          price: editForm.price ? Number(editForm.price) : null,
+          condition: editForm.condition,
+          category: editForm.category,
+          type: editForm.type,
+          phone: editForm.phone,
+          location: editForm.location,
+          images,
+          expected_date: editForm.expected_date || null,
+          posted_by: staff?.name ?? null,
+          staff_id: editForm.staff_id ? Number(editForm.staff_id) : null,
+        }),
+      })
+      if (r.ok) {
+        setEditOpen(false)
+        showToast('Đã cập nhật tin đăng')
+        setTimeout(() => window.location.reload(), 800)
+      } else {
+        showToast('Lỗi cập nhật')
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -295,6 +406,7 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                   {(isSold || isIncoming) && (
                     <button className="btn-admin-ghost" onClick={()=>patchStatus('available')}>↩ Mở lại (còn hàng)</button>
                   )}
+                  <button className="btn-admin-edit" onClick={openEdit}>✏️ Chỉnh sửa tin</button>
                   <button className="btn-admin-delete" onClick={deleteItem}>🗑 Xoá tin</button>
                 </div>
               </div>
@@ -310,6 +422,106 @@ export default function ItemDetailClient({ item }: { item: Item }) {
           </div>
         </div>
       </main>
+
+      {/* Edit modal */}
+      {editOpen && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setEditOpen(false)}>
+          <div className="edit-modal">
+            <div className="edit-modal-header">
+              <h3>Chỉnh sửa tin đăng</h3>
+              <button className="edit-modal-close" onClick={() => setEditOpen(false)}>✕</button>
+            </div>
+            <div className="edit-modal-body">
+              <div className="edit-grid">
+                <div className="edit-field edit-field-full">
+                  <label className="lbl">Tiêu đề *</label>
+                  <input className="inp" value={editForm.title} onChange={e => setEditForm(f => ({...f, title: e.target.value}))} />
+                </div>
+                <div className="edit-field edit-field-full">
+                  <label className="lbl">Mô tả</label>
+                  <textarea className="inp" rows={3} style={{resize:'vertical'}} value={editForm.description} onChange={e => setEditForm(f => ({...f, description: e.target.value}))} />
+                </div>
+                <div className="edit-field">
+                  <label className="lbl">Giá (VNĐ)</label>
+                  <input className="inp" type="number" value={editForm.price} onChange={e => setEditForm(f => ({...f, price: e.target.value}))} placeholder="Để trống = Thương lượng" />
+                </div>
+                <div className="edit-field">
+                  <label className="lbl">Tình trạng</label>
+                  <select className="inp" value={editForm.condition} onChange={e => setEditForm(f => ({...f, condition: e.target.value}))}>
+                    <option>Mới</option>
+                    <option>Cũ - Còn tốt</option>
+                    <option>Cũ - Có hao mòn</option>
+                  </select>
+                </div>
+                <div className="edit-field">
+                  <label className="lbl">Danh mục</label>
+                  <input className="inp" value={editForm.category} onChange={e => setEditForm(f => ({...f, category: e.target.value}))} />
+                </div>
+                <div className="edit-field">
+                  <label className="lbl">Loại</label>
+                  <select className="inp" value={editForm.type} onChange={e => setEditForm(f => ({...f, type: e.target.value as 'ban'|'mua'}))}>
+                    <option value="ban">Đang bán</option>
+                    <option value="mua">Tìm mua</option>
+                  </select>
+                </div>
+                <div className="edit-field">
+                  <label className="lbl">Số điện thoại</label>
+                  <input className="inp" value={editForm.phone} onChange={e => setEditForm(f => ({...f, phone: e.target.value}))} />
+                </div>
+                <div className="edit-field">
+                  <label className="lbl">Địa điểm</label>
+                  <input className="inp" value={editForm.location} onChange={e => setEditForm(f => ({...f, location: e.target.value}))} />
+                </div>
+                <div className="edit-field">
+                  <label className="lbl">Nhân viên đăng</label>
+                  <select className="inp" value={editForm.staff_id} onChange={e => setEditForm(f => ({...f, staff_id: e.target.value}))}>
+                    <option value="">-- Không chọn --</option>
+                    {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div className="edit-field">
+                  <label className="lbl">Ngày về (nếu sắp về)</label>
+                  <input className="inp" type="date" value={editForm.expected_date} onChange={e => setEditForm(f => ({...f, expected_date: e.target.value}))} />
+                </div>
+              </div>
+
+              {/* Image management */}
+              <div style={{marginTop:16}}>
+                <label className="lbl" style={{marginBottom:8,display:'block'}}>Ảnh ({keptImages.length + newImgFiles.length}/8)</label>
+                <div className="edit-img-grid">
+                  {keptImages.map((src, i) => (
+                    <div key={`kept-${i}`} className="edit-img-item">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={src} alt="" />
+                      <button className="edit-img-remove" onClick={() => removeKeptImage(i)}>✕</button>
+                    </div>
+                  ))}
+                  {newImgPreviews.map((src, i) => (
+                    <div key={`new-${i}`} className="edit-img-item edit-img-new">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={src} alt="" />
+                      <button className="edit-img-remove" onClick={() => removeNewImage(i)}>✕</button>
+                    </div>
+                  ))}
+                  {keptImages.length + newImgFiles.length < 8 && (
+                    <label className="edit-img-add">
+                      <span>+ Thêm ảnh</span>
+                      <input type="file" accept="image/*" multiple style={{display:'none'}}
+                        onChange={e => addNewImages(e.target.files)} />
+                    </label>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="edit-modal-footer">
+              <button className="btn-ghost" onClick={() => setEditOpen(false)} disabled={saving}>Huỷ</button>
+              <button className="btn-admin-sold" onClick={saveEdit} disabled={saving} style={{padding:'9px 20px'}}>
+                {saving ? 'Đang lưu...' : '✓ Lưu thay đổi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lightbox */}
       {lbOpen && <Lightbox images={images} idx={mainIdx} onClose={() => setLbOpen(false)} />}
@@ -413,8 +625,32 @@ main{max-width:1000px;margin:0 auto;padding:40px 24px}
 .btn-admin-incoming:hover{opacity:.8}
 .btn-admin-ghost{background:none;border:1px solid var(--border);padding:9px 14px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted);text-align:left;transition:all .15s}
 .btn-admin-ghost:hover{border-color:var(--accent);color:var(--text)}
+.btn-admin-edit{background:none;border:1px solid var(--border);padding:9px 14px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--text);text-align:left;transition:all .15s}
+.btn-admin-edit:hover{border-color:var(--accent);background:var(--tag-bg)}
 .btn-admin-delete{background:none;border:1px solid #fcd0cc;padding:9px 14px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--red);text-align:left;transition:background .15s}
 .btn-admin-delete:hover{background:#fff0ee}
+
+/* Edit modal */
+.edit-modal{background:white;border-radius:14px;width:100%;max-width:600px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.edit-modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.edit-modal-header h3{font-size:15px;font-weight:600;margin:0}
+.edit-modal-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);line-height:1;padding:2px 6px;border-radius:4px}
+.edit-modal-close:hover{background:var(--tag-bg);color:var(--text)}
+.edit-modal-body{padding:20px 24px;overflow-y:auto;flex:1}
+.edit-modal-footer{display:flex;gap:8px;justify-content:flex-end;padding:16px 24px;border-top:1px solid var(--border);flex-shrink:0}
+.edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.edit-field{display:flex;flex-direction:column;gap:4px}
+.edit-field-full{grid-column:1/-1}
+.edit-img-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.edit-img-item{position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid var(--border);flex-shrink:0}
+.edit-img-item img{width:100%;height:100%;object-fit:cover;display:block}
+.edit-img-new{border-color:#2563eb;border-style:dashed}
+.edit-img-remove{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.55);color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.edit-img-remove:hover{background:rgba(192,57,43,.85)}
+.edit-img-add{width:80px;height:80px;border-radius:8px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:11px;text-align:center;padding:4px;transition:all .15s;flex-shrink:0}
+.edit-img-add:hover{border-color:var(--accent);color:var(--accent)}
+
+@media(max-width:500px){.edit-grid{grid-template-columns:1fr}}
 
 /* Toast */
 .detail-toast{position:fixed;bottom:24px;right:24px;background:var(--accent);color:white;padding:10px 18px;border-radius:8px;font-size:13px;z-index:200;animation:fadeIn .2s ease}
