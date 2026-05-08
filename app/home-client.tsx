@@ -1016,7 +1016,7 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--te
 .item-code-icon{font-size:11px;color:#6b7fd4;opacity:0;transition:opacity .15s}
 
 /* HEADER */
-header{display:flex;align-items:center;justify-content:space-between;padding:12px 32px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 32px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:var(--cb-h,0);z-index:100}
 .logo-wrap{display:flex;flex-direction:column;gap:2px}
 .logo{font-size:16px;font-weight:600;letter-spacing:-.3px;line-height:1.2}
 .logo span{color:var(--muted);font-weight:300}

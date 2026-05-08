@@ -1,7 +1,7 @@
 'use client'
 
-const MSG = '🚧  Hệ thống đang trong quá trình xây dựng — một số tính năng có thể chưa hoàn chỉnh  🚧'
-const REPEATED = Array(8).fill(MSG).join('     ·     ')
+const MSG = 'Hệ thống đang trong quá trình xây dựng — một số tính năng có thể chưa hoàn chỉnh'
+const REPEATED = Array(6).fill(MSG).join('   ·   ')
 
 export default function ConstructionBanner() {
   return (
@@ -18,25 +18,26 @@ export default function ConstructionBanner() {
 }
 
 const css = `
+:root { --cb-h: 26px; }
 .cb-wrap {
-  position: fixed;
+  position: sticky;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 10000;
-  background: #f59e0b;
-  color: #1c1917;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-  padding: 7px 0;
+  z-index: 200;
+  height: var(--cb-h);
+  background: #2e2d2a;
+  color: #9e9c97;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: var(--cb-h);
   overflow: hidden;
   white-space: nowrap;
-  letter-spacing: .01em;
+  letter-spacing: .02em;
 }
 .cb-track {
   display: inline-flex;
-  animation: cb-scroll 40s linear infinite;
+  animation: cb-scroll 50s linear infinite;
 }
 .cb-track span {
   padding-right: 4em;
