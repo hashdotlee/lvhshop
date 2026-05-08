@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import GoogleAnalytics from './components/GoogleAnalytics'
 import FacebookPixel from './components/FacebookPixel'
+import CatChaser from './components/CatChaser'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
 
@@ -51,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <GoogleAnalytics />
         <FacebookPixel />
+        <CatChaser />
         {children}
       </body>
     </html>
