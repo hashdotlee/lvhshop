@@ -1,12 +1,14 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 
-// Eye centers in SVG coordinate space
-const EL = { cx: 58,  cy: 63 }
-const ER = { cx: 112, cy: 63 }
-const MAX_OFFSET = 5   // max pupil travel (SVG units)
-const EYE_R      = 19  // white eye radius
-const PUPIL_R    = 12  // normal pupil radius
+// ── SVG geometry ──────────────────────────────────────────────────
+// viewBox "0 0 160 82"
+// Head: circle cx=80 cy=110 r=82 → visible top arc peeks into view
+// Ears: triangles whose tips are above the circle, bases merge into it
+const EL = { cx: 56,  cy: 56 }   // left eye centre
+const ER = { cx: 104, cy: 56 }   // right eye centre
+const ER_W = 17                   // white sclera radius
+const MAX_OFF = 6                 // max pupil travel (SVG units)
 
 type Expr = 'normal' | 'happy' | 'surprised'
 
@@ -24,44 +26,32 @@ export default function CatChaser() {
     if (!wrap) return
 
     function onMove(e: MouseEvent) {
-      const rect = wrap!.getBoundingClientRect()
-      // Cat face center in viewport coords
-      const cx = rect.left + rect.width  * 0.5
-      const cy = rect.top  + rect.height * 0.58
+      const r  = wrap!.getBoundingClientRect()
+      const cx = r.left + r.width  * 0.5
+      const cy = r.top  + r.height * 0.62   // approx eye level in display coords
 
       const angle = Math.atan2(e.clientY - cy, e.clientX - cx)
       const dist  = Math.hypot(e.clientX - cx, e.clientY - cy)
-      const t     = Math.min(dist / 180, 1)
-      const ox    = Math.cos(angle) * MAX_OFFSET * t
-      const oy    = Math.sin(angle) * MAX_OFFSET * t
+      const t     = Math.min(dist / 200, 1)
+      const ox    = Math.cos(angle) * MAX_OFF * t
+      const oy    = Math.sin(angle) * MAX_OFF * t
 
-      for (const [ref, base] of [
-        [lpRef, EL], [rpRef, ER],
-      ] as const) {
-        const el = ref.current
-        if (el) {
-          el.setAttribute('cx', String(base.cx + ox))
-          el.setAttribute('cy', String(base.cy + oy))
-        }
+      for (const [ref, base] of [[lpRef, EL], [rpRef, ER]] as const) {
+        ref.current?.setAttribute('cx', String(base.cx + ox))
+        ref.current?.setAttribute('cy', String(base.cy + oy))
       }
-      for (const [ref, base] of [
-        [ls1Ref, EL], [rs1Ref, ER],
-      ] as const) {
-        const el = ref.current
-        if (el) {
-          el.setAttribute('cx', String(base.cx + ox + 6))
-          el.setAttribute('cy', String(base.cy + oy - 6))
-        }
+      for (const [ref, base] of [[ls1Ref, EL], [rs1Ref, ER]] as const) {
+        ref.current?.setAttribute('cx', String(base.cx + ox + 6))
+        ref.current?.setAttribute('cy', String(base.cy + oy - 6))
       }
     }
 
-    function onClick() {
+    const onClick = () => {
       setExpr('happy')
       clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => setExpr('normal'), 900)
+      timerRef.current = setTimeout(() => setExpr('normal'), 950)
     }
-
-    function onScroll() {
+    const onScroll = () => {
       setExpr('surprised')
       clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => setExpr('normal'), 700)
@@ -78,79 +68,55 @@ export default function CatChaser() {
     }
   }, [])
 
-  const pr = expr === 'surprised' ? PUPIL_R + 4 : expr === 'happy' ? PUPIL_R - 4 : PUPIL_R
+  const pr = expr === 'surprised' ? 13 : expr === 'happy' ? 7 : 10   // pupil radius
 
   return (
     <>
       <style>{css}</style>
       <div ref={wrapRef} className="cat-wrap">
+        {/* viewBox 160×82 rendered at 88×45 px */}
         <svg
-          viewBox="0 0 170 112"
-          width="50"
-          height="33"
+          viewBox="0 0 160 82"
+          width="88" height="45"
           className={`cat-svg cat-${expr}`}
+          style={{ overflow: 'visible', display: 'block' }}
           aria-hidden="true"
         >
-          {/* ── Main silhouette ───────────────────────────────────────── */}
-          <path
-            d={[
-              // left wall → up left side
-              'M0,112 L0,76',
-              // left ear: outer slope up, tip, inner slope
-              'Q4,44 32,14 L16,0 L44,22',
-              // forehead arc
-              'Q62,10 85,8 Q108,10 126,22',
-              // right ear
-              'L154,0 L138,14',
-              // right side down
-              'Q166,44 170,76 L170,112',
-              // fluffy bottom edge (wavy fur)
-              'C162,104 154,112 146,106',
-              'C138,100 130,110 122,105',
-              'C114,100 106,112 98,106',
-              'C90,100  82,112  74,106',
-              'C66,100  58,112  50,106',
-              'C42,100  34,110  26,105',
-              'C18,100  10,112   0,112 Z',
-            ].join(' ')}
-            fill="#111"
-          />
+          {/* ── Left ear ── triangle: tip above circle, bases merge into head */}
+          <polygon points="18,82 40,3 66,66" fill="#111"/>
 
-          {/* ── Fur texture lines (inner ear, forehead tufts) ─────────── */}
-          {/* left ear inner detail */}
-          <path d="M18,3 Q28,16 40,22" stroke="#2a2a2a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-          {/* right ear inner detail */}
-          <path d="M152,3 Q142,16 130,22" stroke="#2a2a2a" strokeWidth="2" fill="none" strokeLinecap="round"/>
-          {/* forehead tufts */}
-          <path d="M68,20 Q72,14 70,8"  stroke="#1e1e1e" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-          <path d="M82,14 Q85,8 86,4"   stroke="#1e1e1e" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-          <path d="M98,14 Q98,8 100,4"  stroke="#1e1e1e" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+          {/* ── Right ear ── */}
+          <polygon points="94,66 120,3 142,82" fill="#111"/>
 
-          {/* ── Whiskers ─────────────────────────────────────────────── */}
-          <path d="M0,74  Q-6,70 -10,66" stroke="#555" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
-          <path d="M0,82  Q-8,80 -14,78" stroke="#555" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
-          <path d="M170,74 Q176,70 180,66" stroke="#555" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
-          <path d="M170,82 Q178,80 184,78" stroke="#555" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
+          {/* ── Head ── large circle centred below viewBox → peeking arc */}
+          <circle cx="80" cy="110" r="82" fill="#111"/>
 
-          {/* ── Eyes ─────────────────────────────────────────────────── */}
-          {/* white sclera */}
-          <circle cx={EL.cx} cy={EL.cy} r={EYE_R} fill="white"/>
-          <circle cx={ER.cx} cy={ER.cy} r={EYE_R} fill="white"/>
+          {/* ── Whiskers ── extend beyond SVG bounds (overflow:visible) */}
+          <line x1="4"   y1="68" x2="-20" y2="63" stroke="#555" strokeWidth="1.2" strokeLinecap="round"/>
+          <line x1="4"   y1="76" x2="-22" y2="75" stroke="#555" strokeWidth="1.2" strokeLinecap="round"/>
+          <line x1="156" y1="68" x2="180" y2="63" stroke="#555" strokeWidth="1.2" strokeLinecap="round"/>
+          <line x1="156" y1="76" x2="182" y2="75" stroke="#555" strokeWidth="1.2" strokeLinecap="round"/>
 
-          {/* pupils (moved via ref on mousemove) */}
-          <circle ref={lpRef} cx={EL.cx} cy={EL.cy} r={pr} fill="#111"/>
-          <circle ref={rpRef} cx={ER.cx} cy={ER.cy} r={pr} fill="#111"/>
+          {/* ── Left eye ── */}
+          <circle cx={EL.cx} cy={EL.cy} r={ER_W} fill="white"/>
+          <circle ref={lpRef}  cx={EL.cx} cy={EL.cy} r={pr}            fill="#111"/>
+          <circle ref={ls1Ref} cx={EL.cx + 6} cy={EL.cy - 6} r={pr * 0.33} fill="white"/>
 
-          {/* shine */}
-          <circle ref={ls1Ref} cx={EL.cx + 6} cy={EL.cy - 6} r={pr * 0.35} fill="white"/>
-          <circle ref={rs1Ref} cx={ER.cx + 6} cy={ER.cy - 6} r={pr * 0.35} fill="white"/>
+          {/* ── Right eye ── */}
+          <circle cx={ER.cx} cy={ER.cy} r={ER_W} fill="white"/>
+          <circle ref={rpRef}  cx={ER.cx} cy={ER.cy} r={pr}            fill="#111"/>
+          <circle ref={rs1Ref} cx={ER.cx + 6} cy={ER.cy - 6} r={pr * 0.33} fill="white"/>
 
-          {/* happy arc eyes overlay */}
+          {/* ── Happy: arc eyes ── */}
           {expr === 'happy' && <>
-            <path d={`M${EL.cx-EYE_R+2},${EL.cy+2} Q${EL.cx},${EL.cy-EYE_R+4} ${EL.cx+EYE_R-2},${EL.cy+2}`}
-              stroke="#111" strokeWidth="3.5" fill="white" strokeLinecap="round"/>
-            <path d={`M${ER.cx-EYE_R+2},${ER.cy+2} Q${ER.cx},${ER.cy-EYE_R+4} ${ER.cx+EYE_R-2},${ER.cy+2}`}
-              stroke="#111" strokeWidth="3.5" fill="white" strokeLinecap="round"/>
+            <path
+              d={`M${EL.cx - ER_W + 1},${EL.cy + 3} Q${EL.cx},${EL.cy - ER_W + 4} ${EL.cx + ER_W - 1},${EL.cy + 3}`}
+              stroke="#111" strokeWidth="4" fill="white" strokeLinecap="round"
+            />
+            <path
+              d={`M${ER.cx - ER_W + 1},${ER.cy + 3} Q${ER.cx},${ER.cy - ER_W + 4} ${ER.cx + ER_W - 1},${ER.cy + 3}`}
+              stroke="#111" strokeWidth="4" fill="white" strokeLinecap="round"
+            />
           </>}
         </svg>
       </div>
@@ -166,37 +132,31 @@ const css = `
   z-index: 9999;
   pointer-events: none;
   user-select: none;
-  animation: cat-peek-in .7s cubic-bezier(.34,1.46,.64,1) both;
+  animation: cat-in .65s cubic-bezier(.34,1.5,.64,1) both;
 }
-@keyframes cat-peek-in {
-  from { transform: translateY(80%); opacity: 0; }
-  to   { transform: translateY(0);   opacity: 1; }
+@keyframes cat-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
 }
 .cat-svg {
-  display: block;
-  overflow: visible;
-  filter: drop-shadow(0 -2px 8px rgba(0,0,0,.25));
-  animation: cat-idle 4s ease-in-out infinite;
+  filter: drop-shadow(0 -3px 6px rgba(0,0,0,.3));
+  animation: cat-bob 4s ease-in-out infinite;
 }
-@keyframes cat-idle {
+@keyframes cat-bob {
   0%,100% { transform: translateY(0); }
-  50%     { transform: translateY(-5px); }
+  50%     { transform: translateY(-4px); }
 }
-.cat-surprised {
-  animation: cat-shock .35s ease both !important;
+.cat-surprised { animation: cat-pop .3s ease both !important; }
+@keyframes cat-pop {
+  0%  { transform: translateY(0); }
+  40% { transform: translateY(-8px) scale(1.05); }
+  100%{ transform: translateY(0); }
 }
-@keyframes cat-shock {
-  0%   { transform: translateY(0); }
-  30%  { transform: translateY(-10px) scale(1.06); }
-  100% { transform: translateY(0); }
-}
-.cat-happy {
-  animation: cat-happy .45s ease both !important;
-}
-@keyframes cat-happy {
+.cat-happy { animation: cat-wag .5s ease both !important; }
+@keyframes cat-wag {
   0%   { transform: translateY(0) rotate(0deg); }
-  35%  { transform: translateY(-8px) rotate(-4deg); }
-  70%  { transform: translateY(-4px) rotate(3deg); }
+  30%  { transform: translateY(-6px) rotate(-5deg); }
+  65%  { transform: translateY(-3px) rotate(4deg); }
   100% { transform: translateY(0) rotate(0deg); }
 }
 `
