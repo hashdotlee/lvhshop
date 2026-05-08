@@ -461,7 +461,10 @@ export default function HomeClient() {
 
       {/* HEADER */}
       <header>
-        <div className="logo">leviethoang<span>.shop</span></div>
+        <div className="logo-wrap">
+          <div className="logo">leviethoang<span>.shop</span></div>
+          <div className="logo-tagline"><span className="tag-jp">🇯🇵 Săn hàng Nhật</span><span className="tag-sep">·</span><span className="tag-gen">Đồ dùng đại trà</span></div>
+        </div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           {isAdmin ? (
             <>
@@ -974,9 +977,14 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--te
 .item-code-icon{font-size:11px;color:#6b7fd4;opacity:0;transition:opacity .15s}
 
 /* HEADER */
-header{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
-.logo{font-size:16px;font-weight:600;letter-spacing:-.3px}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 32px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+.logo-wrap{display:flex;flex-direction:column;gap:2px}
+.logo{font-size:16px;font-weight:600;letter-spacing:-.3px;line-height:1.2}
 .logo span{color:var(--muted);font-weight:300}
+.logo-tagline{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.tag-jp{color:#c0392b;font-weight:500}
+.tag-sep{color:var(--border)}
+.tag-gen{color:var(--muted)}
 nav{display:flex;gap:4px}
 nav button{background:none;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--muted);transition:all .15s}
 nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
@@ -1208,6 +1216,7 @@ textarea::placeholder{color:#c0bdb5}
   .page-layout{grid-template-columns:200px 1fr}
 }
 @media(max-width:700px){
+  .logo-tagline{display:none}
   main{padding:16px}
   header{padding:12px 16px;flex-wrap:wrap;gap:8px}
   .page-layout{grid-template-columns:1fr}

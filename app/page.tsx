@@ -30,7 +30,7 @@ function buildItemListJsonLd(items: Item[]) {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: 'Danh sách sản phẩm mua bán — leviethoang.shop',
+    name: 'Hàng Nhật độc lạ & Hàng hoá đại trà — leviethoang.shop',
     url: siteUrl,
     numberOfItems: items.length,
     itemListElement: items.map((item, idx) => {
@@ -69,7 +69,10 @@ function buildOrganizationJsonLd() {
     '@type': 'Organization',
     name: 'leviethoang.shop',
     url: siteUrl,
-    description: 'Mua bán hàng cũ, hàng mới nhanh chóng với sự hỗ trợ của AI tại Việt Nam.',
+    description: 'Chuyên săn hàng Nhật độc lạ — đồ cũ Nhật Bản chất lượng cao, hàng nội địa Nhật hiếm có. Đồng thời có đa dạng hàng hoá đại trà phục vụ nhu cầu mua bán hàng ngày tại Việt Nam.',
+    slogan: 'Săn hàng Nhật độc lạ & Đồ dùng đại trà',
+    areaServed: { '@type': 'Country', name: 'Việt Nam' },
+    knowsAbout: ['Hàng Nhật', 'Đồ nội địa Nhật Bản', 'Hàng cũ chất lượng cao', 'Mua bán hàng hoá'],
     sameAs: [],
   }
 }
@@ -80,7 +83,7 @@ function buildWebSiteJsonLd() {
     '@type': 'WebSite',
     name: 'leviethoang.shop',
     url: siteUrl,
-    description: 'Mua bán hàng cũ, hàng mới nhanh chóng với sự hỗ trợ của AI.',
+    description: 'Chuyên săn hàng Nhật độc lạ và đa dạng hàng hoá đại trà tại Việt Nam.',
     potentialAction: {
       '@type': 'SearchAction',
       target: { '@type': 'EntryPoint', urlTemplate: `${siteUrl}/?q={search_term_string}` },
