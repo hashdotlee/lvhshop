@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Item } from '@/lib/supabase'
+import { compressToWebP } from '@/lib/compress'
 
 const CHOT_TOT  = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
 const FB_PAGE   = process.env.NEXT_PUBLIC_FB_PAGE_ID   ?? ''
@@ -21,29 +22,6 @@ function getImages(item: Item) {
   return []
 }
 
-async function compressToWebP(file: File, quality = 0.85, maxDim = 1920): Promise<File> {
-  return new Promise(resolve => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      let { width, height } = img
-      if (width > maxDim || height > maxDim) {
-        if (width >= height) { height = Math.round(height * maxDim / width); width = maxDim }
-        else { width = Math.round(width * maxDim / height); height = maxDim }
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width = width; canvas.height = height
-      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
-      canvas.toBlob(blob => {
-        if (!blob) { resolve(file); return }
-        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), { type: 'image/webp' }))
-      }, 'image/webp', quality)
-    }
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
-    img.src = url
-  })
-}
 
 // ── Lightbox ──────────────────────────────────────────────────────
 function Lightbox({ images, idx: startIdx, onClose }: { images: string[]; idx: number; onClose: () => void }) {
