@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import ItemDetailClient from './client'
 import type { Item } from '@/lib/supabase'
+import { buildProductJsonLd, buildSeoDescription, getCategory } from '@/lib/product-utils'
 
 function db() {
   return createClient(
@@ -27,25 +28,46 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 
   const images = item.images?.length ? item.images : item.image_url ? [item.image_url] : []
   const price = fmtVND(item.price)
-  const status = item.status === 'sold' ? ' · Đã bán' : item.status === 'incoming' ? ' · Sắp về' : ''
-  const desc = [item.description, `Giá: ${price}`, item.condition, item.location].filter(Boolean).join(' · ')
+  const statusLabel = item.status === 'sold' ? ' · Đã bán' : item.status === 'incoming' ? ' · Sắp về' : ''
+  const cat = getCategory(item)
+  const isJapanese = /nhật|japan/i.test([item.category, item.title, item.description].filter(Boolean).join(' '))
+
+  // Richer title: tên · tình trạng · giá · nguồn gốc
+  const titleParts = [item.title, item.condition, price + statusLabel]
+  if (isJapanese) titleParts.push('Hàng Nhật')
+  const title = titleParts.filter(Boolean).join(' · ')
+
+  const desc = buildSeoDescription(item)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
 
+  // Keywords: tên sản phẩm + danh mục + từ khóa Nhật nếu phù hợp
+  const keywords = [
+    item.title,
+    item.category,
+    item.condition,
+    cat.path.split(' > ').pop(),
+    isJapanese ? 'hàng Nhật' : null,
+    isJapanese ? 'đồ Nhật' : null,
+    item.location,
+    'leviethoang.shop',
+  ].filter(Boolean) as string[]
+
   return {
-    title: `${item.title} · ${price}${status}`,
+    title,
     description: desc,
+    keywords,
     openGraph: {
-      title: `${item.title} — ${price}${status}`,
+      title: `${item.title} — ${price}${statusLabel}`,
       description: desc,
       url: `${siteUrl}/item/${item.id}`,
       siteName: 'leviethoang.shop',
-      images: images.slice(0, 4).map(url => ({ url, width: 1200, height: 630 })),
+      images: images.slice(0, 4).map(url => ({ url, width: 1200, height: 630, alt: item.title })),
       type: 'website',
       locale: 'vi_VN',
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${item.title} — ${price}${status}`,
+      title: `${item.title} — ${price}${statusLabel}`,
       description: desc,
       images: images[0] ? [images[0]] : [],
     },
@@ -55,39 +77,12 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   }
 }
 
-function buildJsonLd(item: Item, siteUrl: string) {
-  const images = item.images?.length ? item.images : item.image_url ? [item.image_url] : []
-  const price = item.price ?? 0
-  const availability = item.status === 'sold'
-    ? 'https://schema.org/SoldOut'
-    : item.status === 'incoming'
-    ? 'https://schema.org/PreOrder'
-    : 'https://schema.org/InStock'
-
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: item.title,
-    description: item.description ?? undefined,
-    image: images,
-    url: `${siteUrl}/item/${item.id}`,
-    offers: {
-      '@type': 'Offer',
-      priceCurrency: 'VND',
-      price: price,
-      availability,
-      url: `${siteUrl}/item/${item.id}`,
-      seller: { '@type': 'Organization', name: 'leviethoang.shop', url: siteUrl },
-    },
-  }
-}
-
 export default async function ItemPage({ params }: { params: { id: string } }) {
   const item = await getItem(params.id)
   if (!item) notFound()
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
-  const jsonLd = buildJsonLd(item, siteUrl)
+  const jsonLd = buildProductJsonLd(item, siteUrl)
 
   return (
     <>

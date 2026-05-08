@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Item } from '@/lib/supabase'
 import HomeClient from './home-client'
+import { buildProductJsonLd, getCategory } from '@/lib/product-utils'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
 
@@ -21,11 +22,6 @@ async function getAvailableItems(): Promise<Item[]> {
   return (data ?? []) as Item[]
 }
 
-function fmtVND(v: number | null | undefined) {
-  if (!v) return undefined
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v)
-}
-
 function buildItemListJsonLd(items: Item[]) {
   return {
     '@context': 'https://schema.org',
@@ -34,8 +30,9 @@ function buildItemListJsonLd(items: Item[]) {
     url: siteUrl,
     numberOfItems: items.length,
     itemListElement: items.map((item, idx) => {
+      const cat = getCategory(item)
       const images = item.images?.length ? item.images : item.image_url ? [item.image_url] : []
-      const price = fmtVND(item.price)
+      const isJapanese = /nhật|japan/i.test([item.category, item.title, item.description].filter(Boolean).join(' '))
       return {
         '@type': 'ListItem',
         position: idx + 1,
@@ -46,15 +43,15 @@ function buildItemListJsonLd(items: Item[]) {
           description: item.description ?? undefined,
           image: images[0] ?? undefined,
           url: `${siteUrl}/item/${item.id}`,
-          ...(item.condition ? { additionalProperty: { '@type': 'PropertyValue', name: 'Tình trạng', value: item.condition } } : {}),
-          ...(item.location ? { areaServed: item.location } : {}),
+          sku: item.order_code,
+          category: cat.path,
+          ...(isJapanese ? { countryOfOrigin: { '@type': 'Country', name: 'Japan' } } : {}),
           offers: {
             '@type': 'Offer',
             priceCurrency: 'VND',
-            ...(item.price ? { price: item.price, priceSpecification: { '@type': 'PriceSpecification', price: item.price, priceCurrency: 'VND' } } : { priceSpecification: { '@type': 'PriceSpecification', description: 'Thương lượng' } }),
+            ...(item.price ? { price: item.price } : {}),
             availability: 'https://schema.org/InStock',
             url: `${siteUrl}/item/${item.id}`,
-            ...(price ? { description: price } : {}),
             seller: { '@type': 'Organization', name: 'leviethoang.shop', url: siteUrl },
           },
         },
@@ -69,7 +66,7 @@ function buildOrganizationJsonLd() {
     '@type': 'Organization',
     name: 'leviethoang.shop',
     url: siteUrl,
-    description: 'Chuyên săn hàng Nhật độc lạ — đồ cũ Nhật Bản chất lượng cao, hàng nội địa Nhật hiếm có. Đồng thời có đa dạng hàng hoá đại trà phục vụ nhu cầu mua bán hàng ngày tại Việt Nam.',
+    description: 'Chuyên săn hàng Nhật độc lạ — đồ cũ Nhật Bản chất lượng cao, hàng nội địa Nhật hiếm có. Hàng chọn lọc, giá chuẩn tại Việt Nam.',
     slogan: 'Săn hàng Nhật độc lạ — Hàng chọn lọc · Giá chuẩn',
     areaServed: { '@type': 'Country', name: 'Việt Nam' },
     knowsAbout: ['Hàng Nhật', 'Đồ nội địa Nhật Bản', 'Hàng cũ chất lượng cao', 'Mua bán hàng hoá'],
