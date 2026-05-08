@@ -97,8 +97,41 @@ function Lightbox({ images, startIdx, onClose }: { images: string[]; startIdx: n
   )
 }
 
+type FontSize = 'sm' | 'md' | 'lg'
+
 // ─── Main ────────────────────────────────────────────────────────
 export default function HomeClient() {
+  const [fontSize, setFontSize] = useState<FontSize>('md')
+  const [darkMode, setDarkMode] = useState(false)
+
+  useEffect(() => {
+    const fs = (localStorage.getItem('lvh_fs') ?? 'md') as FontSize
+    const dm = localStorage.getItem('lvh_dark') === '1'
+    setFontSize(fs)
+    setDarkMode(dm)
+    applyDisplay(fs, dm)
+  }, [])
+
+  function applyDisplay(fs: FontSize, dm: boolean) {
+    const html = document.documentElement
+    html.classList.toggle('dark', dm)
+    html.classList.remove('fs-sm', 'fs-md', 'fs-lg')
+    html.classList.add(`fs-${fs}`)
+  }
+  function cycleFont(dir: 1 | -1) {
+    const order: FontSize[] = ['sm', 'md', 'lg']
+    const next = order[Math.max(0, Math.min(2, order.indexOf(fontSize) + dir))]
+    setFontSize(next)
+    localStorage.setItem('lvh_fs', next)
+    applyDisplay(next, darkMode)
+  }
+  function toggleDark() {
+    const next = !darkMode
+    setDarkMode(next)
+    localStorage.setItem('lvh_dark', next ? '1' : '0')
+    applyDisplay(fontSize, next)
+  }
+
   const [isAdmin, setIsAdmin]         = useState(false)
   const [showAuth, setShowAuth]       = useState(false)
   const [authInput, setAuthInput]     = useState('')
@@ -466,6 +499,14 @@ export default function HomeClient() {
           <div className="logo-tagline"><span className="tag-jp">🇯🇵 Săn hàng Nhật</span><span className="tag-sep">—</span><span className="tag-gen">Hàng chọn lọc · Giá chuẩn</span></div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
+          {/* display controls */}
+          <div className="disp-ctrl">
+            <button className="disp-btn" onClick={()=>cycleFont(-1)} disabled={fontSize==='sm'} title="Giảm cỡ chữ">A−</button>
+            <button className="disp-btn disp-btn-a" onClick={()=>cycleFont(1)}  disabled={fontSize==='lg'} title="Tăng cỡ chữ">A+</button>
+            <button className="disp-btn disp-btn-theme" onClick={toggleDark} title={darkMode?'Chế độ sáng':'Chế độ tối'}>
+              {darkMode ? '☀️' : '🌙'}
+            </button>
+          </div>
           {isAdmin ? (
             <>
               <button className={`tab-btn${adminView==='listing'?' tab-active':''}`} onClick={()=>setAdminView('listing')}>Tin đăng</button>
@@ -950,6 +991,13 @@ export default function HomeClient() {
 const styles = `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#f9f8f6;--surface:#fff;--border:#e8e6e1;--text:#1a1916;--muted:#8c8982;--accent:#1a1916;--tag-bg:#f0efe9;--green:#2a7a4b;--green-bg:#edf7f2;--red:#c0392b;--fb:#1877f2;--ct:#e65c00;--sold:#f5f4f2}
+:root.dark{--bg:#0f0f0e;--surface:#1a1917;--border:#2e2d2a;--text:#f0efe9;--muted:#6b6a66;--accent:#f0efe9;--tag-bg:#232320;--green:#3da06b;--green-bg:#162b20;--red:#e05252;--sold:#1a1917}
+:root.dark input,:root.dark textarea,:root.dark select{background:var(--tag-bg);color:var(--text);border-color:var(--border)}
+:root.dark input::placeholder,:root.dark textarea::placeholder{color:var(--muted)}
+:root.dark img{opacity:.92}
+:root.fs-sm body{font-size:12px}
+:root.fs-md body{font-size:14px}
+:root.fs-lg body{font-size:16px}
 body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6}
 
 /* AUTH */
@@ -989,6 +1037,12 @@ nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 .admin-dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
 .logout-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted);padding:2px 5px}
 .logout-btn:hover{color:var(--red)}
+.disp-ctrl{display:flex;align-items:center;gap:2px;background:var(--tag-bg);border:1px solid var(--border);border-radius:8px;padding:2px 4px}
+.disp-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;color:var(--muted);padding:3px 6px;border-radius:5px;transition:all .15s;line-height:1}
+.disp-btn:hover:not(:disabled){background:var(--surface);color:var(--text)}
+.disp-btn:disabled{opacity:.35;cursor:default}
+.disp-btn-a{font-size:13px}
+.disp-btn-theme{font-size:14px;padding:3px 5px}
 
 /* LAYOUT - full width */
 main{width:100%;padding:24px 28px}
