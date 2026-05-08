@@ -108,7 +108,7 @@ export default function HomeClient() {
   const [adminView, setAdminView]     = useState<'listing'|'customers'>('listing')
 
   const [items, setItems]             = useState<Item[]>([])
-  const [typeFilter, setTypeFilter]   = useState<'all'|'ban'|'mua'>('all')
+  const [typeFilter, setTypeFilter]   = useState<'ban'|'mua'>('ban')
   const [condFilter, setCondFilter]   = useState<'all'|'Mới'|'Cũ'>('all')
   const [statusFilter, setStatusFilter] = useState<'available'|'sold'|'incoming'|'all'>('available')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
@@ -413,7 +413,7 @@ export default function HomeClient() {
   const categories = Array.from(new Set(items.map(i => i.category).filter(Boolean))) as string[]
 
   const filtered = items.filter(i => {
-    const typeOk = typeFilter==='all' || i.type===typeFilter
+    const typeOk = i.type===typeFilter
     const condOk = condFilter==='all' || i.condition.startsWith(condFilter)
     const statOk = statusFilter==='all' ? true
       : statusFilter==='available' ? (i.status==='available' || i.status==='incoming')
@@ -478,9 +478,8 @@ export default function HomeClient() {
             </>
           ) : (
             <nav style={{display:'flex',alignItems:'center',gap:4}}>
-              {(['all','ban','mua'] as const).map((v,i)=>(
-                <button key={v} className={typeFilter===v?'active':''} onClick={()=>setTypeFilter(v)}>{['Tất cả','Bán','Tìm mua'][i]}</button>
-              ))}
+              <button className={typeFilter==='ban'?'active':''} onClick={()=>setTypeFilter('ban')}>🏷️ Bán</button>
+              <button className={typeFilter==='mua'?'active':''} onClick={()=>setTypeFilter('mua')}>🔍 Tìm mua</button>
               <a href="/blog" className="nav-blog-link">Blog</a>
             </nav>
           )}
@@ -669,14 +668,6 @@ export default function HomeClient() {
                   {searchQuery && <button className="sidebar-search-clear" onClick={()=>setSearchQuery('')}>✕</button>}
                 </div>
                 <div className="sidebar-section">
-                  <div className="sidebar-section-title">Loại tin</div>
-                  {(['all','ban','mua'] as const).map((v,i)=>(
-                    <button key={v} className={`sidebar-chip${typeFilter===v?' active':''}`} onClick={()=>setTypeFilter(v)}>
-                      {['🏪 Tất cả','🏷️ Bán','🔍 Tìm mua'][i]}
-                    </button>
-                  ))}
-                </div>
-                <div className="sidebar-section">
                   <div className="sidebar-section-title">Tình trạng</div>
                   <button className={`sidebar-chip${condFilter==='all'?' active':''}`} onClick={()=>setCondFilter('all')}>Tất cả</button>
                   <button className={`sidebar-chip${condFilter==='Mới'?' active':''}`} onClick={()=>setCondFilter('Mới')}>✨ Mới</button>
@@ -709,7 +700,7 @@ export default function HomeClient() {
               <div className="content-area">
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,gap:12}}>
                   <div className="section-title" style={{margin:0,flex:1}}>
-                    {{ all:'Tất cả tin', ban:'Đang rao bán', mua:'Cần tìm mua' }[typeFilter]}
+                    {typeFilter==='ban' ? 'Đang rao bán' : 'Cần tìm mua'}
                     <span style={{fontWeight:400,fontSize:12,textTransform:'none',letterSpacing:0,color:'var(--muted)',marginLeft:6}}>{filtered.length} tin</span>
                   </div>
                   {!isAdmin && (
