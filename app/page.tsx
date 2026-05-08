@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Item, Customer, Staff } from '@/lib/supabase'
+import { compressToWebP } from '@/lib/compress'
 
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
 const CHOT_TOT   = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
@@ -225,19 +226,21 @@ export default function Home() {
   }
 
   // ── images ────────────────────────────────────────────────────
-  function handleImgs(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []).filter(f => f.size <= 8*1024*1024)
-    if (files.length < (e.target.files?.length ?? 0)) showToast('Một số ảnh vượt 8MB, đã bỏ qua')
-    const newFiles = [...imgFiles, ...files].slice(0, 8)
+  async function handleImgs(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = Array.from(e.target.files ?? []).filter(f => f.size <= 8*1024*1024)
+    if (raw.length < (e.target.files?.length ?? 0)) showToast('Một số ảnh vượt 8MB, đã bỏ qua')
+    const compressed = await Promise.all(raw.map(f => compressToWebP(f)))
+    const newFiles = [...imgFiles, ...compressed].slice(0, 8)
     setImgFiles(newFiles)
     setImgPreviews(newFiles.map(f => URL.createObjectURL(f)))
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  function addImageFiles(newFiles: File[]) {
+  async function addImageFiles(newFiles: File[]) {
     const valid = newFiles.filter(f => f.type.startsWith('image/') && f.size <= 8*1024*1024)
     if (!valid.length) return
-    const merged = [...imgFiles, ...valid].slice(0, 8)
+    const compressed = await Promise.all(valid.map(f => compressToWebP(f)))
+    const merged = [...imgFiles, ...compressed].slice(0, 8)
     setImgFiles(merged)
     setImgPreviews(merged.map(f => URL.createObjectURL(f)))
   }
