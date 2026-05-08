@@ -98,6 +98,8 @@ function Lightbox({ images, startIdx, onClose }: { images: string[]; startIdx: n
 }
 
 type FontSize = 'sm' | 'md' | 'lg'
+const FS_ZOOM: Record<FontSize, string> = { sm: '0.9', md: '1', lg: '1.12' }
+const FS_LABEL: Record<FontSize, string> = { sm: 'Nhỏ', md: 'Vừa', lg: 'Lớn' }
 
 // ─── Main ────────────────────────────────────────────────────────
 export default function HomeClient() {
@@ -115,15 +117,12 @@ export default function HomeClient() {
   function applyDisplay(fs: FontSize, dm: boolean) {
     const html = document.documentElement
     html.classList.toggle('dark', dm)
-    html.classList.remove('fs-sm', 'fs-md', 'fs-lg')
-    html.classList.add(`fs-${fs}`)
+    html.style.zoom = FS_ZOOM[fs]
   }
-  function cycleFont(dir: 1 | -1) {
-    const order: FontSize[] = ['sm', 'md', 'lg']
-    const next = order[Math.max(0, Math.min(2, order.indexOf(fontSize) + dir))]
-    setFontSize(next)
-    localStorage.setItem('lvh_fs', next)
-    applyDisplay(next, darkMode)
+  function pickFont(fs: FontSize) {
+    setFontSize(fs)
+    localStorage.setItem('lvh_fs', fs)
+    applyDisplay(fs, darkMode)
   }
   function toggleDark() {
     const next = !darkMode
@@ -501,8 +500,12 @@ export default function HomeClient() {
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           {/* display controls */}
           <div className="disp-ctrl">
-            <button className="disp-btn" onClick={()=>cycleFont(-1)} disabled={fontSize==='sm'} title="Giảm cỡ chữ">A−</button>
-            <button className="disp-btn disp-btn-a" onClick={()=>cycleFont(1)}  disabled={fontSize==='lg'} title="Tăng cỡ chữ">A+</button>
+            {(['sm','md','lg'] as FontSize[]).map(fs => (
+              <button key={fs} className={`disp-btn${fontSize===fs?' disp-active':''}`} onClick={()=>pickFont(fs)}>
+                {FS_LABEL[fs]}
+              </button>
+            ))}
+            <span className="disp-sep"/>
             <button className="disp-btn disp-btn-theme" onClick={toggleDark} title={darkMode?'Chế độ sáng':'Chế độ tối'}>
               {darkMode ? '☀️' : '🌙'}
             </button>
@@ -995,9 +998,6 @@ const styles = `
 :root.dark input,:root.dark textarea,:root.dark select{background:var(--tag-bg);color:var(--text);border-color:var(--border)}
 :root.dark input::placeholder,:root.dark textarea::placeholder{color:var(--muted)}
 :root.dark img{opacity:.92}
-:root.fs-sm body{font-size:12px}
-:root.fs-md body{font-size:14px}
-:root.fs-lg body{font-size:16px}
 body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6}
 
 /* AUTH */
@@ -1038,10 +1038,10 @@ nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 .logout-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted);padding:2px 5px}
 .logout-btn:hover{color:var(--red)}
 .disp-ctrl{display:flex;align-items:center;gap:2px;background:var(--tag-bg);border:1px solid var(--border);border-radius:8px;padding:2px 4px}
-.disp-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:600;color:var(--muted);padding:3px 6px;border-radius:5px;transition:all .15s;line-height:1}
-.disp-btn:hover:not(:disabled){background:var(--surface);color:var(--text)}
-.disp-btn:disabled{opacity:.35;cursor:default}
-.disp-btn-a{font-size:13px}
+.disp-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:400;color:var(--muted);padding:3px 8px;border-radius:5px;transition:all .15s;line-height:1}
+.disp-btn:hover{background:var(--surface);color:var(--text)}
+.disp-active{background:var(--surface)!important;color:var(--text)!important;font-weight:600}
+.disp-sep{width:1px;height:14px;background:var(--border);margin:0 2px}
 .disp-btn-theme{font-size:14px;padding:3px 5px}
 
 /* LAYOUT - full width */
