@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     .from('items')
     .insert({
       title, description,
-      price: price ? Number(price) : null,
+      price: price !== undefined && price !== null && price !== '' ? Number(price) || null : null,
       condition: condition || 'Mới',
       category, type, phone, location,
       images: imgs,
@@ -67,7 +67,7 @@ export async function PUT(req: NextRequest) {
   const imgs: string[] = Array.isArray(images) ? images : []
   const updateData: Record<string, unknown> = {
     title, description,
-    price: price ? Number(price) : null,
+    price: price !== undefined && price !== null && price !== '' ? Number(price) || null : null,
     condition: condition || 'Mới',
     category, type, phone, location,
     images: imgs,
