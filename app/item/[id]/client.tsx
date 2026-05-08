@@ -21,6 +21,30 @@ function getImages(item: Item) {
   return []
 }
 
+async function compressToWebP(file: File, quality = 0.85, maxDim = 1920): Promise<File> {
+  return new Promise(resolve => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width > maxDim || height > maxDim) {
+        if (width >= height) { height = Math.round(height * maxDim / width); width = maxDim }
+        else { width = Math.round(width * maxDim / height); height = maxDim }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width; canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(blob => {
+        if (!blob) { resolve(file); return }
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), { type: 'image/webp' }))
+      }, 'image/webp', quality)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+    img.src = url
+  })
+}
+
 // ── Lightbox ──────────────────────────────────────────────────────
 function Lightbox({ images, idx: startIdx, onClose }: { images: string[]; idx: number; onClose: () => void }) {
   const [idx, setIdx] = useState(startIdx)
@@ -194,32 +218,27 @@ export default function ItemDetailClient({ item }: { item: Item }) {
     setEditOpen(true)
   }
 
-  function addNewImages(files: File[]) {
+  const addNewImages = useCallback(async (files: File[]) => {
     const total = keptImages.length + newImgFiles.length
     const arr = files.slice(0, 8 - total)
     if (!arr.length) return
-    setNewImgFiles(prev => [...prev, ...arr])
-    setNewImgPreviews(prev => [...prev, ...arr.map(f => URL.createObjectURL(f))])
-  }
+    const compressed = await Promise.all(arr.map(f => compressToWebP(f)))
+    setNewImgFiles(prev => [...prev, ...compressed])
+    setNewImgPreviews(prev => [...prev, ...compressed.map(f => URL.createObjectURL(f))])
+  }, [keptImages.length, newImgFiles.length])
 
   useEffect(() => {
     if (!editOpen) return
     function onPaste(e: ClipboardEvent) {
       const items = Array.from(e.clipboardData?.items ?? [])
-      const imgItems = items.filter(it => it.type.startsWith('image/'))
-      if (!imgItems.length) return
+      const imgFiles = items.filter(it => it.type.startsWith('image/')).map(it => it.getAsFile()).filter((f): f is File => f !== null)
+      if (!imgFiles.length) return
       e.preventDefault()
-      const files = imgItems.map(it => it.getAsFile()).filter((f): f is File => f !== null)
-      if (!files.length) return
-      const total = keptImages.length + newImgFiles.length
-      const arr = files.slice(0, 8 - total)
-      if (!arr.length) return
-      setNewImgFiles(prev => [...prev, ...arr])
-      setNewImgPreviews(prev => [...prev, ...arr.map(f => URL.createObjectURL(f))])
+      addNewImages(imgFiles)
     }
     document.addEventListener('paste', onPaste)
     return () => document.removeEventListener('paste', onPaste)
-  }, [editOpen, keptImages.length, newImgFiles.length])
+  }, [editOpen, addNewImages])
 
   function removeKeptImage(idx: number) {
     setKeptImages(prev => prev.filter((_, i) => i !== idx))
