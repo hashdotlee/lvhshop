@@ -161,6 +161,7 @@ export function buildProductJsonLd(item: Item, siteUrl: string) {
         name: 'leviethoang.shop',
       },
     },
+    brand: { '@type': 'Brand', name: 'leviethoang.shop' },
     offers: {
       '@type': 'Offer',
       priceCurrency: 'VND',
@@ -169,7 +170,43 @@ export function buildProductJsonLd(item: Item, siteUrl: string) {
       url: `${siteUrl}/item/${item.id}`,
       ...(item.condition ? { itemCondition: getConditionSchema(item.condition) } : {}),
       seller: { '@type': 'Organization', name: 'leviethoang.shop', url: siteUrl },
-      ...(item.price ? { hasMerchantReturnPolicy: { '@type': 'MerchantReturnPolicy', applicableCountry: 'VN', returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow' } } : {}),
+      shippingDetails: {
+        '@type': 'OfferShippingDetails',
+        shippingRate: {
+          '@type': 'MonetaryAmount',
+          value: '0',
+          currency: 'VND',
+        },
+        shippingDestination: {
+          '@type': 'DefinedRegion',
+          addressCountry: 'VN',
+        },
+        deliveryTime: {
+          '@type': 'ShippingDeliveryTime',
+          handlingTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 0,
+            maxValue: 1,
+            unitCode: 'DAY',
+          },
+          transitTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 1,
+            maxValue: 3,
+            unitCode: 'DAY',
+          },
+        },
+      },
+      ...(item.price ? {
+        hasMerchantReturnPolicy: {
+          '@type': 'MerchantReturnPolicy',
+          applicableCountry: 'VN',
+          returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+          merchantReturnDays: 3,
+          returnMethod: 'https://schema.org/ReturnByMail',
+          returnFees: 'https://schema.org/FreeReturn',
+        },
+      } : {}),
     },
   }
 }
