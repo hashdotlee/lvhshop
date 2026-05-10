@@ -38,13 +38,13 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       locale: 'vi_VN',
       publishedTime: post.created_at,
       modifiedTime: post.updated_at,
-      images: post.cover_image ? [{ url: post.cover_image, width: 1200, height: 630 }] : [],
+      images: [{ url: post.cover_image ?? `${siteUrl}/og-default.png`, width: 1200, height: 630 }],
     },
     twitter: {
       card: 'summary_large_image',
       title: post.title,
       description: post.excerpt ?? undefined,
-      images: post.cover_image ? [post.cover_image] : [],
+      images: [post.cover_image ?? `${siteUrl}/og-default.png`],
     },
     alternates: { canonical: `${siteUrl}/blog/${post.slug}` },
   }
