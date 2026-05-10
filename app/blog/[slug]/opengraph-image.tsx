@@ -20,28 +20,12 @@ async function fetchPost(slug: string) {
   }
 }
 
-async function toDataUrl(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url)
-    if (!res.ok) return null
-    const buf = await res.arrayBuffer()
-    const bytes = new Uint8Array(buf)
-    let binary = ''
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-    const b64 = btoa(binary)
-    const mime = res.headers.get('content-type') ?? 'image/jpeg'
-    return `data:${mime};base64,${b64}`
-  } catch {
-    return null
-  }
-}
-
 export default async function Image({ params }: { params: { slug: string } }) {
   const post = await fetchPost(params.slug)
 
   const title: string = post?.title ?? 'Blog'
   const excerpt: string = post?.excerpt ?? 'Kinh nghiệm mua bán, thủ thuật và cập nhật mới nhất'
-  const coverData = post?.cover_image ? await toDataUrl(post.cover_image) : null
+  const cover: string | null = post?.cover_image ?? null
 
   return new ImageResponse(
     (
@@ -55,10 +39,10 @@ export default async function Image({ params }: { params: { slug: string } }) {
           overflow: 'hidden',
         }}
       >
-        {coverData ? (
+        {cover ? (
           <div style={{ width: 630, height: 630, flexShrink: 0, display: 'flex', overflow: 'hidden' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={coverData} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
         ) : null}
 
@@ -68,7 +52,7 @@ export default async function Image({ params }: { params: { slug: string } }) {
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            padding: coverData ? '48px 52px' : '60px 80px',
+            padding: cover ? '48px 52px' : '60px 80px',
             gap: 16,
           }}
         >
@@ -78,7 +62,7 @@ export default async function Image({ params }: { params: { slug: string } }) {
           <div
             style={{
               display: 'flex',
-              fontSize: coverData ? 36 : 48,
+              fontSize: cover ? 36 : 48,
               fontWeight: 700,
               color: '#f0efe9',
               fontFamily: 'sans-serif',

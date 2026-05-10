@@ -20,22 +20,6 @@ async function fetchItem(id: string) {
   }
 }
 
-async function toDataUrl(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url)
-    if (!res.ok) return null
-    const buf = await res.arrayBuffer()
-    const bytes = new Uint8Array(buf)
-    let binary = ''
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-    const b64 = btoa(binary)
-    const mime = res.headers.get('content-type') ?? 'image/jpeg'
-    return `data:${mime};base64,${b64}`
-  } catch {
-    return null
-  }
-}
-
 function fmtVND(v: number | null | undefined) {
   if (!v) return 'Thương lượng'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v)
@@ -45,8 +29,7 @@ export default async function Image({ params }: { params: { id: string } }) {
   const item = await fetchItem(params.id)
 
   const rawImgs: string[] = item?.images?.length ? item.images : item?.image_url ? [item.image_url] : []
-  const photoUrl = rawImgs.find((u: unknown) => typeof u === 'string' && /^https?:\/\//i.test(u)) ?? null
-  const photoData = photoUrl ? await toDataUrl(photoUrl) : null
+  const photo: string | null = rawImgs.find((u: unknown) => typeof u === 'string' && /^https?:\/\//i.test(u as string)) ?? null
 
   const title: string = item?.title ?? 'leviethoang.shop'
   const price: string = fmtVND(item?.price)
@@ -64,52 +47,30 @@ export default async function Image({ params }: { params: { id: string } }) {
           overflow: 'hidden',
         }}
       >
-        {/* Product photo */}
-        {photoData ? (
-          <div
-            style={{
-              width: 630,
-              height: 630,
-              flexShrink: 0,
-              display: 'flex',
-              overflow: 'hidden',
-            }}
-          >
+        {photo ? (
+          <div style={{ width: 630, height: 630, flexShrink: 0, display: 'flex', overflow: 'hidden' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photoData}
-              alt={title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
+            <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
         ) : null}
 
-        {/* Text panel */}
         <div
           style={{
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            padding: photoData ? '48px 52px' : '60px 80px',
+            padding: photo ? '48px 52px' : '60px 80px',
             gap: 16,
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              fontSize: 18,
-              color: '#8c8982',
-              fontFamily: 'sans-serif',
-              letterSpacing: 0.5,
-            }}
-          >
+          <div style={{ display: 'flex', fontSize: 18, color: '#8c8982', fontFamily: 'sans-serif' }}>
             leviethoang.shop
           </div>
           <div
             style={{
               display: 'flex',
-              fontSize: photoData ? 36 : 48,
+              fontSize: photo ? 36 : 48,
               fontWeight: 700,
               color: '#f0efe9',
               fontFamily: 'sans-serif',
@@ -120,27 +81,11 @@ export default async function Image({ params }: { params: { id: string } }) {
             {title}
           </div>
           {condition ? (
-            <div
-              style={{
-                display: 'flex',
-                fontSize: 20,
-                color: '#8c8982',
-                fontFamily: 'sans-serif',
-              }}
-            >
+            <div style={{ display: 'flex', fontSize: 20, color: '#8c8982', fontFamily: 'sans-serif' }}>
               {condition}
             </div>
           ) : null}
-          <div
-            style={{
-              display: 'flex',
-              fontSize: 28,
-              fontWeight: 600,
-              color: '#f0efe9',
-              fontFamily: 'sans-serif',
-              marginTop: 8,
-            }}
-          >
+          <div style={{ display: 'flex', fontSize: 28, fontWeight: 600, color: '#f0efe9', fontFamily: 'sans-serif', marginTop: 8 }}>
             {price}
           </div>
         </div>

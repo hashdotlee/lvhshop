@@ -122,6 +122,15 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
 
         <div className="post-back">
           <Link href="/blog" className="back-link">← Xem tất cả bài viết</Link>
+          <a
+            href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${siteUrl}/blog/${post.slug}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="fb-share-link"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.994 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            Chia sẻ lên Facebook
+          </a>
         </div>
       </main>
     </>
@@ -160,8 +169,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:14p
 .post-content pre{background:#1a1916;color:#f0efe9;padding:16px;border-radius:10px;overflow-x:auto;margin:1em 0}
 .post-content pre code{background:none;padding:0;color:inherit}
 .post-content hr{border:none;border-top:1px solid var(--border);margin:2em 0}
-.post-back{margin-top:24px}
+.post-back{margin-top:24px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .back-link{font-size:14px;color:var(--muted);text-decoration:none;padding:8px 12px;border-radius:7px;transition:background .15s}
 .back-link:hover{background:var(--surface)}
+.fb-share-link{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:#1877f2;text-decoration:none;padding:8px 14px;border-radius:7px;border:1px solid #1877f2;transition:background .15s}
+.fb-share-link:hover{background:#f0f4ff}
 @media(max-width:600px){.post-main{padding:16px}.post-header{padding:20px 20px 16px}.post-content{padding:0 20px 24px}.post-title{font-size:22px}.post-cover{height:200px}}
 `
