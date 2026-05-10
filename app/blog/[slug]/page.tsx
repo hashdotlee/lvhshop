@@ -38,15 +38,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       locale: 'vi_VN',
       publishedTime: post.created_at,
       modifiedTime: post.updated_at,
-      ...(post.cover_image
-        ? { images: [{ url: post.cover_image, alt: post.title }] }
-        : {}),
     },
     twitter: {
       card: 'summary_large_image',
       title: post.title,
       description: post.excerpt ?? undefined,
-      ...(post.cover_image ? { images: [post.cover_image] } : {}),
     },
     alternates: { canonical: `${siteUrl}/blog/${post.slug}` },
   }
