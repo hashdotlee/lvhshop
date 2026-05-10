@@ -15,13 +15,11 @@ export const metadata: Metadata = {
     siteName: 'leviethoang.shop',
     type: 'website',
     locale: 'vi_VN',
-    images: [{ url: `${siteUrl}/og-default.png`, width: 1200, height: 630, alt: 'Blog · leviethoang.shop' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Blog · leviethoang.shop',
     description: 'Bài viết, kinh nghiệm mua bán, thủ thuật và cập nhật từ leviethoang.shop.',
-    images: [`${siteUrl}/og-default.png`],
   },
   alternates: { canonical: `${siteUrl}/blog` },
 }
