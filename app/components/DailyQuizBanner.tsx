@@ -48,9 +48,12 @@ export default function DailyQuizBanner() {
     if (savedAnswer) { setDismissed(true); return }
 
     fetch('/api/game/quiz/daily')
-      .then(r => r.ok ? r.json() : null)
+      .then(r => r.json())
       .then(data => {
-        if (!data || data.error) return
+        if (!data || data.error) {
+          console.debug('[QuizBanner] no quiz:', data)
+          return
+        }
         setQuiz(data)
         setDismissed(false)
         requestAnimationFrame(() => setVisible(true))
