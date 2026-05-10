@@ -62,11 +62,13 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
       siteName: 'leviethoang.shop',
       type: 'website',
       locale: 'vi_VN',
+      images: [{ url: `${siteUrl}/item/${item.id}/opengraph-image`, width: 1200, height: 630, alt: item.title }],
     },
     twitter: {
       card: 'summary_large_image',
       title: `${item.title} — ${price}${statusLabel}`,
       description: desc,
+      images: [`${siteUrl}/item/${item.id}/opengraph-image`],
     },
     alternates: {
       canonical: `${siteUrl}/item/${item.id}`,
