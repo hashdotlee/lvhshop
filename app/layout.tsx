@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import GoogleAnalytics from './components/GoogleAnalytics'
+import GoogleAdSense from './components/GoogleAdSense'
 import FacebookPixel from './components/FacebookPixel'
 import CatChaser from './components/CatChaser'
 import ConstructionBanner from './components/ConstructionBanner'
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ConstructionBanner />
         <GoogleAnalytics />
+        <GoogleAdSense />
         <FacebookPixel />
         <CatChaser />
         {children}
