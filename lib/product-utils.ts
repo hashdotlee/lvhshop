@@ -1,5 +1,68 @@
 import type { Item } from '@/lib/supabase'
 
+// ── Brand detection from item title / category ────────────────────────────────
+// Maps lowercase keyword → canonical brand name for Schema.org
+const BRAND_KEYWORDS: [string, string][] = [
+  // Điện tử Nhật
+  ['sony', 'Sony'],
+  ['panasonic', 'Panasonic'],
+  ['national', 'National'],
+  ['sharp', 'Sharp'],
+  ['toshiba', 'Toshiba'],
+  ['hitachi', 'Hitachi'],
+  ['sanyo', 'Sanyo'],
+  ['jvc', 'JVC'],
+  ['victor', 'Victor'],
+  ['pioneer', 'Pioneer'],
+  ['kenwood', 'Kenwood'],
+  ['sansui', 'Sansui'],
+  ['akai', 'Akai'],
+  ['aiwa', 'Aiwa'],
+  ['denon', 'Denon'],
+  ['onkyo', 'Onkyo'],
+  ['yamaha', 'Yamaha'],
+  ['technics', 'Technics'],
+  ['luxman', 'Luxman'],
+  ['marantz', 'Marantz'],
+  // Máy ảnh
+  ['canon', 'Canon'],
+  ['nikon', 'Nikon'],
+  ['olympus', 'Olympus'],
+  ['pentax', 'Pentax'],
+  ['minolta', 'Minolta'],
+  ['fujifilm', 'Fujifilm'],
+  ['fuji', 'Fuji'],
+  ['contax', 'Contax'],
+  ['leica', 'Leica'],
+  ['ricoh', 'Ricoh'],
+  // Xe & vận tải
+  ['toyota', 'Toyota'],
+  ['honda', 'Honda'],
+  ['suzuki', 'Suzuki'],
+  ['kawasaki', 'Kawasaki'],
+  ['yamaha', 'Yamaha'],
+  // Công nghệ khác
+  ['apple', 'Apple'],
+  ['samsung', 'Samsung'],
+  ['lg', 'LG'],
+  ['nintendo', 'Nintendo'],
+  ['sega', 'Sega'],
+  ['casio', 'Casio'],
+  ['seiko', 'Seiko'],
+  ['citizen', 'Citizen'],
+]
+
+export function detectBrand(item: Item): string | null {
+  const haystack = [item.title, item.category, item.description]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  for (const [keyword, brand] of BRAND_KEYWORDS) {
+    if (haystack.includes(keyword)) return brand
+  }
+  return null
+}
+
 // ── Shop aggregate rating (update as real reviews accumulate) ─────────────────
 const SHOP_RATING = {
   ratingValue: '4.8',
@@ -111,6 +174,7 @@ export function buildProductJsonLd(item: Item, siteUrl: string) {
 
   const cat = getCategory(item)
   const isJapanese = /nhật|japan/i.test([item.category, item.title, item.description].filter(Boolean).join(' '))
+  const brand = detectBrand(item)
 
   const additionalProps: object[] = []
   if (item.condition) {
@@ -161,7 +225,7 @@ export function buildProductJsonLd(item: Item, siteUrl: string) {
         name: 'leviethoang.shop',
       },
     },
-    brand: { '@type': 'Brand', name: 'leviethoang.shop' },
+    ...(brand ? { brand: { '@type': 'Brand', name: brand } } : {}),
     offers: {
       '@type': 'Offer',
       priceCurrency: 'VND',
