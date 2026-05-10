@@ -30,9 +30,7 @@ function seededShuffle<T>(arr: T[], seed: string): T[] {
 }
 
 function todayVN() {
-  const now = new Date()
-  const vn = new Date(now.getTime() + (7 * 60 - now.getTimezoneOffset()) * 60000)
-  return vn.toISOString().split('T')[0]
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())
 }
 
 export default function DailyQuizBanner() {

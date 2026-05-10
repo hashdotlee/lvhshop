@@ -36,10 +36,7 @@ function seededShuffle<T>(arr: T[], seed: string): T[] {
 }
 
 function todayVN() {
-  const now = new Date()
-  const offset = 7 * 60
-  const vn = new Date(now.getTime() + (offset - now.getTimezoneOffset()) * 60000)
-  return vn.toISOString().split('T')[0]
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())
 }
 
 function fmtDate(iso: string) {
