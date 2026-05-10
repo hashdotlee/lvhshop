@@ -3,7 +3,6 @@ import GoogleAnalytics from './components/GoogleAnalytics'
 import GoogleAdSense from './components/GoogleAdSense'
 import FacebookPixel from './components/FacebookPixel'
 import CatChaser from './components/CatChaser'
-import ConstructionBanner from './components/ConstructionBanner'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
 
@@ -50,7 +49,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <ConstructionBanner />
         <GoogleAnalytics />
         <GoogleAdSense />
         <FacebookPixel />
