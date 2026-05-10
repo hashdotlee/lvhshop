@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Item, Customer, Staff } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
+import DailyQuizBanner from './components/DailyQuizBanner'
 
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
 const CHOT_TOT   = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
@@ -525,6 +526,7 @@ export default function HomeClient() {
               <button className={typeFilter==='ban'?'active':''} onClick={()=>setTypeFilter('ban')}>🏷️ Bán</button>
               <button className={typeFilter==='mua'?'active':''} onClick={()=>setTypeFilter('mua')}>🔍 Tìm mua</button>
               <a href="/blog" className="nav-blog-link">Blog</a>
+              <a href="/game" className="nav-blog-link">🎮 Game</a>
             </nav>
           )}
         </div>
@@ -700,6 +702,9 @@ export default function HomeClient() {
                 )}
               </div>
             )}
+
+            {/* Daily quiz banner — only for public (non-admin) visitors */}
+            {!isAdmin && <DailyQuizBanner />}
 
             {/* 3-column layout: filter | listing | featured ads */}
             <div className="page-layout">
