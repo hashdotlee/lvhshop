@@ -129,6 +129,10 @@ export default function ItemDetailClient({ item }: { item: Item }) {
   const isIncoming = currentStatus === 'incoming'
   const isAvailable = currentStatus === 'available'
 
+  function shareToFacebook() {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank', 'width=600,height=400')
+  }
+
   function copyLink() {
     navigator.clipboard.writeText(window.location.href)
     setCopied(true)
@@ -291,8 +295,12 @@ export default function ItemDetailClient({ item }: { item: Item }) {
           </button>
           <button className="btn-share" onClick={copyLink}>
             {copied ? '✓ Đã copy' : (
-              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Chia sẻ</>
+              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> Copy link</>
             )}
+          </button>
+          <button className="btn-share btn-share-fb" onClick={shareToFacebook}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.994 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            Chia sẻ FB
           </button>
         </div>
       </header>
@@ -595,6 +603,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:16p
 .header-actions{display:flex;gap:8px}
 .btn-share,.btn-icon-action{display:flex;align-items:center;gap:6px;background:none;border:1px solid var(--border);padding:6px 14px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted);transition:all .15s}
 .btn-share:hover,.btn-icon-action:hover{border-color:var(--accent);color:var(--text)}
+.btn-share-fb{color:#1877f2!important;border-color:#1877f2!important}
+.btn-share-fb:hover{background:#f0f4ff!important}
 
 main{max-width:1000px;margin:0 auto;padding:40px 24px}
 .detail-layout{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start}
