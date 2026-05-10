@@ -3,7 +3,7 @@
 -- Chạy trong Supabase SQL Editor
 -- ═══════════════════════════════════════════════════════
 
-INSERT INTO blog_posts (slug, title, excerpt, content, tags, published, created_at, updated_at)
+INSERT INTO blog_posts (slug, title, excerpt, content, cover_image, tags, published, created_at, updated_at)
 VALUES (
   'thoi-showa-ky-nguyen-vang-son-nhat-ban',
   'Thời Showa — Kỷ Nguyên Vàng Son Của Nhật Bản (1926–1989)',
@@ -49,6 +49,7 @@ VALUES (
 <h2>Tại sao đồ Nhật cổ Showa lại có giá trị?</h2>
 <p>Ngoài chất lượng vật chất vượt trội, đồ Showa còn mang giá trị tinh thần và lịch sử sâu sắc. Mỗi món đồ là một mảnh ký ức sống động của một thời kỳ đã qua — thời kỳ mà người Nhật xây dựng lại đất nước với đôi tay trắng và ý chí phi thường. Sở hữu một chiếc radio Showa hay máy ảnh Showa không chỉ là có một vật dụng cổ — đó là chạm vào một trang lịch sử.</p>
 <p>Tại <strong>leviethoang.shop</strong>, chúng tôi chuyên săn tìm và chọn lọc những món đồ Nhật cổ chất lượng cao từ thời Showa và các thời kỳ khác. Mỗi sản phẩm đều được kiểm tra kỹ lưỡng trước khi đến tay khách hàng. Theo dõi shop để không bỏ lỡ những sản phẩm độc đáo nhất!</p>$c1$,
+  'https://images.unsplash.com/photo-1480796927426-f609979314bd?w=1200&h=630&fit=crop&auto=format&q=80',
   ARRAY['Lịch sử Nhật Bản', 'Thời Showa', 'Văn hóa Nhật', 'Đồ cổ Nhật'],
   true,
   NOW() - INTERVAL '3 days',
@@ -56,7 +57,7 @@ VALUES (
 )
 ON CONFLICT (slug) DO NOTHING;
 
-INSERT INTO blog_posts (slug, title, excerpt, content, tags, published, created_at, updated_at)
+INSERT INTO blog_posts (slug, title, excerpt, content, cover_image, tags, published, created_at, updated_at)
 VALUES (
   'sony-hanh-trinh-de-che-dien-tu-toan-cau',
   'Sony — Hành Trình Từ Garage Nhỏ Đến Đế Chế Điện Tử Toàn Cầu',
@@ -103,6 +104,7 @@ VALUES (
 <h2>Di sản Sony — Hơn cả một công ty điện tử</h2>
 <p>Sony không chỉ là một tập đoàn công nghệ — Sony là biểu tượng của tinh thần Nhật Bản hậu chiến: sáng tạo, kiên trì và không ngừng đổi mới. Từ chiếc radio transistor nhỏ bé năm 1955 đến hệ sinh thái âm nhạc, phim ảnh và game ngày nay, Sony đã và đang định hình cách con người toàn cầu giải trí và giao tiếp.</p>
 <p>Tại <strong>leviethoang.shop</strong>, chúng tôi thường xuyên tìm kiếm và chọn lọc những sản phẩm Sony vintage chất lượng cao từ Nhật Bản. Theo dõi shop để không bỏ lỡ những món đồ Sony cổ điển độc đáo nhất!</p>$c2$,
+  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1200&h=630&fit=crop&auto=format&q=80',
   ARRAY['Sony', 'Lịch sử Nhật Bản', 'Điện tử vintage', 'Thời Showa', 'Walkman'],
   true,
   NOW() - INTERVAL '2 days',
@@ -110,7 +112,7 @@ VALUES (
 )
 ON CONFLICT (slug) DO NOTHING;
 
-INSERT INTO blog_posts (slug, title, excerpt, content, tags, published, created_at, updated_at)
+INSERT INTO blog_posts (slug, title, excerpt, content, cover_image, tags, published, created_at, updated_at)
 VALUES (
   'suu-tam-do-dien-tu-showa-huong-dan-toan-dien',
   'Sưu Tầm Đồ Điện Tử Showa — Hướng Dẫn Toàn Diện Cho Người Mới Bắt Đầu',
@@ -203,6 +205,7 @@ VALUES (
 </ol>
 
 <p>Theo dõi <strong>leviethoang.shop</strong> để cập nhật những sản phẩm đồ Nhật cổ chất lượng mới nhất, được chọn lọc kỹ lưỡng trực tiếp từ nguồn Nhật Bản!</p>$c3$,
+  'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1200&h=630&fit=crop&auto=format&q=80',
   ARRAY['Đồ cổ Nhật', 'Hướng dẫn sưu tầm', 'Điện tử vintage', 'Thời Showa', 'Radio cổ', 'Walkman', 'Máy ảnh phim'],
   true,
   NOW() - INTERVAL '1 day',
