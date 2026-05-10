@@ -14,6 +14,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base: MetadataRoute.Sitemap = [
     { url: siteUrl, lastModified: new Date(), changeFrequency: 'daily', priority: 1 },
     { url: `${siteUrl}/blog`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
+    { url: `${siteUrl}/game`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.6 },
+    { url: `${siteUrl}/game/radio-quiz`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.6 },
   ]
 
   const supabase = db()
@@ -21,9 +23,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const { data: items } = await supabase
     .from('items')
     .select('id, created_at')
-    .eq('status', 'available')
+    .in('status', ['available', 'sold'])
     .order('created_at', { ascending: false })
-    .limit(500)
+    .limit(1000)
 
   const itemUrls: MetadataRoute.Sitemap = (items ?? []).map(item => ({
     url: `${siteUrl}/item/${item.id}`,
