@@ -9,11 +9,7 @@ function db() {
 }
 
 export async function GET() {
-  // Use Vietnam timezone (UTC+7) for "today"
-  const now = new Date()
-  const vnOffset = 7 * 60
-  const vnNow = new Date(now.getTime() + (vnOffset - now.getTimezoneOffset()) * 60000)
-  const today = vnNow.toISOString().split('T')[0]
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())
 
   const { data, error } = await db()
     .from('daily_quiz')
