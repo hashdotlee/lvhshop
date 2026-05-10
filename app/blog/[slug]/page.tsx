@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       publishedTime: post.created_at,
       modifiedTime: post.updated_at,
       ...(post.cover_image
-        ? { images: [{ url: post.cover_image, width: 1200, height: 630, alt: post.title }] }
+        ? { images: [{ url: post.cover_image, alt: post.title }] }
         : {}),
     },
     twitter: {

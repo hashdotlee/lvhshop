@@ -30,13 +30,11 @@ export const metadata: Metadata = {
     siteName: 'leviethoang.shop',
     title: 'leviethoang.shop — Săn hàng Nhật độc lạ — Hàng chọn lọc · Giá chuẩn',
     description: 'Chuyên săn hàng Nhật độc lạ — đồ cũ Nhật Bản chất lượng cao, hàng nội địa Nhật hiếm có. Đồng thời có đa dạng hàng hoá đại trà phục vụ nhu cầu mua bán hàng ngày tại Việt Nam.',
-    images: [{ url: '/og-default.png', width: 1200, height: 630, alt: 'leviethoang.shop' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'leviethoang.shop — Săn hàng Nhật độc lạ — Hàng chọn lọc · Giá chuẩn',
     description: 'Chuyên săn hàng Nhật độc lạ — hàng chọn lọc, giá chuẩn tại Việt Nam.',
-    images: ['/og-default.png'],
   },
   alternates: { canonical: siteUrl },
   verification: {
