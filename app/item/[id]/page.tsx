@@ -26,7 +26,9 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const item = await getItem(params.id)
   if (!item) return { title: 'Không tìm thấy sản phẩm' }
 
-  const images = item.images?.length ? item.images : item.image_url ? [item.image_url] : []
+  const rawImages = item.images?.length ? item.images : item.image_url ? [item.image_url] : []
+  // Only absolute URLs — Facebook can't crawl relative or malformed ones
+  const images = rawImages.filter(u => typeof u === 'string' && /^https?:\/\//i.test(u))
   const price = fmtVND(item.price)
   const statusLabel = item.status === 'sold' ? ' · Đã bán' : item.status === 'incoming' ? ' · Sắp về' : ''
   const cat = getCategory(item)
@@ -61,7 +63,10 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
       description: desc,
       url: `${siteUrl}/item/${item.id}`,
       siteName: 'leviethoang.shop',
-      images: images.slice(0, 4).map(url => ({ url, width: 1200, height: 630, alt: item.title })),
+      // Omit width/height — Supabase images aren't 1200×630; wrong hints cause Facebook to skip
+      images: images.length
+        ? images.slice(0, 4).map(url => ({ url, alt: item.title }))
+        : [{ url: `${siteUrl}/opengraph-image`, width: 1200, height: 630, alt: 'leviethoang.shop' }],
       type: 'website',
       locale: 'vi_VN',
     },
@@ -69,7 +74,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
       card: 'summary_large_image',
       title: `${item.title} — ${price}${statusLabel}`,
       description: desc,
-      images: images[0] ? [images[0]] : [],
+      images: images[0] ? [images[0]] : [`${siteUrl}/opengraph-image`],
     },
     alternates: {
       canonical: `${siteUrl}/item/${item.id}`,
