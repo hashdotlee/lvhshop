@@ -19,7 +19,7 @@ export async function GET() {
     .single()
 
   if (schedErr || !schedule) {
-    return NextResponse.json({ error: 'Hôm nay chưa có câu hỏi', today }, { status: 404 })
+    return NextResponse.json({ error: 'Hôm nay chưa có câu hỏi', today, detail: schedErr?.message ?? 'no row' }, { status: 404 })
   }
 
   // Step 2: fetch the question
