@@ -84,7 +84,7 @@ VALUES (
   <li><strong>Ampli và loa vintage</strong>: Yamaha CA-810, Sansui AU-717, Pioneer SA-9100 từ thập niên 1970 — những thiết bị này không chỉ nghe hay mà còn là tác phẩm nghệ thuật công nghiệp.</li>
 </ul>
 <p>Tại <strong>leviethoang.shop</strong>, chúng tôi thường xuyên cập nhật các thiết bị âm thanh analog vintage từ Nhật Bản — mâm đĩa, ampli, cassette player chất lượng cao đã qua kiểm định. Đây là cách tốt nhất để bắt đầu hành trình âm thanh analog của bạn.</p>$b1$,
-  'https://images.unsplash.com/photo-1594623274890-6b45ce7cf44b?w=1200&h=630&fit=crop&auto=format&q=80',
+  'https://images.unsplash.com/photo-1545622783-b3e021430fee?w=1200&h=630&fit=crop&auto=format&q=80',
   ARRAY['Âm thanh analog', 'Digital audio', 'Đĩa vinyl', 'Cassette', 'Hi-fi', 'Lịch sử âm nhạc', 'Retro'],
   true,
   NOW() - INTERVAL '5 hours',
@@ -283,3 +283,8 @@ VALUES (
   NOW() - INTERVAL '1 hour'
 )
 ON CONFLICT (slug) DO NOTHING;
+
+-- Fix cover image for analog/digital post if already inserted
+UPDATE blog_posts
+SET cover_image = 'https://images.unsplash.com/photo-1545622783-b3e021430fee?w=1200&h=630&fit=crop&auto=format&q=80'
+WHERE slug = 'nhac-analog-vs-digital-lich-su-va-cuoc-chien-am-thanh';
