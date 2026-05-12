@@ -13,9 +13,15 @@ export const metadata: Metadata = {
     template: '%s · leviethoang.shop',
   },
   description: 'Chuyên săn hàng Nhật độc lạ — đồ cũ Nhật Bản chất lượng cao, hàng nội địa Nhật hiếm có. Đồng thời có đa dạng hàng hoá đại trà phục vụ nhu cầu mua bán hàng ngày tại Việt Nam.',
-  keywords: ['hàng Nhật', 'đồ Nhật', 'hàng nội địa Nhật', 'đồ cũ Nhật', 'săn hàng Nhật', 'hàng độc lạ Nhật Bản', 'mua bán hàng cũ', 'hàng thanh lý', 'chợ online Việt Nam'],
-  authors: [{ name: 'leviethoang.shop' }],
-  creator: 'leviethoang.shop',
+  keywords: [
+    'Lê Viết Hoàng', 'leviethoang', 'le viet hoang',
+    'đồ nhật', 'mua đồ nhật', 'japan', 'nhật', 'nhật bản',
+    'hàng bãi', 'hàng 2nd', 'hàng second hand', 'hàng nhật bãi', 'săn hàng nhật',
+    'hàng Nhật', 'đồ Nhật', 'hàng nội địa Nhật', 'đồ cũ Nhật', 'hàng độc lạ Nhật Bản',
+    'mua bán hàng cũ', 'hàng thanh lý', 'chợ online Việt Nam',
+  ],
+  authors: [{ name: 'Lê Viết Hoàng' }],
+  creator: 'Lê Viết Hoàng',
   publisher: 'leviethoang.shop',
   robots: {
     index: true,

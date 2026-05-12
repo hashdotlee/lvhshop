@@ -69,8 +69,27 @@ function buildOrganizationJsonLd() {
     description: 'Chuyên săn hàng Nhật độc lạ — đồ cũ Nhật Bản chất lượng cao, hàng nội địa Nhật hiếm có. Hàng chọn lọc, giá chuẩn tại Việt Nam.',
     slogan: 'Săn hàng Nhật độc lạ — Hàng chọn lọc · Giá chuẩn',
     areaServed: { '@type': 'Country', name: 'Việt Nam' },
-    knowsAbout: ['Hàng Nhật', 'Đồ nội địa Nhật Bản', 'Hàng cũ chất lượng cao', 'Mua bán hàng hoá'],
+    knowsAbout: [
+      'Hàng Nhật', 'Đồ nội địa Nhật Bản', 'Hàng cũ chất lượng cao',
+      'Hàng bãi Nhật', 'Hàng 2nd Nhật', 'Hàng second hand Nhật Bản',
+      'Mua đồ Nhật', 'Săn hàng Nhật', 'Mua bán hàng hoá',
+    ],
     sameAs: [],
+  }
+}
+
+function buildPersonJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: 'Lê Viết Hoàng',
+    alternateName: ['leviethoang', 'le viet hoang'],
+    url: siteUrl,
+    description: 'Lê Viết Hoàng — chuyên săn và bán hàng Nhật bãi, đồ nhật 2nd hand, hàng second hand Nhật Bản chất lượng cao.',
+    knowsAbout: [
+      'đồ nhật', 'hàng nhật bãi', 'hàng 2nd Nhật', 'hàng second hand Nhật Bản',
+      'mua đồ nhật', 'săn hàng nhật', 'nhật bản',
+    ],
   }
 }
 
@@ -95,6 +114,7 @@ export default async function Page() {
   const schemas = [
     buildWebSiteJsonLd(),
     buildOrganizationJsonLd(),
+    buildPersonJsonLd(),
     buildItemListJsonLd(items),
   ]
 
@@ -107,6 +127,10 @@ export default async function Page() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
       ))}
+      {/* SEO text — visible to crawlers, minimal visual footprint */}
+      <p style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
+        Lê Viết Hoàng (leviethoang, le viet hoang) — chuyên mua bán đồ nhật, hàng nhật bãi, hàng 2nd, hàng second hand Nhật Bản chất lượng cao. Săn hàng nhật, mua đồ nhật giá tốt tại Việt Nam. Japan secondhand goods — nhật, nhật bản.
+      </p>
       <HomeClient />
     </>
   )
