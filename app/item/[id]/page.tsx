@@ -55,6 +55,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     title,
     description: desc,
     keywords,
+    ...(item.status === 'incoming' ? { robots: { index: false, follow: true } } : {}),
     openGraph: {
       title: `${item.title} — ${price}${statusLabel}`,
       description: desc,
