@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "FB Saver – Lưu & Phân Tích Bài Đăng",
+  "version": "1.0.0",
+  "description": "Lưu bài đăng bán hàng Facebook, dùng AI phân tích sản phẩm, tìm kiếm và so sánh.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://www.facebook.com/*",
+    "https://m.facebook.com/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "32":  "icons/icon32.png",
+      "48":  "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "FB Saver"
+  },
+  "options_ui": {
+    "page": "options/index.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.facebook.com/*", "https://m.facebook.com/*"],
+      "js": ["content/index.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "icons": {
+    "16":  "icons/icon16.png",
+    "32":  "icons/icon32.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*"],
+      "matches": ["https://www.facebook.com/*", "https://m.facebook.com/*"]
+    }
+  ]
+}
