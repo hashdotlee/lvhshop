@@ -202,6 +202,7 @@ export default function HomeClient() {
   const [userAuthForm, setUserAuthForm] = useState({ name:'', email:'', password:'' })
   const [userAuthLoading, setUserAuthLoading] = useState(false)
   const [userAuthError, setUserAuthError] = useState('')
+  const pendingOrderItem = useRef<Item|null>(null)
 
   const [toast, setToast]             = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -475,8 +476,13 @@ export default function HomeClient() {
   }
 
   function openOrderPopup(item: Item) {
+    if (!supaUser) {
+      pendingOrderItem.current = item
+      openUserAuth('login')
+      return
+    }
     setOrderItem(item)
-    setOrderForm({ name: supaUser?.name ?? '', phone:'', address:'', note:'', payment_method:'cod' })
+    setOrderForm({ name: supaUser.name ?? '', phone:'', address:'', note:'', payment_method:'cod' })
     setOrderSuccess(null)
   }
   function closeOrderPopup() {
@@ -486,13 +492,24 @@ export default function HomeClient() {
   function openUserAuth(mode: 'login'|'signup' = 'login') {
     setUserAuthMode(mode); setUserAuthForm({ name:'', email:'', password:'' }); setUserAuthError(''); setShowUserAuth(true)
   }
+  function afterAuthSuccess(name: string) {
+    setShowUserAuth(false)
+    if (pendingOrderItem.current) {
+      const item = pendingOrderItem.current
+      pendingOrderItem.current = null
+      setOrderItem(item)
+      setOrderForm({ name, phone:'', address:'', note:'', payment_method:'cod' })
+      setOrderSuccess(null)
+    }
+  }
   async function supaSignIn() {
     if (!userAuthForm.email || !userAuthForm.password) { setUserAuthError('Nhập email và mật khẩu'); return }
     setUserAuthLoading(true); setUserAuthError('')
-    const { error } = await supabase.auth.signInWithPassword({ email: userAuthForm.email, password: userAuthForm.password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email: userAuthForm.email, password: userAuthForm.password })
     setUserAuthLoading(false)
     if (error) { setUserAuthError(error.message === 'Invalid login credentials' ? 'Email hoặc mật khẩu không đúng' : error.message); return }
-    setShowUserAuth(false); showToast('Đã đăng nhập!')
+    const name = data.user?.user_metadata?.full_name ?? data.user?.email ?? ''
+    showToast('Đã đăng nhập!'); afterAuthSuccess(name)
   }
   async function supaSignUp() {
     if (!userAuthForm.name.trim()) { setUserAuthError('Nhập họ tên'); return }
@@ -505,7 +522,7 @@ export default function HomeClient() {
     })
     setUserAuthLoading(false)
     if (error) { setUserAuthError(error.message); return }
-    setShowUserAuth(false); showToast('Đăng ký thành công! Kiểm tra email để xác nhận.')
+    showToast('Đăng ký thành công!'); afterAuthSuccess(userAuthForm.name)
   }
   async function supaSignOut() {
     await supabase.auth.signOut(); showToast('Đã đăng xuất')
@@ -1200,17 +1217,12 @@ export default function HomeClient() {
                   {orderItem.price && <span style={{marginLeft:8,color:'var(--green)',fontWeight:700}}>{fmtVND(orderItem.price)}</span>}
                 </div>
 
-                {/* Supabase user info / login prompt */}
-                {supaUser ? (
+                {/* Logged-in user info */}
+                {supaUser && (
                   <div style={{display:'flex',alignItems:'center',gap:8,background:'var(--green-bg)',border:'1px solid #b7e4cc',borderRadius:8,padding:'8px 12px',marginBottom:12}}>
                     <span style={{fontSize:15}}>✓</span>
                     <span style={{fontSize:13,fontWeight:500,flex:1}}>{supaUser.name || supaUser.email}</span>
                     <button onClick={supaSignOut} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'var(--muted)',padding:'2px 4px'}}>Đăng xuất</button>
-                  </div>
-                ) : (
-                  <div style={{display:'flex',gap:6,marginBottom:12}}>
-                    <button onClick={()=>openUserAuth('login')} style={{flex:1,padding:'8px',border:'1px solid var(--border)',borderRadius:7,background:'none',font:'500 12px inherit',cursor:'pointer',color:'var(--text)',transition:'all .15s'}}>Đăng nhập</button>
-                    <button onClick={()=>openUserAuth('signup')} style={{flex:1,padding:'8px',border:'1px solid var(--border)',borderRadius:7,background:'var(--tag-bg)',font:'500 12px inherit',cursor:'pointer',color:'var(--text)',transition:'all .15s'}}>Đăng ký tài khoản</button>
                   </div>
                 )}
 
