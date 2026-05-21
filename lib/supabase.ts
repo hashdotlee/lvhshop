@@ -29,6 +29,22 @@ export type Item = {
   posted_by: string | null
   staff_id: number | null
   created_at: string
+  // Inventory fields
+  sku: string | null
+  bin_location: string | null
+  cost_price: number | null
+  batch_id: number | null
+}
+
+export type InventoryBatch = {
+  id: number
+  batch_code: string
+  notes: string | null
+  supplier: string | null
+  staff_id: number | null
+  created_by: string | null
+  created_at: string
+  item_count?: number
 }
 
 export type Customer = {

@@ -197,6 +197,8 @@ export default function HomeClient() {
 
   const [toast, setToast]             = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
+  // SKU group order: khi public chọn mua hàng có SKU, hiện danh sách mã để chọn thùng
+  const [skuOrderGroup, setSkuOrderGroup] = useState<Item[]|null>(null)
   function showToast(m: string) {
     setToast(m); clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(''), 2800)
@@ -501,7 +503,7 @@ export default function HomeClient() {
       : i.status===statusFilter
     const catOk = categoryFilter==='all' || i.category===categoryFilter
     const q = searchQuery.trim().toLowerCase()
-    const searchOk = !q || i.title.toLowerCase().includes(q) || (i.order_code??'').toLowerCase().includes(q)
+    const searchOk = !q || i.title.toLowerCase().includes(q) || (i.order_code??'').toLowerCase().includes(q) || (i.sku??'').toLowerCase().includes(q)
     const p = i.price ?? 0
     const priceOk = priceRange==='all' ? true
       : priceRange==='under1m' ? p < 1_000_000
@@ -514,6 +516,37 @@ export default function HomeClient() {
   const featuredItems = items
     .filter(i => (i.status === 'available' || i.status === 'incoming') && getImages(i).length > 0)
     .slice(0, 5)
+
+  // Nhóm theo SKU cho public listing
+  type SkuGroup = { _type:'sku'; sku:string; available:Item[]; all:Item[]; rep:Item }
+  type DisplayEntry = Item | SkuGroup
+  const displayItems: DisplayEntry[] = (() => {
+    if (isAdmin) return filtered // admin thấy từng mặt hàng riêng
+    const skuMap = new Map<string, Item[]>()
+    const noSku: Item[] = []
+    for (const item of filtered) {
+      if (item.sku) {
+        const g = skuMap.get(item.sku) ?? []
+        g.push(item)
+        skuMap.set(item.sku, g)
+      } else {
+        noSku.push(item)
+      }
+    }
+    const result: DisplayEntry[] = []
+    Array.from(skuMap.entries()).forEach(([sku, all]) => {
+      const available = all.filter(i => i.status === 'available')
+      const rep = available[0] ?? all[0]
+      result.push({ _type: 'sku', sku, available, all, rep })
+    })
+    noSku.forEach(i => result.push(i))
+    result.sort((a, b) => {
+      const da = '_type' in a ? a.rep.created_at : (a as Item).created_at
+      const db2 = '_type' in b ? b.rep.created_at : (b as Item).created_at
+      return new Date(db2).getTime() - new Date(da).getTime()
+    })
+    return result
+  })()
 
   const filteredCust = customers.filter(c =>
     !custSearch || [c.name,c.phone,c.order_code,c.address].some(v=>v?.toLowerCase().includes(custSearch.toLowerCase()))
@@ -568,6 +601,7 @@ export default function HomeClient() {
               <button className={`tab-btn${adminView==='orders'?' tab-active':''}`} onClick={()=>setAdminView('orders')}>
                 Đơn hàng
               </button>
+              <a href="/inventory" className="tab-btn" style={{textDecoration:'none'}}>📦 Kho hàng</a>
               <div className="admin-badge"><span className="admin-dot"/>Admin
                 <button className="logout-btn" onClick={logout}>✕</button>
               </div>
@@ -827,8 +861,53 @@ export default function HomeClient() {
 
                 <div className="listing">
                   {loadingItems ? <div className="empty"><div className="spinner" style={{margin:'0 auto'}}/></div>
-                  : filtered.length===0 ? <div className="empty"><div className="empty-icon">📦</div><p>Chưa có tin nào{isAdmin?'. Nhập đơn ở trên.':'.'}</p></div>
-                  : filtered.map(item => {
+                  : displayItems.length===0 ? <div className="empty"><div className="empty-icon">📦</div><p>Chưa có tin nào{isAdmin?'. Nhập đơn ở trên.':'.'}</p></div>
+                  : displayItems.map(entry => {
+                    // ── SKU Group card ──
+                    if ('_type' in entry && entry._type === 'sku') {
+                      const g = entry as SkuGroup
+                      const imgs = getImages(g.rep)
+                      const isAvail = g.available.length > 0
+                      return (
+                        <div key={`sku-${g.sku}`} className={`item${!isAvail?' item-sold':''}`} style={{cursor:'default'}}>
+                          {imgs.length > 0 && (
+                            <div className="item-image-wrap">
+                              <Carousel images={imgs} sold={!isAvail} onOpen={()=>{}} />
+                            </div>
+                          )}
+                          <div className="item-body">
+                            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+                              <div className="item-code">
+                                <span className="item-code-label">SKU</span>
+                                <span className="item-code-value">{g.sku}</span>
+                              </div>
+                              {isAvail
+                                ? <span className="badge-avail">Còn {g.available.length} cái</span>
+                                : <span className="badge-sold">Hết hàng</span>}
+                              {imgs.length>1 && <span className="badge-imgs">📷 {imgs.length}</span>}
+                            </div>
+                            <div className="item-title">{g.rep.title}</div>
+                            <div className="item-desc">{g.rep.description}</div>
+                            <div className="item-meta">
+                              <span className="tag">🏷️ Bán</span>
+                              <span className={`tag ${g.rep.condition==='Mới'?'condition-moi':'condition-cu'}`}>{g.rep.condition}</span>
+                              {g.rep.category&&<span className="tag">{g.rep.category}</span>}
+                              <span className="item-time"><span className="status-dot"/>{reltime(g.rep.created_at)}</span>
+                            </div>
+                          </div>
+                          <div className="item-footer">
+                            <div className="item-price">{fmtVND(g.rep.price)}</div>
+                            {isAvail ? (
+                              <button className="btn-order-quick" onClick={()=>setSkuOrderGroup(g.available)}>Đặt hàng</button>
+                            ) : (
+                              <span className="item-cta">Hết hàng</span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    }
+                    // ── Individual item card ──
+                    const item = entry as Item
                     const imgs = getImages(item)
                     return (
                       <a key={item.id} href={`/item/${item.id}`} className={`item${item.status==='sold'?' item-sold':''}`}>
@@ -840,8 +919,8 @@ export default function HomeClient() {
                         <div className="item-body">
                           <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,flexWrap:'wrap'}}>
                             <div className="item-code">
-                              <span className="item-code-label">MÃ</span>
-                              <span className="item-code-value">{item.order_code}</span>
+                              <span className="item-code-label">{isAdmin ? 'MÃ' : (item.sku ? 'SKU' : 'MÃ')}</span>
+                              <span className="item-code-value">{isAdmin ? item.order_code : (item.sku ?? item.order_code)}</span>
                             </div>
                             {item.status==='sold' ? <span className="badge-sold">Đã bán</span>
                             : item.status==='incoming' ? (
@@ -850,6 +929,7 @@ export default function HomeClient() {
                               </span>
                             ) : <span className="badge-avail">Còn hàng</span>}
                             {imgs.length>1 && <span className="badge-imgs">📷 {imgs.length}</span>}
+                            {isAdmin && item.bin_location && <span className="badge-bin">📦 {item.bin_location}</span>}
                           </div>
                           <div className="item-title">{item.title}</div>
                           <div className="item-desc">{item.description}</div>
@@ -1127,6 +1207,39 @@ export default function HomeClient() {
         </div>
       )}
 
+      {/* SKU SELECTOR MODAL */}
+      {skuOrderGroup && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setSkuOrderGroup(null)}>
+          <div className="modal" style={{maxWidth:480}}>
+            <h3>Chọn sản phẩm cụ thể</h3>
+            <p style={{color:'var(--muted)',fontSize:13,marginBottom:16}}>
+              Mỗi mã sản phẩm được để ở thùng riêng. Chọn mã bạn muốn để biết vị trí lấy hàng.
+            </p>
+            <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:320,overflowY:'auto'}}>
+              {skuOrderGroup.map(item => (
+                <button key={item.id} className="sku-select-row"
+                  onClick={()=>{setSkuOrderGroup(null);openOrderPopup(item)}}>
+                  <div style={{flex:1}}>
+                    <code style={{fontFamily:'monospace',fontWeight:700,fontSize:13,color:'var(--accent)'}}>{item.order_code}</code>
+                    {item.sku && <span style={{marginLeft:8,fontSize:11,color:'var(--muted)',background:'var(--tag-bg)',borderRadius:4,padding:'1px 6px'}}>{item.sku}</span>}
+                    {item.bin_location && (
+                      <div style={{fontSize:12,color:'var(--muted)',marginTop:3}}>
+                        📦 Thùng: <strong style={{color:'var(--text)'}}>{item.bin_location}</strong>
+                      </div>
+                    )}
+                  </div>
+                  <span style={{fontSize:13,fontWeight:600,color:'var(--green)',whiteSpace:'nowrap'}}>{fmtVND(item.price)}</span>
+                  <span style={{fontSize:13,color:'var(--muted)'}}>→</span>
+                </button>
+              ))}
+            </div>
+            <div className="modal-actions" style={{marginTop:16}}>
+              <button className="btn-ghost" onClick={()=>setSkuOrderGroup(null)}>Hủy</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && <div className="toast">{toast}</div>}
     </>
   )
@@ -1179,6 +1292,10 @@ nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 .admin-dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
 .logout-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted);padding:2px 5px}
 .logout-btn:hover{color:var(--red)}
+.badge-bin{background:#e8f0fe;color:#1d4ed8;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:500}
+:root.dark .badge-bin{background:#1e293b;color:#93c5fd}
+.sku-select-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;text-align:left;width:100%;transition:all .15s;font-family:inherit;color:var(--text)}
+.sku-select-row:hover{border-color:var(--accent);background:var(--tag-bg)}
 .disp-ctrl{display:flex;align-items:center;gap:2px;background:var(--tag-bg);border:1px solid var(--border);border-radius:8px;padding:2px 4px}
 .disp-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:400;color:var(--muted);padding:3px 8px;border-radius:5px;transition:all .15s;line-height:1}
 .disp-btn:hover{background:var(--surface);color:var(--text)}
