@@ -4,6 +4,7 @@ import type { Item, Customer, Staff } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
 import DailyQuizBanner from './components/DailyQuizBanner'
 import OrderManagement from './components/OrderManagement'
+import { useAuth } from './components/AuthContext'
 
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
 const CHOT_TOT   = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
@@ -11,6 +12,7 @@ const FB_PAGE_ID = process.env.NEXT_PUBLIC_FB_PAGE_ID   ?? ''
 const BANK_ID    = process.env.NEXT_PUBLIC_BANK_ID           ?? ''
 const BANK_ACCT  = process.env.NEXT_PUBLIC_BANK_ACCOUNT      ?? ''
 const BANK_NAME  = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME ?? ''
+const FB_APP_ID  = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID   ?? ''
 
 function reltime(iso: string) {
   const d = (Date.now() - new Date(iso).getTime()) / 1000
@@ -136,6 +138,8 @@ export default function HomeClient() {
     applyDisplay(fontSize, next)
   }
 
+  const { user: fbUser, login: fbLogin, logout: fbLogout } = useAuth()
+
   const [isAdmin, setIsAdmin]         = useState(false)
   const [showAuth, setShowAuth]       = useState(false)
   const [authInput, setAuthInput]     = useState('')
@@ -194,6 +198,8 @@ export default function HomeClient() {
   const [orderForm, setOrderForm]     = useState({ name:'', phone:'', address:'', note:'', payment_method:'cod' as 'cod'|'bank_transfer' })
   const [orderSubmitting, setOrderSubmitting] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState<string|null>(null)
+  // item đang chờ login xong để đặt hàng
+  const [pendingOrderItem, setPendingOrderItem] = useState<Item|null>(null)
 
   const [toast, setToast]             = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -454,10 +460,28 @@ export default function HomeClient() {
     finally { setSubmittingBuy(false) }
   }
 
-  function openOrderPopup(item: Item) {
+  // Khi login xong mà có item đang chờ → mở form đặt hàng
+  useEffect(() => {
+    if (fbUser && pendingOrderItem) {
+      doOpenOrderPopup(pendingOrderItem)
+      setPendingOrderItem(null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fbUser])
+
+  function doOpenOrderPopup(item: Item) {
     setOrderItem(item)
-    setOrderForm({ name:'', phone:'', address:'', note:'', payment_method:'cod' })
+    setOrderForm({ name: fbUser?.name ?? '', phone:'', address:'', note:'', payment_method:'cod' })
     setOrderSuccess(null)
+  }
+  function openOrderPopup(item: Item) {
+    if (!fbUser && FB_APP_ID) {
+      // Chưa đăng nhập → lưu item, trigger FB login
+      setPendingOrderItem(item)
+      fbLogin()
+      return
+    }
+    doOpenOrderPopup(item)
   }
   function closeOrderPopup() {
     setOrderItem(null); setOrderSuccess(null)
@@ -612,6 +636,24 @@ export default function HomeClient() {
               <button className={typeFilter==='mua'?'active':''} onClick={()=>setTypeFilter('mua')}>🔍 Tìm mua</button>
               <a href="/blog" className="nav-blog-link">Blog</a>
               <a href="/game" className="nav-blog-link">🎮 Game</a>
+              {FB_APP_ID && (
+                fbUser ? (
+                  <div className="nav-user-pill">
+                    {fbUser.picture && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={fbUser.picture} alt={fbUser.name} className="nav-avatar" />
+                    )}
+                    <span className="nav-user-name">{fbUser.name.split(' ').pop()}</span>
+                    <a href="/my-orders" className="nav-my-orders" title="Đơn hàng của tôi">📦</a>
+                    <button className="nav-logout" onClick={fbLogout} title="Đăng xuất">×</button>
+                  </div>
+                ) : (
+                  <button className="nav-fb-login" onClick={fbLogin}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    Đăng nhập
+                  </button>
+                )
+              )}
             </nav>
           )}
         </div>
@@ -898,7 +940,10 @@ export default function HomeClient() {
                           <div className="item-footer">
                             <div className="item-price">{fmtVND(g.rep.price)}</div>
                             {isAvail ? (
-                              <button className="btn-order-quick" onClick={()=>setSkuOrderGroup(g.available)}>Đặt hàng</button>
+                              <button className="btn-order-quick" onClick={()=>{
+                                if (!fbUser && FB_APP_ID) { fbLogin(); return }
+                                setSkuOrderGroup(g.available)
+                              }}>Đặt hàng</button>
                             ) : (
                               <span className="item-cta">Hết hàng</span>
                             )}
@@ -1284,6 +1329,15 @@ nav button{background:none;border:none;padding:6px 14px;border-radius:6px;cursor
 nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 .nav-blog-link{padding:6px 14px;border-radius:6px;font-size:13px;color:var(--muted);text-decoration:none;transition:all .15s;margin-left:4px;border-left:1px solid var(--border)}
 .nav-blog-link:hover{background:var(--tag-bg);color:var(--text)}
+.nav-fb-login{display:flex;align-items:center;gap:6px;background:#1877f2;color:#fff;border:none;border-radius:20px;padding:5px 13px;font-size:12px;font-weight:600;cursor:pointer;margin-left:6px;transition:background .15s;font-family:inherit}
+.nav-fb-login:hover{background:#1565d8}
+.nav-user-pill{display:flex;align-items:center;gap:5px;background:var(--tag-bg);border:1px solid var(--border);border-radius:20px;padding:3px 8px 3px 4px;margin-left:6px}
+.nav-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover}
+.nav-user-name{font-size:12px;font-weight:500;color:var(--text)}
+.nav-my-orders{font-size:13px;text-decoration:none;padding:0 2px;opacity:.7}
+.nav-my-orders:hover{opacity:1}
+.nav-logout{background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:0 2px;line-height:1}
+.nav-logout:hover{color:var(--red)}
 .tab-btn{background:none;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--muted);transition:all .15s;display:flex;align-items:center;gap:5px}
 .tab-btn:hover,.tab-active{background:var(--tag-bg);color:var(--text)}
 .tab-active{font-weight:500}
