@@ -688,6 +688,14 @@ export default function HomeClient() {
               <button className={typeFilter==='mua'?'active':''} onClick={()=>setTypeFilter('mua')}>🔍 Tìm mua</button>
               <a href="/blog" className="nav-blog-link">Blog</a>
               <a href="/game" className="nav-blog-link">🎮 Game</a>
+              {supaUser ? (
+                <a href="/account" className="nav-user-chip">
+                  <span className="nav-user-avatar">{supaUser.name[0].toUpperCase()}</span>
+                  <span className="nav-user-name">{supaUser.name.split(' ').pop()}</span>
+                </a>
+              ) : (
+                <button className="nav-login-btn" onClick={()=>openUserAuth('login')}>Đăng nhập</button>
+              )}
             </nav>
           )}
         </div>
@@ -1229,41 +1237,30 @@ export default function HomeClient() {
                   {orderItem.price && <span style={{marginLeft:8,color:'var(--green)',fontWeight:700}}>{fmtVND(orderItem.price)}</span>}
                 </div>
 
-                {/* Logged-in user info */}
-                {supaUser && (
-                  <div style={{display:'flex',alignItems:'center',gap:8,background:'var(--green-bg)',border:'1px solid #b7e4cc',borderRadius:8,padding:'8px 12px',marginBottom:12}}>
-                    <span style={{fontSize:15}}>✓</span>
-                    <span style={{fontSize:13,fontWeight:500,flex:1}}>{supaUser.name || supaUser.email}</span>
-                    <a href="/account" style={{fontSize:11,color:'var(--muted)',textDecoration:'none',padding:'2px 4px'}} target="_blank">Tài khoản</a>
-                    <button onClick={supaSignOut} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'var(--muted)',padding:'2px 4px'}}>Đăng xuất</button>
-                  </div>
-                )}
-
                 {savedAddresses.length > 0 && (
                   <div style={{marginBottom:12}}>
                     <div className="lbl" style={{marginBottom:5}}>Chọn địa chỉ đã lưu</div>
-                    <select className="inp" style={{cursor:'pointer'}}
-                      defaultValue=""
+                    <select className="inp" style={{cursor:'pointer'}} defaultValue=""
                       onChange={e => {
                         const val = e.target.value
-                        if (val === '') return
-                        if (val === 'new') {
-                          setOrderForm(f => ({ ...f, phone: '', address: '' }))
-                        } else {
-                          const addr = savedAddresses.find(a => String(a.id) === val)
-                          if (addr) setOrderForm(f => ({ ...f, name: addr.full_name, phone: addr.phone, address: addr.address }))
+                        if (!val || val === 'new') {
+                          if (val === 'new') setOrderForm(f => ({ ...f, phone:'', address:'' }))
+                          return
                         }
+                        const addr = savedAddresses.find(a => String(a.id) === val)
+                        if (addr) setOrderForm(f => ({ ...f, name: addr.full_name, phone: addr.phone, address: addr.address }))
                       }}>
                       <option value="">— Chọn địa chỉ —</option>
                       {savedAddresses.map(a => (
                         <option key={a.id} value={String(a.id)}>
-                          {a.is_default ? '★ ' : ''}{a.full_name} · {a.phone} · {a.address.substring(0, 45)}{a.address.length > 45 ? '…' : ''}
+                          {a.is_default ? '★ ' : ''}{a.full_name} · {a.phone} · {a.address.substring(0,45)}{a.address.length>45?'…':''}
                         </option>
                       ))}
-                      <option value="new">+ Thêm địa chỉ mới</option>
+                      <option value="new">+ Nhập địa chỉ mới</option>
                     </select>
                   </div>
                 )}
+
                 <div className="modal-grid" style={{marginTop:4}}>
                   <div><label className="lbl">Họ tên <span style={{color:'var(--red)'}}>*</span></label>
                     <input className="inp" placeholder="Nguyễn Văn A" autoFocus
@@ -1430,6 +1427,12 @@ nav button{background:none;border:none;padding:6px 14px;border-radius:6px;cursor
 nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 .nav-blog-link{padding:6px 14px;border-radius:6px;font-size:13px;color:var(--muted);text-decoration:none;transition:all .15s;margin-left:4px;border-left:1px solid var(--border)}
 .nav-blog-link:hover{background:var(--tag-bg);color:var(--text)}
+.nav-user-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:20px;background:var(--tag-bg);border:1px solid var(--border);text-decoration:none;color:var(--text);transition:all .15s;margin-left:4px;border-left:none}
+.nav-user-chip:hover{border-color:var(--accent);background:var(--surface)}
+.nav-user-avatar{width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--surface);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.nav-user-name{font-size:12px;font-weight:500;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-login-btn{background:none;border:1px solid var(--border);padding:5px 13px;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .15s;margin-left:4px}
+.nav-login-btn:hover{border-color:var(--accent);color:var(--text);background:var(--tag-bg)}
 .tab-btn{background:none;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--muted);transition:all .15s;display:flex;align-items:center;gap:5px}
 .tab-btn:hover,.tab-active{background:var(--tag-bg);color:var(--text)}
 .tab-active{font-weight:500}
