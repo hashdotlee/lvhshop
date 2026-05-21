@@ -194,6 +194,7 @@ export default function HomeClient() {
   const [orderForm, setOrderForm]     = useState({ name:'', phone:'', address:'', note:'', payment_method:'cod' as 'cod'|'bank_transfer' })
   const [orderSubmitting, setOrderSubmitting] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState<string|null>(null)
+  const [fbUser, setFbUser]           = useState<{id:string;name:string;email:string}|null>(null)
 
   const [toast, setToast]             = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -243,12 +244,32 @@ export default function HomeClient() {
     fetchItems()
     fetchStaff()
 
+    // Read FB user from cookie if present
+    const fbCookie = document.cookie.split(';').map(c=>c.trim()).find(c=>c.startsWith('fb_user='))
+    if (fbCookie) {
+      try { setFbUser(JSON.parse(decodeURIComponent(fbCookie.split('=').slice(1).join('=')))) } catch { /* ignore */ }
+    }
+
+    // Listen for FB Login popup result
+    function onFbMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return
+      if (e.data?.type === 'fb_login' && e.data.user) {
+        setFbUser(e.data.user)
+        setOrderForm(f => ({ ...f, name: f.name || e.data.user.name }))
+        showToast(`Đã đăng nhập: ${e.data.user.name}`)
+      }
+    }
+    window.addEventListener('message', onFbMessage)
+
     // Auto-reload every 5s for buyers
     autoReloadRef.current = setInterval(() => {
       fetchItems(true)
     }, 5000)
 
-    return () => clearInterval(autoReloadRef.current)
+    return () => {
+      clearInterval(autoReloadRef.current)
+      window.removeEventListener('message', onFbMessage)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -454,12 +475,20 @@ export default function HomeClient() {
 
   function openOrderPopup(item: Item) {
     setOrderItem(item)
-    setOrderForm({ name:'', phone:'', address:'', note:'', payment_method:'cod' })
+    setOrderForm({ name: fbUser?.name ?? '', phone:'', address:'', note:'', payment_method:'cod' })
     setOrderSuccess(null)
   }
   function closeOrderPopup() {
     setOrderItem(null); setOrderSuccess(null)
     setOrderForm({ name:'', phone:'', address:'', note:'', payment_method:'cod' })
+  }
+  function loginWithFacebook() {
+    window.open('/api/auth/facebook', 'fb_login', 'width=600,height=700,left=200,top=100')
+  }
+  function logoutFb() {
+    setFbUser(null)
+    document.cookie = 'fb_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    showToast('Đã đăng xuất Facebook')
   }
   async function submitOrderPopup() {
     if (!orderForm.name.trim())    { showToast('Nhập họ tên'); return }
@@ -1072,6 +1101,22 @@ export default function HomeClient() {
                   <span style={{fontWeight:600}}>{orderItem.title}</span>
                   {orderItem.price && <span style={{marginLeft:8,color:'var(--green)',fontWeight:700}}>{fmtVND(orderItem.price)}</span>}
                 </div>
+
+                {/* FB Login */}
+                {fbUser ? (
+                  <div style={{display:'flex',alignItems:'center',gap:8,background:'#e7f0ff',border:'1px solid #c3d8ff',borderRadius:8,padding:'8px 12px',marginBottom:12}}>
+                    <span style={{fontSize:16}}>👤</span>
+                    <span style={{fontSize:13,fontWeight:500,flex:1}}>{fbUser.name}</span>
+                    <button onClick={logoutFb} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'#8c8982',padding:'2px 4px'}}>Đăng xuất</button>
+                  </div>
+                ) : process.env.NEXT_PUBLIC_FB_APP_ID ? (
+                  <button onClick={loginWithFacebook} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,width:'100%',background:'#1877f2',color:'white',border:'none',borderRadius:8,padding:'9px 14px',font:'500 13px inherit',cursor:'pointer',marginBottom:12,transition:'opacity .15s'}}
+                    onMouseOver={e=>(e.currentTarget.style.opacity='.88')} onMouseOut={e=>(e.currentTarget.style.opacity='1')}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    Đăng nhập với Facebook để điền tự động
+                  </button>
+                ) : null}
+
                 <div className="modal-grid" style={{marginTop:4}}>
                   <div><label className="lbl">Họ tên <span style={{color:'var(--red)'}}>*</span></label>
                     <input className="inp" placeholder="Nguyễn Văn A" autoFocus
