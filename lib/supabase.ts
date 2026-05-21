@@ -42,3 +42,26 @@ export type Customer = {
   created_at: string
   items?: { title: string; price: number | null; order_code: string }
 }
+
+export type Order = {
+  id: number
+  order_number: string
+  item_id: number | null
+  item_title: string | null
+  item_price: number | null
+  customer_name: string
+  customer_phone: string
+  customer_address: string
+  customer_note: string | null
+  shipping_carrier: string
+  tracking_number: string | null
+  payment_method: 'cod' | 'bank_transfer'
+  payment_status: 'pending' | 'verified' | 'failed'
+  order_status: 'pending' | 'confirmed' | 'shipping' | 'delivered' | 'cancelled'
+  total_amount: number | null
+  fb_psid: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  items?: { title: string; price: number | null; order_code: string; images: string[] } | null
+}

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Item, Customer, Staff } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
 import DailyQuizBanner from './components/DailyQuizBanner'
+import OrderManagement from './components/OrderManagement'
 
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
 const CHOT_TOT   = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
@@ -138,7 +139,7 @@ export default function HomeClient() {
   const [authError, setAuthError]     = useState(false)
   const adminKey = useRef('')
 
-  const [adminView, setAdminView]     = useState<'listing'|'customers'>('listing')
+  const [adminView, setAdminView]     = useState<'listing'|'customers'|'orders'>('listing')
 
   const [items, setItems]             = useState<Item[]>([])
   const [typeFilter, setTypeFilter]   = useState<'ban'|'mua'>('ban')
@@ -517,6 +518,9 @@ export default function HomeClient() {
               <button className={`tab-btn${adminView==='customers'?' tab-active':''}`} onClick={()=>{setAdminView('customers');if(!customers.length)fetchCustomers()}}>
                 Khách hàng{customers.length>0&&<span className="badge">{customers.length}</span>}
               </button>
+              <button className={`tab-btn${adminView==='orders'?' tab-active':''}`} onClick={()=>setAdminView('orders')}>
+                Đơn hàng
+              </button>
               <div className="admin-badge"><span className="admin-dot"/>Admin
                 <button className="logout-btn" onClick={logout}>✕</button>
               </div>
@@ -570,6 +574,11 @@ export default function HomeClient() {
               </div>
             )}
           </div>
+        )}
+
+        {/* ORDERS VIEW */}
+        {isAdmin && adminView==='orders' && (
+          <OrderManagement adminKey={adminKey.current} onToast={showToast} />
         )}
 
         {/* LISTING VIEW */}
@@ -808,7 +817,11 @@ export default function HomeClient() {
                         </div>
                         <div className="item-footer">
                           <div className="item-price">{fmtVND(item.price)}</div>
-                          <span className="item-cta">Xem chi tiết →</span>
+                          {!isAdmin && item.status==='available' ? (
+                            <a href={`/order?item=${item.id}`} className="btn-order-quick" onClick={e=>e.stopPropagation()}>Đặt hàng</a>
+                          ) : (
+                            <span className="item-cta">Xem chi tiết →</span>
+                          )}
                         </div>
                       </a>
                     )
@@ -1221,6 +1234,8 @@ textarea::placeholder{color:#c0bdb5}
 .btn-delete{background:none;border:1px solid #fcd0cc;padding:4px 9px;border-radius:6px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--red);transition:background .15s;text-align:center}
 .btn-delete:hover{background:#fff0ee}
 .btn-blue{background:#0084ff;color:white;border:none;padding:8px 18px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer}
+.btn-order-quick{display:inline-flex;align-items:center;background:var(--green);color:white;border:none;padding:4px 10px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;text-decoration:none;transition:opacity .15s;white-space:nowrap}
+.btn-order-quick:hover{opacity:.85}
 
 /* CUSTOMER TABLE */
 .cust-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
