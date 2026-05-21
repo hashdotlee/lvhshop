@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { item_id, item_title, item_price, customer_name, customer_phone, customer_address, customer_note, shipping_carrier, payment_method, total_amount, fb_psid, created_by } = body
+  const { item_id, item_title, item_price, customer_name, customer_phone, customer_address, customer_note, shipping_carrier, payment_method, total_amount, fb_psid, created_by, address_id } = body
   if (!customer_name || !customer_phone || !customer_address || !payment_method) {
     return NextResponse.json({ error: 'missing required fields' }, { status: 400 })
   }
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   const db = adminClient()
   const { data, error } = await db
     .from('orders')
-    .insert({ item_id: item_id || null, item_title, item_price, customer_name, customer_phone, customer_address, customer_note, shipping_carrier: shipping_carrier || 'spx', payment_method, total_amount, fb_psid, created_by: created_by || (isAdmin ? 'admin' : 'customer') })
+    .insert({ item_id: item_id || null, item_title, item_price, customer_name, customer_phone, customer_address, customer_note, shipping_carrier: shipping_carrier || 'spx', payment_method, total_amount, fb_psid, created_by: created_by || (isAdmin ? 'admin' : 'customer'), address_id: address_id || null })
     .select('*, items(title, price, order_code, images)')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
