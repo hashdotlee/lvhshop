@@ -12,6 +12,7 @@ interface AuthContextType {
   sdkReady: boolean
   login: () => void
   logout: () => void
+  getAccessToken: () => string | null
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   sdkReady: false,
   login: () => {},
   logout: () => {},
+  getAccessToken: () => null,
 })
 
 declare global {
@@ -26,7 +28,8 @@ declare global {
     FB: {
       init: (config: Record<string, unknown>) => void
       getLoginStatus: (cb: (res: { status: string }) => void) => void
-      login: (cb: (res: { authResponse?: unknown }) => void, opts: { scope: string }) => void
+      getAuthResponse: () => { accessToken: string; userID: string } | null
+      login: (cb: (res: { authResponse?: { accessToken: string; userID: string } }) => void, opts: { scope: string }) => void
       logout: (cb: () => void) => void
       api: (path: string, params: Record<string, string>, cb: (res: Record<string, unknown>) => void) => void
     }
@@ -53,7 +56,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Restore from localStorage regardless of SDK
     try {
       const saved = localStorage.getItem('fb_user')
       if (saved) setUser(JSON.parse(saved))
@@ -97,8 +99,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
   }
 
+  function getAccessToken(): string | null {
+    if (typeof window === 'undefined' || !window.FB) return null
+    try {
+      return window.FB.getAuthResponse()?.accessToken ?? null
+    } catch {
+      return null
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, sdkReady, login, logout }}>
+    <AuthContext.Provider value={{ user, sdkReady, login, logout, getAccessToken }}>
       {children}
     </AuthContext.Provider>
   )
