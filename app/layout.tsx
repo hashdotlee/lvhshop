@@ -3,6 +3,7 @@ import GoogleAnalytics from './components/GoogleAnalytics'
 import GoogleAdSense from './components/GoogleAdSense'
 import FacebookPixel from './components/FacebookPixel'
 import CatChaser from './components/CatChaser'
+import { AuthProvider } from './components/AuthContext'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
 
@@ -59,7 +60,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <GoogleAdSense />
         <FacebookPixel />
         <CatChaser />
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )
