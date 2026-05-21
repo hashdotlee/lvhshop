@@ -197,7 +197,7 @@ export default function HomeClient() {
   const [orderSuccess, setOrderSuccess] = useState<string|null>(null)
 
   const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([])
-  const [supaUser, setSupaUser]       = useState<{email:string;name:string}|null>(null)
+  const [orderAddrId, setOrderAddrId]   = useState<string>('')  const [supaUser, setSupaUser]       = useState<{email:string;name:string}|null>(null)
   const [showUserAuth, setShowUserAuth] = useState(false)
   const [userAuthMode, setUserAuthMode] = useState<'login'|'signup'>('login')
   const [userAuthForm, setUserAuthForm] = useState({ name:'', email:'', password:'' })
@@ -494,17 +494,20 @@ export default function HomeClient() {
     setOrderItem(item)
     setOrderForm({ name: supaUser.name ?? '', phone:'', address:'', note:'', payment_method:'cod' })
     setOrderSuccess(null)
+    setOrderAddrId('')
     fetchAddresses()
   }
   function closeOrderPopup() {
     setOrderItem(null); setOrderSuccess(null)
     setOrderForm({ name:'', phone:'', address:'', note:'', payment_method:'cod' })
+    setOrderAddrId('')
   }
   function openUserAuth(mode: 'login'|'signup' = 'login') {
     setUserAuthMode(mode); setUserAuthForm({ name:'', email:'', password:'' }); setUserAuthError(''); setShowUserAuth(true)
   }
   function afterAuthSuccess(name: string) {
     setShowUserAuth(false)
+    setOrderAddrId('')
     fetchAddresses()
     if (pendingOrderItem.current) {
       const item = pendingOrderItem.current
@@ -1237,20 +1240,21 @@ export default function HomeClient() {
                   {orderItem.price && <span style={{marginLeft:8,color:'var(--green)',fontWeight:700}}>{fmtVND(orderItem.price)}</span>}
                 </div>
 
-                {savedAddresses.length > 0 && (
+                {savedAddresses.length > 0 ? (
                   <div style={{marginBottom:12}}>
-                    <div className="lbl" style={{marginBottom:5}}>Chọn địa chỉ đã lưu</div>
-                    <select className="inp" style={{cursor:'pointer'}} defaultValue=""
+                    <div className="lbl" style={{marginBottom:5}}>Địa chỉ giao hàng</div>
+                    <select className="inp" style={{cursor:'pointer'}} value={orderAddrId}
                       onChange={e => {
                         const val = e.target.value
-                        if (!val || val === 'new') {
-                          if (val === 'new') setOrderForm(f => ({ ...f, phone:'', address:'' }))
-                          return
+                        setOrderAddrId(val)
+                        if (val === 'new') {
+                          setOrderForm(f => ({ ...f, name: supaUser?.name??'', phone:'', address:'' }))
+                        } else if (val) {
+                          const addr = savedAddresses.find(a => String(a.id) === val)
+                          if (addr) setOrderForm(f => ({ ...f, name: addr.full_name, phone: addr.phone, address: addr.address }))
                         }
-                        const addr = savedAddresses.find(a => String(a.id) === val)
-                        if (addr) setOrderForm(f => ({ ...f, name: addr.full_name, phone: addr.phone, address: addr.address }))
                       }}>
-                      <option value="">— Chọn địa chỉ —</option>
+                      <option value="">— Chọn địa chỉ đã lưu —</option>
                       {savedAddresses.map(a => (
                         <option key={a.id} value={String(a.id)}>
                           {a.is_default ? '★ ' : ''}{a.full_name} · {a.phone} · {a.address.substring(0,45)}{a.address.length>45?'…':''}
@@ -1259,8 +1263,9 @@ export default function HomeClient() {
                       <option value="new">+ Nhập địa chỉ mới</option>
                     </select>
                   </div>
-                )}
+                ) : null}
 
+                {(savedAddresses.length === 0 || orderAddrId === 'new' || orderAddrId !== '') && (
                 <div className="modal-grid" style={{marginTop:4}}>
                   <div><label className="lbl">Họ tên <span style={{color:'var(--red)'}}>*</span></label>
                     <input className="inp" placeholder="Nguyễn Văn A" autoFocus
@@ -1275,6 +1280,7 @@ export default function HomeClient() {
                     <input className="inp" placeholder="Ghi chú thêm nếu có..."
                       value={orderForm.note} onChange={e=>setOrderForm(f=>({...f,note:e.target.value}))} /></div>
                 </div>
+                )}
                 <div style={{marginBottom:14}}>
                   <div className="lbl" style={{marginBottom:8}}>Phương thức thanh toán</div>
                   <div style={{display:'flex',flexDirection:'column',gap:7}}>
