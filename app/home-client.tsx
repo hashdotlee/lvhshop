@@ -661,7 +661,7 @@ export default function HomeClient() {
   })()
 
   const filteredCust = customers.filter(c =>
-    !custSearch || [c.name,c.phone,c.order_code,c.address].some(v=>v?.toLowerCase().includes(custSearch.toLowerCase()))
+    !custSearch || [c.name,c.phone,c.order_code,c.address,c.email].some(v=>v?.toLowerCase().includes(custSearch.toLowerCase()))
   )
 
   // ─────────────────────────────────────────────────────────────
@@ -744,7 +744,7 @@ export default function HomeClient() {
           <div>
             <div className="section-title">Quản lý khách hàng</div>
             <div className="filter-bar" style={{marginBottom:20}}>
-              <input className="inp" style={{flex:1,maxWidth:320}} placeholder="Tìm tên, SĐT, mã đơn..."
+              <input className="inp" style={{flex:1,maxWidth:320}} placeholder="Tìm tên, SĐT, email, mã đơn..."
                 value={custSearch} onChange={e=>setCustSearch(e.target.value)} />
               <button className="btn-ghost" onClick={fetchCustomers}>↻</button>
             </div>
@@ -753,13 +753,17 @@ export default function HomeClient() {
             : (
               <div className="cust-table-wrap">
                 <table className="cust-table">
-                  <thead><tr><th>Mã đơn</th><th>Sản phẩm</th><th>Khách hàng</th><th>SĐT</th><th>Địa chỉ</th><th>Ghi chú</th><th>Ngày</th><th></th></tr></thead>
+                  <thead><tr><th>Mã đơn</th><th>Sản phẩm</th><th>Khách hàng</th><th>Email</th><th>SĐT</th><th>Địa chỉ</th><th>Ghi chú</th><th>Ngày</th><th></th></tr></thead>
                   <tbody>
                     {filteredCust.map(c=>(
                       <tr key={c.id}>
                         <td><code className="order-code">{c.order_code||'—'}</code></td>
                         <td style={{maxWidth:160}}>{c.items?.title||'—'}<br/><span style={{color:'var(--green)',fontSize:12}}>{fmtVND(c.items?.price??null)}</span></td>
-                        <td style={{fontWeight:500}}>{c.name||'—'}</td>
+                        <td style={{fontWeight:500}}>
+                          {c.name||'—'}
+                          {c.user_id && <span className="badge-app" title="Đã đăng ký tài khoản">App</span>}
+                        </td>
+                        <td style={{fontSize:12,color:'var(--muted)'}}>{c.email||'—'}</td>
                         <td>{c.phone||'—'}</td>
                         <td style={{maxWidth:160,wordBreak:'break-word'}}>{c.address||'—'}</td>
                         <td style={{maxWidth:140,color:'var(--muted)',fontSize:12}}>{c.note||'—'}</td>
@@ -1497,6 +1501,7 @@ nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 .logout-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted);padding:2px 5px}
 .logout-btn:hover{color:var(--red)}
 .badge-bin{background:#e8f0fe;color:#1d4ed8;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:500}
+.badge-app{background:#d1fae5;color:#065f46;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:5px;vertical-align:middle}
 :root.dark .badge-bin{background:#1e293b;color:#93c5fd}
 .sku-select-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;text-align:left;width:100%;transition:all .15s;font-family:inherit;color:var(--text)}
 .sku-select-row:hover{border-color:var(--accent);background:var(--tag-bg)}
