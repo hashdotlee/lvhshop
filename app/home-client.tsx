@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Item, Customer, Staff } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
 import DailyQuizBanner from './components/DailyQuizBanner'
 import OrderManagement from './components/OrderManagement'
@@ -195,6 +196,13 @@ export default function HomeClient() {
   const [orderSubmitting, setOrderSubmitting] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState<string|null>(null)
 
+  const [supaUser, setSupaUser]       = useState<{email:string;name:string}|null>(null)
+  const [showUserAuth, setShowUserAuth] = useState(false)
+  const [userAuthMode, setUserAuthMode] = useState<'login'|'signup'>('login')
+  const [userAuthForm, setUserAuthForm] = useState({ name:'', email:'', password:'' })
+  const [userAuthLoading, setUserAuthLoading] = useState(false)
+  const [userAuthError, setUserAuthError] = useState('')
+
   const [toast, setToast]             = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
   // SKU group order: khi public chọn mua hàng có SKU, hiện danh sách mã để chọn thùng
@@ -245,12 +253,24 @@ export default function HomeClient() {
     fetchItems()
     fetchStaff()
 
+    // Supabase auth: restore session & listen for changes
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setSupaUser({ email: user.email ?? '', name: user.user_metadata?.full_name ?? user.email ?? '' })
+    })
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_e, session) => {
+      const u = session?.user
+      setSupaUser(u ? { email: u.email ?? '', name: u.user_metadata?.full_name ?? u.email ?? '' } : null)
+    })
+
     // Auto-reload every 5s for buyers
     autoReloadRef.current = setInterval(() => {
       fetchItems(true)
     }, 5000)
 
-    return () => clearInterval(autoReloadRef.current)
+    return () => {
+      clearInterval(autoReloadRef.current)
+      authSub.unsubscribe()
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -456,12 +476,39 @@ export default function HomeClient() {
 
   function openOrderPopup(item: Item) {
     setOrderItem(item)
-    setOrderForm({ name:'', phone:'', address:'', note:'', payment_method:'cod' })
+    setOrderForm({ name: supaUser?.name ?? '', phone:'', address:'', note:'', payment_method:'cod' })
     setOrderSuccess(null)
   }
   function closeOrderPopup() {
     setOrderItem(null); setOrderSuccess(null)
     setOrderForm({ name:'', phone:'', address:'', note:'', payment_method:'cod' })
+  }
+  function openUserAuth(mode: 'login'|'signup' = 'login') {
+    setUserAuthMode(mode); setUserAuthForm({ name:'', email:'', password:'' }); setUserAuthError(''); setShowUserAuth(true)
+  }
+  async function supaSignIn() {
+    if (!userAuthForm.email || !userAuthForm.password) { setUserAuthError('Nhập email và mật khẩu'); return }
+    setUserAuthLoading(true); setUserAuthError('')
+    const { error } = await supabase.auth.signInWithPassword({ email: userAuthForm.email, password: userAuthForm.password })
+    setUserAuthLoading(false)
+    if (error) { setUserAuthError(error.message === 'Invalid login credentials' ? 'Email hoặc mật khẩu không đúng' : error.message); return }
+    setShowUserAuth(false); showToast('Đã đăng nhập!')
+  }
+  async function supaSignUp() {
+    if (!userAuthForm.name.trim()) { setUserAuthError('Nhập họ tên'); return }
+    if (!userAuthForm.email)       { setUserAuthError('Nhập email'); return }
+    if (userAuthForm.password.length < 6) { setUserAuthError('Mật khẩu tối thiểu 6 ký tự'); return }
+    setUserAuthLoading(true); setUserAuthError('')
+    const { error } = await supabase.auth.signUp({
+      email: userAuthForm.email, password: userAuthForm.password,
+      options: { data: { full_name: userAuthForm.name } },
+    })
+    setUserAuthLoading(false)
+    if (error) { setUserAuthError(error.message); return }
+    setShowUserAuth(false); showToast('Đăng ký thành công! Kiểm tra email để xác nhận.')
+  }
+  async function supaSignOut() {
+    await supabase.auth.signOut(); showToast('Đã đăng xuất')
   }
   async function submitOrderPopup() {
     if (!orderForm.name.trim())    { showToast('Nhập họ tên'); return }
@@ -1152,6 +1199,21 @@ export default function HomeClient() {
                   <span style={{fontWeight:600}}>{orderItem.title}</span>
                   {orderItem.price && <span style={{marginLeft:8,color:'var(--green)',fontWeight:700}}>{fmtVND(orderItem.price)}</span>}
                 </div>
+
+                {/* Supabase user info / login prompt */}
+                {supaUser ? (
+                  <div style={{display:'flex',alignItems:'center',gap:8,background:'var(--green-bg)',border:'1px solid #b7e4cc',borderRadius:8,padding:'8px 12px',marginBottom:12}}>
+                    <span style={{fontSize:15}}>✓</span>
+                    <span style={{fontSize:13,fontWeight:500,flex:1}}>{supaUser.name || supaUser.email}</span>
+                    <button onClick={supaSignOut} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'var(--muted)',padding:'2px 4px'}}>Đăng xuất</button>
+                  </div>
+                ) : (
+                  <div style={{display:'flex',gap:6,marginBottom:12}}>
+                    <button onClick={()=>openUserAuth('login')} style={{flex:1,padding:'8px',border:'1px solid var(--border)',borderRadius:7,background:'none',font:'500 12px inherit',cursor:'pointer',color:'var(--text)',transition:'all .15s'}}>Đăng nhập</button>
+                    <button onClick={()=>openUserAuth('signup')} style={{flex:1,padding:'8px',border:'1px solid var(--border)',borderRadius:7,background:'var(--tag-bg)',font:'500 12px inherit',cursor:'pointer',color:'var(--text)',transition:'all .15s'}}>Đăng ký tài khoản</button>
+                  </div>
+                )}
+
                 <div className="modal-grid" style={{marginTop:4}}>
                   <div><label className="lbl">Họ tên <span style={{color:'var(--red)'}}>*</span></label>
                     <input className="inp" placeholder="Nguyễn Văn A" autoFocus
@@ -1203,6 +1265,40 @@ export default function HomeClient() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* USER AUTH MODAL */}
+      {showUserAuth && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setShowUserAuth(false)}>
+          <div className="modal" style={{maxWidth:400}}>
+            <div className="sold-mode-tabs">
+              <button className={`sold-mode-tab${userAuthMode==='login'?' active':''}`} onClick={()=>{setUserAuthMode('login');setUserAuthError('')}}>Đăng nhập</button>
+              <button className={`sold-mode-tab${userAuthMode==='signup'?' active':''}`} onClick={()=>{setUserAuthMode('signup');setUserAuthError('')}}>Đăng ký</button>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:10,marginTop:4}}>
+              {userAuthMode==='signup' && (
+                <div><label className="lbl">Họ tên</label>
+                  <input className="inp" placeholder="Nguyễn Văn A" autoFocus={userAuthMode==='signup'}
+                    value={userAuthForm.name} onChange={e=>setUserAuthForm(f=>({...f,name:e.target.value}))} /></div>
+              )}
+              <div><label className="lbl">Email</label>
+                <input className="inp" type="email" placeholder="email@example.com" autoFocus={userAuthMode==='login'}
+                  value={userAuthForm.email} onChange={e=>setUserAuthForm(f=>({...f,email:e.target.value}))}
+                  onKeyDown={e=>e.key==='Enter'&&(userAuthMode==='login'?supaSignIn():supaSignUp())} /></div>
+              <div><label className="lbl">Mật khẩu</label>
+                <input className="inp" type="password" placeholder={userAuthMode==='signup'?'Tối thiểu 6 ký tự':'••••••••'}
+                  value={userAuthForm.password} onChange={e=>setUserAuthForm(f=>({...f,password:e.target.value}))}
+                  onKeyDown={e=>e.key==='Enter'&&(userAuthMode==='login'?supaSignIn():supaSignUp())} /></div>
+            </div>
+            {userAuthError && <div style={{fontSize:12,color:'var(--red)',marginTop:8}}>{userAuthError}</div>}
+            <div className="modal-actions" style={{marginTop:16}}>
+              <button className="btn-ghost" onClick={()=>setShowUserAuth(false)}>Hủy</button>
+              <button className="btn-dark" onClick={userAuthMode==='login'?supaSignIn:supaSignUp} disabled={userAuthLoading}>
+                {userAuthLoading?'Đang xử lý...':(userAuthMode==='login'?'Đăng nhập →':'Đăng ký →')}
+              </button>
+            </div>
           </div>
         </div>
       )}
