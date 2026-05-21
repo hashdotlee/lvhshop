@@ -8,6 +8,9 @@ import OrderManagement from './components/OrderManagement'
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
 const CHOT_TOT   = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
 const FB_PAGE_ID = process.env.NEXT_PUBLIC_FB_PAGE_ID   ?? ''
+const BANK_ID    = process.env.NEXT_PUBLIC_BANK_ID           ?? ''
+const BANK_ACCT  = process.env.NEXT_PUBLIC_BANK_ACCOUNT      ?? ''
+const BANK_NAME  = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME ?? ''
 
 function reltime(iso: string) {
   const d = (Date.now() - new Date(iso).getTime()) / 1000
@@ -186,6 +189,11 @@ export default function HomeClient() {
   const [msgItem, setMsgItem]         = useState<Item|null>(null)
   const [msgPhone, setMsgPhone]       = useState('')
   const [msgText, setMsgText]         = useState('')
+
+  const [orderItem, setOrderItem]     = useState<Item|null>(null)
+  const [orderForm, setOrderForm]     = useState({ name:'', phone:'', address:'', note:'', payment_method:'cod' as 'cod'|'bank_transfer' })
+  const [orderSubmitting, setOrderSubmitting] = useState(false)
+  const [orderSuccess, setOrderSuccess] = useState<string|null>(null)
 
   const [toast, setToast]             = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -442,6 +450,45 @@ export default function HomeClient() {
       fetchItems()
     } catch { showToast('Không thể kết nối server') }
     finally { setSubmittingBuy(false) }
+  }
+
+  function openOrderPopup(item: Item) {
+    setOrderItem(item)
+    setOrderForm({ name:'', phone:'', address:'', note:'', payment_method:'cod' })
+    setOrderSuccess(null)
+  }
+  function closeOrderPopup() {
+    setOrderItem(null); setOrderSuccess(null)
+    setOrderForm({ name:'', phone:'', address:'', note:'', payment_method:'cod' })
+  }
+  async function submitOrderPopup() {
+    if (!orderForm.name.trim())    { showToast('Nhập họ tên'); return }
+    if (!orderForm.phone.trim())   { showToast('Nhập số điện thoại'); return }
+    if (!orderForm.address.trim()) { showToast('Nhập địa chỉ nhận hàng'); return }
+    setOrderSubmitting(true)
+    try {
+      const r = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_id: orderItem?.id ?? null,
+          item_title: orderItem?.title ?? null,
+          item_price: orderItem?.price ?? null,
+          total_amount: orderItem?.price ?? null,
+          customer_name: orderForm.name,
+          customer_phone: orderForm.phone,
+          customer_address: orderForm.address,
+          customer_note: orderForm.note || null,
+          shipping_carrier: 'spx',
+          payment_method: orderForm.payment_method,
+          created_by: 'customer',
+        }),
+      })
+      if (!r.ok) { showToast('Đặt hàng thất bại, vui lòng thử lại'); return }
+      const d = await r.json()
+      setOrderSuccess(d.order_number)
+    } catch { showToast('Không thể kết nối server') }
+    finally { setOrderSubmitting(false) }
   }
 
   const categories = Array.from(new Set(items.map(i => i.category).filter(Boolean))) as string[]
@@ -818,7 +865,7 @@ export default function HomeClient() {
                         <div className="item-footer">
                           <div className="item-price">{fmtVND(item.price)}</div>
                           {!isAdmin && item.status==='available' ? (
-                            <a href={`/order?item=${item.id}`} className="btn-order-quick" onClick={e=>e.stopPropagation()}>Đặt hàng</a>
+                            <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup(item)}}>Đặt hàng</button>
                           ) : (
                             <span className="item-cta">Xem chi tiết →</span>
                           )}
@@ -999,6 +1046,83 @@ export default function HomeClient() {
                 {submittingBuy ? 'Đang đăng...' : '🔍 Đăng yêu cầu'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ORDER POPUP */}
+      {orderItem && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&closeOrderPopup()}>
+          <div className="modal" style={{maxWidth:500}}>
+            {orderSuccess ? (
+              <div style={{textAlign:'center',padding:'8px 0 16px'}}>
+                <div style={{width:56,height:56,borderRadius:'50%',background:'var(--green)',color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,margin:'0 auto 14px'}}>✓</div>
+                <h3 style={{marginBottom:6}}>Đặt hàng thành công!</h3>
+                <p style={{color:'var(--muted)',marginBottom:16}}>Chúng tôi sẽ liên hệ xác nhận trong thời gian sớm nhất.</p>
+                <div style={{background:'var(--tag-bg)',borderRadius:8,padding:'12px 16px',marginBottom:20}}>
+                  <div className="lbl" style={{marginBottom:4}}>Mã đơn hàng</div>
+                  <div style={{fontSize:20,fontWeight:700,fontFamily:'monospace',color:'var(--text)'}}>{orderSuccess}</div>
+                </div>
+                <button className="btn-ghost" onClick={closeOrderPopup}>Đóng</button>
+              </div>
+            ) : (
+              <>
+                <h3>Đặt hàng</h3>
+                <div className="modal-item-info">
+                  <span style={{fontWeight:600}}>{orderItem.title}</span>
+                  {orderItem.price && <span style={{marginLeft:8,color:'var(--green)',fontWeight:700}}>{fmtVND(orderItem.price)}</span>}
+                </div>
+                <div className="modal-grid" style={{marginTop:4}}>
+                  <div><label className="lbl">Họ tên <span style={{color:'var(--red)'}}>*</span></label>
+                    <input className="inp" placeholder="Nguyễn Văn A" autoFocus
+                      value={orderForm.name} onChange={e=>setOrderForm(f=>({...f,name:e.target.value}))} /></div>
+                  <div><label className="lbl">Số điện thoại <span style={{color:'var(--red)'}}>*</span></label>
+                    <input className="inp" placeholder="09xxxxxxxx" type="tel"
+                      value={orderForm.phone} onChange={e=>setOrderForm(f=>({...f,phone:e.target.value}))} /></div>
+                  <div style={{gridColumn:'1/-1'}}><label className="lbl">Địa chỉ nhận hàng <span style={{color:'var(--red)'}}>*</span></label>
+                    <input className="inp" placeholder="Số nhà, đường, phường, quận, tỉnh..."
+                      value={orderForm.address} onChange={e=>setOrderForm(f=>({...f,address:e.target.value}))} /></div>
+                  <div style={{gridColumn:'1/-1'}}><label className="lbl">Ghi chú</label>
+                    <input className="inp" placeholder="Ghi chú thêm nếu có..."
+                      value={orderForm.note} onChange={e=>setOrderForm(f=>({...f,note:e.target.value}))} /></div>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <div className="lbl" style={{marginBottom:8}}>Phương thức thanh toán</div>
+                  <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                    {(['cod','bank_transfer'] as const).map(m=>(
+                      <label key={m} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',border:`1.5px solid ${orderForm.payment_method===m?'var(--accent)':'var(--border)'}`,borderRadius:8,cursor:'pointer',background:orderForm.payment_method===m?'var(--tag-bg)':'transparent',transition:'all .15s'}}>
+                        <input type="radio" name="ord_pay" value={m} checked={orderForm.payment_method===m}
+                          onChange={()=>setOrderForm(f=>({...f,payment_method:m}))} style={{accentColor:'var(--accent)',flexShrink:0}} />
+                        <div>
+                          <div style={{fontSize:13,fontWeight:500}}>{m==='cod'?'Thanh toán khi nhận hàng (COD)':'Chuyển khoản ngân hàng'}</div>
+                          <div style={{fontSize:11,color:'var(--muted)'}}>{m==='cod'?'Trả tiền mặt khi nhận được hàng':'Thanh toán trước, xác nhận thủ công'}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {orderForm.payment_method==='bank_transfer' && BANK_ACCT && (
+                  <div style={{display:'flex',alignItems:'center',gap:14,background:'var(--tag-bg)',borderRadius:10,padding:12,marginBottom:14}}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCT}-compact2.png?amount=${orderItem.price??''}&addInfo=${encodeURIComponent('DH '+orderItem.order_code)}&accountName=${encodeURIComponent(BANK_NAME)}`}
+                      alt="QR thanh toán" width={88} height={88} style={{borderRadius:6,flexShrink:0}} />
+                    <div style={{fontSize:12,lineHeight:1.9}}>
+                      <div><span style={{color:'var(--muted)'}}>Ngân hàng:</span> <strong>{BANK_ID}</strong></div>
+                      <div><span style={{color:'var(--muted)'}}>STK:</span> <strong>{BANK_ACCT}</strong></div>
+                      {BANK_NAME&&<div><span style={{color:'var(--muted)'}}>Chủ TK:</span> {BANK_NAME}</div>}
+                      {orderItem.price&&<div><span style={{color:'var(--muted)'}}>Số tiền:</span> <strong style={{color:'var(--green)'}}>{fmtVND(orderItem.price)}</strong></div>}
+                    </div>
+                  </div>
+                )}
+                <div className="modal-actions">
+                  <button className="btn-ghost" onClick={closeOrderPopup}>Hủy</button>
+                  <button className="btn-green" onClick={submitOrderPopup} disabled={orderSubmitting}>
+                    {orderSubmitting?'Đang đặt hàng...':'Xác nhận đặt hàng →'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
