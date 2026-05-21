@@ -31,12 +31,14 @@ export async function POST(req: NextRequest) {
   if (!jwt) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
   const db = userDb(jwt)
+  const { data: { user }, error: userError } = await db.auth.getUser()
+  if (userError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (body.is_default) {
     await db.from('customer_addresses').update({ is_default: false }).eq('is_default', true)
   }
   const { data, error } = await db
     .from('customer_addresses')
-    .insert({ full_name: body.full_name, phone: body.phone, address: body.address, is_default: body.is_default ?? false })
+    .insert({ user_id: user.id, full_name: body.full_name, phone: body.phone, address: body.address, is_default: body.is_default ?? false })
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -49,9 +49,11 @@ export type InventoryBatch = {
 
 export type Customer = {
   id: number
+  user_id: string | null
   item_id: number | null
   order_code: string
   name: string
+  email: string | null
   phone: string
   address: string
   note: string
