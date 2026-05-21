@@ -1,11 +1,13 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import type { Item } from '@/lib/supabase'
+import { useAuth } from '@/app/components/AuthContext'
 
 const BANK_ID = process.env.NEXT_PUBLIC_BANK_ID ?? 'MB'
 const BANK_ACCOUNT = process.env.NEXT_PUBLIC_BANK_ACCOUNT ?? ''
 const BANK_ACCOUNT_NAME = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME ?? ''
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
+const FB_APP_ID = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID ?? ''
 
 function fmtVND(v: number | null | undefined) {
   if (!v) return 'Thương lượng'
@@ -20,6 +22,7 @@ function getImages(item: Item): string[] {
 type Step = 'browse' | 'form' | 'success'
 
 export default function OrderClient() {
+  const { user, login, logout } = useAuth()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -35,6 +38,14 @@ export default function OrderClient() {
     customer_note: '',
     payment_method: 'cod' as 'cod' | 'bank_transfer',
   })
+
+  // Pre-fill name from Facebook profile
+  useEffect(() => {
+    if (user && !form.customer_name) {
+      setForm(f => ({ ...f, customer_name: user.name }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   useEffect(() => {
     fetch('/api/items')
@@ -114,7 +125,27 @@ export default function OrderClient() {
         <header className="ord-header">
           <a href="/" className="ord-logo">leviethoang<span>.shop</span></a>
           <div className="ord-header-right">
-            <a href="/" className="ord-back-link">← Về trang chủ</a>
+            {user ? (
+              <>
+                <a href="/my-orders" className="ord-back-link ord-my-orders-link">📦 Đơn hàng của tôi</a>
+                <div className="ord-user-pill">
+                  {user.picture && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={user.picture} alt={user.name} className="ord-avatar" />
+                  )}
+                  <span className="ord-user-name-sm">{user.name.split(' ').pop()}</span>
+                  <button className="ord-logout-sm" onClick={logout}>×</button>
+                </div>
+              </>
+            ) : FB_APP_ID ? (
+              <button className="ord-fb-login-btn" onClick={login}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                </svg>
+                Đăng nhập
+              </button>
+            ) : null}
+            <a href="/" className="ord-back-link">← Trang chủ</a>
           </div>
         </header>
 
@@ -268,6 +299,9 @@ export default function OrderClient() {
                 </div>
               )}
               <div className="ord-success-actions">
+                <a href="/my-orders" className="ord-btn-secondary" style={{ textDecoration: 'none', display: 'inline-block' }}>
+                  Xem đơn hàng của tôi
+                </a>
                 <a href="/" className="ord-btn-primary" style={{ textDecoration: 'none', display: 'inline-block' }}>
                   Tiếp tục mua sắm
                 </a>
@@ -352,7 +386,18 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .ord-success-label{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#8c8982;margin-bottom:6px}
 .ord-success-number{font-size:22px;font-weight:700;font-family:monospace;color:#1a1916}
 .ord-success-note{font-size:13px;color:#8c8982;margin-bottom:24px;line-height:1.6}
-.ord-success-actions{display:flex;justify-content:center;gap:12px}
+.ord-success-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+.ord-btn-secondary{background:#fff;color:#1a1916;border:1.5px solid #1a1916;padding:8px 18px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.ord-btn-secondary:hover{opacity:.75}
+/* Facebook login in header */
+.ord-fb-login-btn{display:inline-flex;align-items:center;gap:7px;background:#1877F2;color:#fff;border:none;padding:6px 14px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.ord-fb-login-btn:hover{opacity:.9}
+.ord-user-pill{display:flex;align-items:center;gap:6px;background:#f0efe9;border-radius:20px;padding:4px 10px 4px 6px}
+.ord-avatar{width:24px;height:24px;border-radius:50%;object-fit:cover}
+.ord-user-name-sm{font-size:13px;font-weight:500;color:#1a1916}
+.ord-logout-sm{background:none;border:none;cursor:pointer;font-size:16px;color:#8c8982;line-height:1;padding:0 0 0 2px}
+.ord-logout-sm:hover{color:#1a1916}
+.ord-my-orders-link{color:#2563eb !important;font-weight:500}
 @media(max-width:600px){
   .ord-header{padding:12px 16px}
   .ord-main{padding:20px 16px}
