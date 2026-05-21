@@ -188,6 +188,27 @@ export default function OrderClient() {
         localStorage.setItem(STORAGE_ADDRESS, form.customer_address)
       } catch {}
 
+      // Auto-save address for next order (fire-and-forget)
+      const alreadySaved = savedAddresses.some(
+        a => a.phone === form.customer_phone && a.address === form.customer_address
+      )
+      if (!alreadySaved) {
+        const { data: { session } } = await supabase.auth.getSession()
+        const jwt = session?.access_token
+        if (jwt) {
+          fetch('/api/addresses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+            body: JSON.stringify({
+              full_name: form.customer_name,
+              phone: form.customer_phone,
+              address: form.customer_address,
+              is_default: savedAddresses.length === 0,
+            }),
+          }).catch(() => {})
+        }
+      }
+
       setStep('success')
       window.scrollTo(0, 0)
     } catch {

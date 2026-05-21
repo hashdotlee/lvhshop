@@ -568,6 +568,26 @@ export default function HomeClient() {
       if (!r.ok) { showToast('Đặt hàng thất bại, vui lòng thử lại'); return }
       const d = await r.json()
       setOrderSuccess(d.order_number)
+      // Auto-save address for next order (fire-and-forget)
+      const alreadySaved = savedAddresses.some(
+        a => a.phone === orderForm.phone && a.address === orderForm.address
+      )
+      if (!alreadySaved) {
+        const { data: { session } } = await supabase.auth.getSession()
+        const jwt = session?.access_token
+        if (jwt) {
+          fetch('/api/addresses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+            body: JSON.stringify({
+              full_name: orderForm.name,
+              phone: orderForm.phone,
+              address: orderForm.address,
+              is_default: savedAddresses.length === 0,
+            }),
+          }).catch(() => {})
+        }
+      }
     } catch { showToast('Không thể kết nối server') }
     finally { setOrderSubmitting(false) }
   }
