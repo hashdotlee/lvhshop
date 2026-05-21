@@ -1237,12 +1237,27 @@ export default function HomeClient() {
                   {orderItem.price && <span style={{marginLeft:8,color:'var(--green)',fontWeight:700}}>{fmtVND(orderItem.price)}</span>}
                 </div>
 
-                {/* Logged-in user info */}
-                {supaUser && (
-                  <div style={{display:'flex',alignItems:'center',gap:8,background:'var(--green-bg)',border:'1px solid #b7e4cc',borderRadius:8,padding:'8px 12px',marginBottom:12}}>
-                    <span style={{fontSize:15}}>✓</span>
-                    <span style={{fontSize:13,fontWeight:500,flex:1}}>{supaUser.name || supaUser.email}</span>
-                    <button onClick={supaSignOut} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'var(--muted)',padding:'2px 4px'}}>Đăng xuất</button>
+                {savedAddresses.length > 0 && (
+                  <div style={{marginBottom:12}}>
+                    <div className="lbl" style={{marginBottom:5}}>Chọn địa chỉ đã lưu</div>
+                    <select className="inp" style={{cursor:'pointer'}} defaultValue=""
+                      onChange={e => {
+                        const val = e.target.value
+                        if (!val || val === 'new') {
+                          if (val === 'new') setOrderForm(f => ({ ...f, phone:'', address:'' }))
+                          return
+                        }
+                        const addr = savedAddresses.find(a => String(a.id) === val)
+                        if (addr) setOrderForm(f => ({ ...f, name: addr.full_name, phone: addr.phone, address: addr.address }))
+                      }}>
+                      <option value="">— Chọn địa chỉ —</option>
+                      {savedAddresses.map(a => (
+                        <option key={a.id} value={String(a.id)}>
+                          {a.is_default ? '★ ' : ''}{a.full_name} · {a.phone} · {a.address.substring(0,45)}{a.address.length>45?'…':''}
+                        </option>
+                      ))}
+                      <option value="new">+ Nhập địa chỉ mới</option>
+                    </select>
                   </div>
                 )}
 
