@@ -1,8 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import type { Item } from '@/lib/supabase'
+import type { Item, CustomerAddress } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
-import type { CustomerAddress } from '@/lib/supabase'
 
 const BANK_ID = process.env.NEXT_PUBLIC_BANK_ID ?? 'MB'
 const BANK_ACCOUNT = process.env.NEXT_PUBLIC_BANK_ACCOUNT ?? ''
@@ -20,9 +19,6 @@ function getImages(item: Item): string[] {
 
 type Step = 'browse' | 'auth' | 'form' | 'success'
 
-const STORAGE_PHONE = 'ord_customer_phone'
-const STORAGE_ADDRESS = 'ord_customer_address'
-
 export default function OrderClient() {
   const [supaUser, setSupaUser] = useState<{ email: string; name: string } | null>(null)
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
@@ -37,21 +33,22 @@ export default function OrderClient() {
   const [step, setStep] = useState<Step>('browse')
   const [submitting, setSubmitting] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
-  const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([])
 
-  const [form, setForm] = useState({
-    customer_name: '',
-    customer_phone: '',
-    customer_address: '',
-    customer_note: '',
-    payment_method: 'cod' as 'cod' | 'bank_transfer',
-  })
+  const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([])
+  const [orderAddressId, setOrderAddressId] = useState<number | null>(null)
+  const [showNewAddrForm, setShowNewAddrForm] = useState(false)
+  const [newAddrForm, setNewAddrForm] = useState({ full_name: '', phone: '', address: '' })
+  const [newAddrSaving, setNewAddrSaving] = useState(false)
+
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'bank_transfer'>('cod')
+  const [note, setNote] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const name = session.user.user_metadata?.full_name ?? session.user.email ?? ''
         setSupaUser({ email: session.user.email ?? '', name })
+        fetchAddresses(session.access_token)
       }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -75,17 +72,14 @@ export default function OrderClient() {
     if (!jwt) return
     try {
       const r = await fetch('/api/addresses', { headers: { Authorization: `Bearer ${jwt}` } })
-      if (r.ok) setSavedAddresses(await r.json())
+      if (r.ok) {
+        const list: CustomerAddress[] = await r.json()
+        setSavedAddresses(list)
+        const def = list.find(a => a.is_default) ?? list[0]
+        if (def) setOrderAddressId(def.id)
+      }
     } catch { /* silent */ }
   }
-
-  useEffect(() => {
-    try {
-      const phone = localStorage.getItem(STORAGE_PHONE) ?? ''
-      const address = localStorage.getItem(STORAGE_ADDRESS) ?? ''
-      if (phone || address) setForm(f => ({ ...f, customer_phone: phone, customer_address: address }))
-    } catch {}
-  }, [])
 
   useEffect(() => {
     fetch('/api/items')
@@ -105,7 +99,6 @@ export default function OrderClient() {
     if (!supaUser) {
       setStep('auth')
     } else {
-      setForm(f => ({ ...f, customer_name: f.customer_name || supaUser.name }))
       setStep('form')
     }
     window.scrollTo(0, 0)
@@ -115,20 +108,18 @@ export default function OrderClient() {
     setStep('browse')
     setSelectedItem(null)
     setAuthError('')
-    setForm(f => ({ ...f, customer_note: '', payment_method: 'cod' }))
+    setNote('')
+    setPaymentMethod('cod')
+    setOrderAddressId(null)
+    setShowNewAddrForm(false)
+    setNewAddrForm({ full_name: '', phone: '', address: '' })
   }
 
   async function handleSignIn() {
-    setAuthLoading(true)
-    setAuthError('')
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: authForm.email,
-      password: authForm.password,
-    })
+    setAuthLoading(true); setAuthError('')
+    const { data, error } = await supabase.auth.signInWithPassword({ email: authForm.email, password: authForm.password })
     setAuthLoading(false)
     if (error) { setAuthError(error.message); return }
-    const name = data.user?.user_metadata?.full_name ?? data.user?.email ?? ''
-    setForm(f => ({ ...f, customer_name: name }))
     await fetchAddresses(data.session?.access_token)
     setStep('form')
     window.scrollTo(0, 0)
@@ -136,79 +127,69 @@ export default function OrderClient() {
 
   async function handleSignUp() {
     if (!authForm.name.trim()) { setAuthError('Vui lòng nhập họ tên'); return }
-    setAuthLoading(true)
-    setAuthError('')
+    setAuthLoading(true); setAuthError('')
     const { error } = await supabase.auth.signUp({
-      email: authForm.email,
-      password: authForm.password,
+      email: authForm.email, password: authForm.password,
       options: { data: { full_name: authForm.name } },
     })
     setAuthLoading(false)
     if (error) { setAuthError(error.message); return }
-    setForm(f => ({ ...f, customer_name: authForm.name }))
     await fetchAddresses()
     setStep('form')
     window.scrollTo(0, 0)
   }
 
+  async function saveNewAddr() {
+    if (!newAddrForm.full_name.trim()) { alert('Nhập họ tên'); return }
+    if (!newAddrForm.phone.trim())     { alert('Nhập số điện thoại'); return }
+    if (!newAddrForm.address.trim())   { alert('Nhập địa chỉ'); return }
+    setNewAddrSaving(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const jwt = session?.access_token
+      if (!jwt) { alert('Cần đăng nhập để lưu địa chỉ'); return }
+      const r = await fetch('/api/addresses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+        body: JSON.stringify({ ...newAddrForm, is_default: savedAddresses.length === 0 }),
+      })
+      if (!r.ok) { alert('Lưu địa chỉ thất bại'); return }
+      const saved = await r.json()
+      await fetchAddresses(jwt)
+      setOrderAddressId(saved.id)
+      setShowNewAddrForm(false)
+    } catch { alert('Không thể kết nối server') }
+    finally { setNewAddrSaving(false) }
+  }
+
   async function submitOrder() {
-    if (!form.customer_name.trim()) { alert('Vui lòng nhập họ tên'); return }
-    if (!form.customer_phone.trim()) { alert('Vui lòng nhập số điện thoại'); return }
-    if (!form.customer_address.trim()) { alert('Vui lòng nhập địa chỉ nhận hàng'); return }
+    if (!orderAddressId) { alert('Vui lòng chọn địa chỉ giao hàng'); return }
+    const addr = savedAddresses.find(a => a.id === orderAddressId)
+    if (!addr) { alert('Địa chỉ không hợp lệ'); return }
 
     setSubmitting(true)
     try {
-      const payload = {
-        item_id: selectedItem?.id ?? null,
-        item_title: selectedItem?.title ?? null,
-        item_price: selectedItem?.price ?? null,
-        total_amount: selectedItem?.price ?? null,
-        customer_name: form.customer_name,
-        customer_phone: form.customer_phone,
-        customer_address: form.customer_address,
-        customer_note: form.customer_note,
-        shipping_carrier: 'spx',
-        payment_method: form.payment_method,
-        created_by: 'customer',
-      }
-
       const r = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          item_id: selectedItem?.id ?? null,
+          item_title: selectedItem?.title ?? null,
+          item_price: selectedItem?.price ?? null,
+          total_amount: selectedItem?.price ?? null,
+          customer_name: addr.full_name,
+          customer_phone: addr.phone,
+          customer_address: addr.address,
+          customer_note: note || null,
+          shipping_carrier: 'spx',
+          payment_method: paymentMethod,
+          created_by: 'customer',
+          address_id: orderAddressId,
+        }),
       })
-
       if (!r.ok) { alert('Đặt hàng thất bại. Vui lòng thử lại.'); return }
-
       const data = await r.json()
       setOrderNumber(data.order_number)
-
-      try {
-        localStorage.setItem(STORAGE_PHONE, form.customer_phone)
-        localStorage.setItem(STORAGE_ADDRESS, form.customer_address)
-      } catch {}
-
-      // Auto-save address for next order (fire-and-forget)
-      const alreadySaved = savedAddresses.some(
-        a => a.phone === form.customer_phone && a.address === form.customer_address
-      )
-      if (!alreadySaved) {
-        const { data: { session } } = await supabase.auth.getSession()
-        const jwt = session?.access_token
-        if (jwt) {
-          fetch('/api/addresses', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-            body: JSON.stringify({
-              full_name: form.customer_name,
-              phone: form.customer_phone,
-              address: form.customer_address,
-              is_default: savedAddresses.length === 0,
-            }),
-          }).catch(() => {})
-        }
-      }
-
       setStep('success')
       window.scrollTo(0, 0)
     } catch {
@@ -226,6 +207,8 @@ export default function OrderClient() {
     if (BANK_ACCOUNT_NAME) params.set('accountName', BANK_ACCOUNT_NAME)
     return `https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCOUNT}-compact2.png?${params.toString()}`
   }, [])
+
+  const selectedAddr = savedAddresses.find(a => a.id === orderAddressId)
 
   return (
     <>
@@ -253,11 +236,9 @@ export default function OrderClient() {
                 <h1 className="ord-title">Đặt hàng</h1>
                 <p className="ord-subtitle">Chọn sản phẩm và đặt hàng — nhanh chóng, tiện lợi.</p>
               </div>
-
               <div className="ord-search-wrap">
                 <input className="ord-search" placeholder="Tìm sản phẩm..." value={search} onChange={e => setSearch(e.target.value)} />
               </div>
-
               {loading ? (
                 <div className="ord-loading"><div className="ord-spinner" /></div>
               ) : filtered.length === 0 ? (
@@ -276,9 +257,7 @@ export default function OrderClient() {
                           <div className="ord-card-title">{item.title}</div>
                           {item.description && <div className="ord-card-desc">{item.description}</div>}
                           <div className="ord-card-price">{fmtVND(item.price)}</div>
-                          <button className="ord-btn-primary" onClick={() => selectItem(item)}>
-                            Đặt hàng
-                          </button>
+                          <button className="ord-btn-primary" onClick={() => selectItem(item)}>Đặt hàng</button>
                         </div>
                       </div>
                     )
@@ -292,7 +271,6 @@ export default function OrderClient() {
           {step === 'auth' && selectedItem && (
             <div className="ord-auth-wrap">
               <button className="ord-back-btn" onClick={goBackToBrowse}>← Quay lại</button>
-
               <div className="ord-selected-product" style={{ marginBottom: 28 }}>
                 <div className="ord-sp-label">Sản phẩm bạn chọn</div>
                 <div className="ord-sp-info">
@@ -306,14 +284,12 @@ export default function OrderClient() {
                   </div>
                 </div>
               </div>
-
               <div className="ord-auth-box">
                 <h2 className="ord-auth-title">Đăng nhập để đặt hàng</h2>
                 <div className="ord-auth-tabs">
                   <button className={`ord-auth-tab${authMode === 'login' ? ' active' : ''}`} onClick={() => { setAuthMode('login'); setAuthError('') }}>Đăng nhập</button>
                   <button className={`ord-auth-tab${authMode === 'signup' ? ' active' : ''}`} onClick={() => { setAuthMode('signup'); setAuthError('') }}>Đăng ký</button>
                 </div>
-
                 {authMode === 'signup' && (
                   <div className="ord-field">
                     <label className="ord-label">Họ và tên</label>
@@ -333,8 +309,7 @@ export default function OrderClient() {
                 </div>
                 {authError && <div className="ord-auth-error">{authError}</div>}
                 <button className="ord-btn-submit" style={{ marginTop: 8 }}
-                  onClick={authMode === 'login' ? handleSignIn : handleSignUp}
-                  disabled={authLoading}>
+                  onClick={authMode === 'login' ? handleSignIn : handleSignUp} disabled={authLoading}>
                   {authLoading ? 'Đang xử lý...' : authMode === 'login' ? 'Đăng nhập' : 'Đăng ký'}
                 </button>
               </div>
@@ -364,99 +339,118 @@ export default function OrderClient() {
               )}
 
               <div className="ord-form">
-                {savedAddresses.length > 0 && (
-                  <div className="ord-field">
-                    <label className="ord-label">Địa chỉ đã lưu</label>
-                    <select className="ord-input" style={{ cursor: 'pointer' }} defaultValue=""
-                      onChange={e => {
-                        const val = e.target.value
-                        if (val === '' || val === 'new') {
-                          if (val === 'new') setForm(f => ({ ...f, customer_phone: '', customer_address: '' }))
-                          return
-                        }
-                        const addr = savedAddresses.find(a => String(a.id) === val)
-                        if (addr) setForm(f => ({ ...f, customer_name: addr.full_name, customer_phone: addr.phone, customer_address: addr.address }))
-                      }}>
-                      <option value="">— Chọn địa chỉ đã lưu —</option>
-                      {savedAddresses.map(a => (
-                        <option key={a.id} value={String(a.id)}>
-                          {a.is_default ? '★ ' : ''}{a.full_name} · {a.phone} · {a.address.substring(0, 50)}{a.address.length > 50 ? '…' : ''}
-                        </option>
-                      ))}
-                      <option value="new">+ Nhập địa chỉ mới</option>
-                    </select>
+                {/* Address section */}
+                <div>
+                  <div className="ord-section-title" style={{ marginBottom: 10 }}>
+                    Địa chỉ giao hàng <span className="ord-required">*</span>
                   </div>
+
+                  {showNewAddrForm || savedAddresses.length === 0 ? (
+                    <>
+                      <div className="ord-addr-grid">
+                        <div className="ord-field">
+                          <label className="ord-label">Họ tên <span className="ord-required">*</span></label>
+                          <input className="ord-input" placeholder="Nguyễn Văn A" autoFocus
+                            value={newAddrForm.full_name} onChange={e => setNewAddrForm(f => ({ ...f, full_name: e.target.value }))} />
+                        </div>
+                        <div className="ord-field">
+                          <label className="ord-label">Số điện thoại <span className="ord-required">*</span></label>
+                          <input className="ord-input" placeholder="09xxxxxxxx" type="tel"
+                            value={newAddrForm.phone} onChange={e => setNewAddrForm(f => ({ ...f, phone: e.target.value }))} />
+                        </div>
+                        <div className="ord-field" style={{ gridColumn: '1/-1' }}>
+                          <label className="ord-label">Địa chỉ nhận hàng <span className="ord-required">*</span></label>
+                          <input className="ord-input" placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+                            value={newAddrForm.address} onChange={e => setNewAddrForm(f => ({ ...f, address: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        {savedAddresses.length > 0 && (
+                          <button type="button" className="ord-btn-ghost" style={{ flex: 1 }}
+                            onClick={() => setShowNewAddrForm(false)}>← Quay lại</button>
+                        )}
+                        <button type="button" className="ord-btn-dark" style={{ flex: 1 }}
+                          onClick={saveNewAddr} disabled={newAddrSaving}>
+                          {newAddrSaving ? 'Đang lưu...' : 'Lưu địa chỉ →'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <select className="ord-input" style={{ cursor: 'pointer', marginBottom: 8 }}
+                        value={orderAddressId ?? ''}
+                        onChange={e => setOrderAddressId(e.target.value ? Number(e.target.value) : null)}>
+                        <option value="">— Chọn địa chỉ —</option>
+                        {savedAddresses.map(a => (
+                          <option key={a.id} value={a.id}>
+                            {a.is_default ? '★ ' : ''}{a.full_name} · {a.phone} · {a.address.substring(0, 50)}{a.address.length > 50 ? '…' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedAddr && (
+                        <div className="ord-addr-selected">
+                          <div className="ord-addr-name">{selectedAddr.full_name} · {selectedAddr.phone}</div>
+                          <div className="ord-addr-text">{selectedAddr.address}</div>
+                        </div>
+                      )}
+                      <button type="button" className="ord-btn-ghost" style={{ width: '100%', marginTop: 8 }}
+                        onClick={() => { setShowNewAddrForm(true); setNewAddrForm({ full_name: supaUser?.name ?? '', phone: '', address: '' }) }}>
+                        + Thêm địa chỉ mới
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Note + payment — shown only when address is selected */}
+                {orderAddressId && !showNewAddrForm && (
+                  <>
+                    <div className="ord-field">
+                      <label className="ord-label">Ghi chú</label>
+                      <textarea className="ord-input ord-textarea" placeholder="Ghi chú thêm (nếu có)..."
+                        value={note} onChange={e => setNote(e.target.value)} />
+                    </div>
+
+                    <div className="ord-section-title" style={{ marginTop: 8 }}>Phương thức thanh toán</div>
+                    <div className="ord-payment-options">
+                      <label className={`ord-payment-opt${paymentMethod === 'cod' ? ' active' : ''}`}>
+                        <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'}
+                          onChange={() => setPaymentMethod('cod')} />
+                        <div>
+                          <div className="ord-popt-title">Thanh toán khi nhận hàng (COD)</div>
+                          <div className="ord-popt-desc">Thanh toán bằng tiền mặt khi nhận được hàng</div>
+                        </div>
+                      </label>
+                      <label className={`ord-payment-opt${paymentMethod === 'bank_transfer' ? ' active' : ''}`}>
+                        <input type="radio" name="payment" value="bank_transfer" checked={paymentMethod === 'bank_transfer'}
+                          onChange={() => setPaymentMethod('bank_transfer')} />
+                        <div>
+                          <div className="ord-popt-title">Chuyển khoản ngân hàng</div>
+                          <div className="ord-popt-desc">Thanh toán trước qua chuyển khoản</div>
+                        </div>
+                      </label>
+                    </div>
+
+                    {paymentMethod === 'bank_transfer' && BANK_ACCOUNT && (
+                      <div className="ord-qr-wrap">
+                        <div className="ord-qr-title">Quét mã QR để thanh toán</div>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={qrUrl(selectedItem?.price ?? null, `Dat hang ${selectedItem?.title ?? ''}`)}
+                          alt="QR thanh toán" className="ord-qr-img" />
+                        <div className="ord-bank-info">
+                          <div><span className="ord-bank-label">Ngân hàng:</span> {BANK_ID}</div>
+                          <div><span className="ord-bank-label">Số tài khoản:</span> <strong>{BANK_ACCOUNT}</strong></div>
+                          {BANK_ACCOUNT_NAME && <div><span className="ord-bank-label">Chủ tài khoản:</span> {BANK_ACCOUNT_NAME}</div>}
+                          {selectedItem?.price && <div><span className="ord-bank-label">Số tiền:</span> <strong className="ord-bank-amount">{fmtVND(selectedItem.price)}</strong></div>}
+                        </div>
+                        <div className="ord-qr-note">Sau khi chuyển khoản, đơn hàng sẽ được xác nhận thủ công trong vòng 30 phút.</div>
+                      </div>
+                    )}
+
+                    <button className="ord-btn-submit" onClick={submitOrder} disabled={submitting}>
+                      {submitting ? 'Đang đặt hàng...' : 'Xác nhận đặt hàng →'}
+                    </button>
+                  </>
                 )}
-                <div className="ord-section-title">Thông tin giao hàng</div>
-
-                <div className="ord-field">
-                  <label className="ord-label">Họ và tên <span className="ord-required">*</span></label>
-                  <input className="ord-input" placeholder="Nguyễn Văn A" value={form.customer_name}
-                    onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} />
-                </div>
-
-                <div className="ord-field">
-                  <label className="ord-label">Số điện thoại <span className="ord-required">*</span></label>
-                  <input className="ord-input" placeholder="09xxxxxxxx" type="tel" value={form.customer_phone}
-                    onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} />
-                </div>
-
-                <div className="ord-field">
-                  <label className="ord-label">Địa chỉ nhận hàng <span className="ord-required">*</span></label>
-                  <input className="ord-input" placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
-                    value={form.customer_address}
-                    onChange={e => setForm(f => ({ ...f, customer_address: e.target.value }))} />
-                </div>
-
-                <div className="ord-field">
-                  <label className="ord-label">Ghi chú</label>
-                  <textarea className="ord-input ord-textarea" placeholder="Ghi chú thêm (nếu có)..."
-                    value={form.customer_note}
-                    onChange={e => setForm(f => ({ ...f, customer_note: e.target.value }))} />
-                </div>
-
-                <div className="ord-section-title" style={{ marginTop: 24 }}>Phương thức thanh toán</div>
-                <div className="ord-payment-options">
-                  <label className={`ord-payment-opt${form.payment_method === 'cod' ? ' active' : ''}`}>
-                    <input type="radio" name="payment" value="cod" checked={form.payment_method === 'cod'}
-                      onChange={() => setForm(f => ({ ...f, payment_method: 'cod' }))} />
-                    <div>
-                      <div className="ord-popt-title">Thanh toán khi nhận hàng (COD)</div>
-                      <div className="ord-popt-desc">Thanh toán bằng tiền mặt khi nhận được hàng</div>
-                    </div>
-                  </label>
-                  <label className={`ord-payment-opt${form.payment_method === 'bank_transfer' ? ' active' : ''}`}>
-                    <input type="radio" name="payment" value="bank_transfer" checked={form.payment_method === 'bank_transfer'}
-                      onChange={() => setForm(f => ({ ...f, payment_method: 'bank_transfer' }))} />
-                    <div>
-                      <div className="ord-popt-title">Chuyển khoản ngân hàng</div>
-                      <div className="ord-popt-desc">Thanh toán trước qua chuyển khoản</div>
-                    </div>
-                  </label>
-                </div>
-
-                {form.payment_method === 'bank_transfer' && BANK_ACCOUNT && (
-                  <div className="ord-qr-wrap">
-                    <div className="ord-qr-title">Quét mã QR để thanh toán</div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={qrUrl(selectedItem?.price ?? null, `Dat hang ${selectedItem?.title ?? ''}`)}
-                      alt="QR thanh toán"
-                      className="ord-qr-img"
-                    />
-                    <div className="ord-bank-info">
-                      <div><span className="ord-bank-label">Ngân hàng:</span> {BANK_ID}</div>
-                      <div><span className="ord-bank-label">Số tài khoản:</span> <strong>{BANK_ACCOUNT}</strong></div>
-                      {BANK_ACCOUNT_NAME && <div><span className="ord-bank-label">Chủ tài khoản:</span> {BANK_ACCOUNT_NAME}</div>}
-                      {selectedItem?.price && <div><span className="ord-bank-label">Số tiền:</span> <strong className="ord-bank-amount">{fmtVND(selectedItem.price)}</strong></div>}
-                    </div>
-                    <div className="ord-qr-note">Sau khi chuyển khoản, đơn hàng sẽ được xác nhận thủ công trong vòng 30 phút.</div>
-                  </div>
-                )}
-
-                <button className="ord-btn-submit" onClick={submitOrder} disabled={submitting}>
-                  {submitting ? 'Đang đặt hàng...' : 'Xác nhận đặt hàng →'}
-                </button>
               </div>
             </div>
           )}
@@ -471,15 +465,11 @@ export default function OrderClient() {
                 <div className="ord-success-label">Mã đơn hàng của bạn</div>
                 <div className="ord-success-number">{orderNumber}</div>
               </div>
-              {form.payment_method === 'bank_transfer' && (
-                <div className="ord-success-note">
-                  Vui lòng chuyển khoản để xác nhận đơn hàng. Chúng tôi sẽ liên hệ lại sớm nhất.
-                </div>
+              {paymentMethod === 'bank_transfer' && (
+                <div className="ord-success-note">Vui lòng chuyển khoản để xác nhận đơn hàng. Chúng tôi sẽ liên hệ lại sớm nhất.</div>
               )}
-              {form.payment_method === 'cod' && (
-                <div className="ord-success-note">
-                  Chúng tôi sẽ liên hệ xác nhận và sắp xếp giao hàng trong thời gian sớm nhất.
-                </div>
+              {paymentMethod === 'cod' && (
+                <div className="ord-success-note">Chúng tôi sẽ liên hệ xác nhận và sắp xếp giao hàng trong thời gian sớm nhất.</div>
               )}
               <div className="ord-success-actions">
                 <a href="/" className="ord-btn-primary" style={{ textDecoration: 'none', display: 'inline-block' }}>
@@ -505,7 +495,7 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .ord-header-right{display:flex;align-items:center;gap:12px}
 .ord-back-link{font-size:13px;color:#8c8982;text-decoration:none;white-space:nowrap}
 .ord-back-link:hover{color:#1a1916}
-.ord-user-pill{display:flex;align-items:center;gap:6px;background:#f0efe9;border-radius:20px;padding:4px 10px 4px 10px}
+.ord-user-pill{display:flex;align-items:center;gap:6px;background:#f0efe9;border-radius:20px;padding:4px 10px}
 .ord-user-name-sm{font-size:13px;font-weight:500;color:#1a1916;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ord-logout-sm{background:none;border:none;cursor:pointer;font-size:18px;color:#8c8982;line-height:1;padding:0 0 0 2px;display:flex;align-items:center}
 .ord-logout-sm:hover{color:#1a1916}
@@ -530,7 +520,6 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .ord-card-price{font-size:15px;font-weight:700;color:#2a7a4b;margin-bottom:12px}
 .ord-btn-primary{background:#1a1916;color:#fff;border:none;padding:8px 16px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;width:100%;transition:opacity .15s}
 .ord-btn-primary:hover{opacity:.85}
-/* Auth step */
 .ord-auth-wrap{max-width:480px;margin:0 auto}
 .ord-auth-box{background:#fff;border:1px solid #e8e6e1;border-radius:14px;padding:28px;display:flex;flex-direction:column;gap:14px}
 .ord-auth-title{font-size:18px;font-weight:700;margin:0}
@@ -540,24 +529,31 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .ord-auth-error{font-size:13px;color:#c0392b;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px}
 .ord-back-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:13px;color:#8c8982;padding:0;margin-bottom:20px;display:flex;align-items:center;gap:4px}
 .ord-back-btn:hover{color:#1a1916}
-/* Shared: selected product card */
 .ord-selected-product{background:#f0efe9;border-radius:10px;padding:14px 16px;margin-bottom:24px}
 .ord-sp-label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#8c8982;margin-bottom:8px}
 .ord-sp-info{display:flex;align-items:center;gap:12px}
 .ord-sp-thumb{width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0}
 .ord-sp-name{font-size:14px;font-weight:600;margin-bottom:3px}
 .ord-sp-price{font-size:15px;font-weight:700;color:#2a7a4b}
-/* Form step */
 .ord-form-wrap{max-width:540px;margin:0 auto}
 .ord-form-title{font-size:22px;font-weight:700;margin-bottom:20px}
-.ord-form{display:flex;flex-direction:column;gap:14px}
+.ord-form{display:flex;flex-direction:column;gap:16px}
 .ord-section-title{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#8c8982}
+.ord-addr-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ord-addr-selected{background:#eef4ff;border:1px solid #d4dfff;border-radius:8px;padding:10px 12px;margin-top:4px}
+.ord-addr-name{font-size:13px;font-weight:600;color:#1a1916;margin-bottom:2px}
+.ord-addr-text{font-size:12px;color:#5c5b58}
 .ord-field{display:flex;flex-direction:column;gap:4px}
 .ord-label{font-size:12px;font-weight:500;color:#5c5b58}
 .ord-required{color:#c0392b}
-.ord-input{font-size:14px;font-family:inherit;color:#1a1916;background:#f9f8f6;border:1px solid #e8e6e1;border-radius:7px;padding:9px 12px;outline:none;transition:border-color .15s}
+.ord-input{font-size:14px;font-family:inherit;color:#1a1916;background:#f9f8f6;border:1px solid #e8e6e1;border-radius:7px;padding:9px 12px;outline:none;transition:border-color .15s;width:100%}
 .ord-input:focus{border-color:#1a1916;background:#fff}
 .ord-textarea{min-height:72px;resize:vertical}
+.ord-btn-dark{background:#1a1916;color:#fff;border:none;padding:9px 16px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.ord-btn-dark:hover{opacity:.85}
+.ord-btn-dark:disabled{opacity:.5;cursor:not-allowed}
+.ord-btn-ghost{background:none;border:1px solid #e8e6e1;padding:9px 16px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:#5c5b58;transition:all .15s}
+.ord-btn-ghost:hover{border-color:#1a1916;color:#1a1916}
 .ord-payment-options{display:flex;flex-direction:column;gap:8px}
 .ord-payment-opt{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1.5px solid #e8e6e1;border-radius:9px;cursor:pointer;transition:all .15s}
 .ord-payment-opt:hover{border-color:#bbb8b0}
@@ -575,7 +571,6 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .ord-btn-submit{background:#1a1916;color:#fff;border:none;padding:12px 24px;border-radius:9px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;transition:opacity .15s;width:100%}
 .ord-btn-submit:hover{opacity:.85}
 .ord-btn-submit:disabled{opacity:.5;cursor:not-allowed}
-/* Success */
 .ord-success{text-align:center;padding:60px 20px;max-width:480px;margin:0 auto}
 .ord-success-icon{width:72px;height:72px;background:#2a7a4b;color:#fff;border-radius:50%;font-size:32px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
 .ord-success-title{font-size:24px;font-weight:700;margin-bottom:8px}
@@ -590,5 +585,6 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
   .ord-main{padding:20px 16px}
   .ord-grid{grid-template-columns:repeat(2,1fr)}
   .ord-auth-box{padding:20px 16px}
+  .ord-addr-grid{grid-template-columns:1fr}
 }
 `
