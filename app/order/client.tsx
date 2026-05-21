@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Item } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
+import type { CustomerAddress } from '@/lib/supabase'
 
 const BANK_ID = process.env.NEXT_PUBLIC_BANK_ID ?? 'MB'
 const BANK_ACCOUNT = process.env.NEXT_PUBLIC_BANK_ACCOUNT ?? ''
@@ -36,6 +37,7 @@ export default function OrderClient() {
   const [step, setStep] = useState<Step>('browse')
   const [submitting, setSubmitting] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
+  const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([])
 
   const [form, setForm] = useState({
     customer_name: '',
@@ -56,12 +58,26 @@ export default function OrderClient() {
       if (session?.user) {
         const name = session.user.user_metadata?.full_name ?? session.user.email ?? ''
         setSupaUser({ email: session.user.email ?? '', name })
+        fetchAddresses(session.access_token)
       } else {
         setSupaUser(null)
+        setSavedAddresses([])
       }
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  async function fetchAddresses(jwt?: string) {
+    if (!jwt) {
+      const { data: { session } } = await supabase.auth.getSession()
+      jwt = session?.access_token
+    }
+    if (!jwt) return
+    try {
+      const r = await fetch('/api/addresses', { headers: { Authorization: `Bearer ${jwt}` } })
+      if (r.ok) setSavedAddresses(await r.json())
+    } catch { /* silent */ }
+  }
 
   useEffect(() => {
     try {
@@ -113,6 +129,7 @@ export default function OrderClient() {
     if (error) { setAuthError(error.message); return }
     const name = data.user?.user_metadata?.full_name ?? data.user?.email ?? ''
     setForm(f => ({ ...f, customer_name: name }))
+    await fetchAddresses(data.session?.access_token)
     setStep('form')
     window.scrollTo(0, 0)
   }
@@ -129,6 +146,7 @@ export default function OrderClient() {
     setAuthLoading(false)
     if (error) { setAuthError(error.message); return }
     setForm(f => ({ ...f, customer_name: authForm.name }))
+    await fetchAddresses()
     setStep('form')
     window.scrollTo(0, 0)
   }
@@ -325,6 +343,29 @@ export default function OrderClient() {
               )}
 
               <div className="ord-form">
+                {savedAddresses.length > 0 && (
+                  <div className="ord-field">
+                    <label className="ord-label">Địa chỉ đã lưu</label>
+                    <select className="ord-input" style={{ cursor: 'pointer' }} defaultValue=""
+                      onChange={e => {
+                        const val = e.target.value
+                        if (val === '' || val === 'new') {
+                          if (val === 'new') setForm(f => ({ ...f, customer_phone: '', customer_address: '' }))
+                          return
+                        }
+                        const addr = savedAddresses.find(a => String(a.id) === val)
+                        if (addr) setForm(f => ({ ...f, customer_name: addr.full_name, customer_phone: addr.phone, customer_address: addr.address }))
+                      }}>
+                      <option value="">— Chọn địa chỉ đã lưu —</option>
+                      {savedAddresses.map(a => (
+                        <option key={a.id} value={String(a.id)}>
+                          {a.is_default ? '★ ' : ''}{a.full_name} · {a.phone} · {a.address.substring(0, 50)}{a.address.length > 50 ? '…' : ''}
+                        </option>
+                      ))}
+                      <option value="new">+ Nhập địa chỉ mới</option>
+                    </select>
+                  </div>
+                )}
                 <div className="ord-section-title">Thông tin giao hàng</div>
 
                 <div className="ord-field">

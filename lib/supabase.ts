@@ -59,6 +59,16 @@ export type Customer = {
   items?: { title: string; price: number | null; order_code: string }
 }
 
+export type CustomerAddress = {
+  id: number
+  user_id: string
+  full_name: string
+  phone: string
+  address: string
+  is_default: boolean
+  created_at: string
+}
+
 export type Order = {
   id: number
   order_number: string

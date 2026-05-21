@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Item, Customer, Staff } from '@/lib/supabase'
+import type { Item, Customer, Staff, CustomerAddress } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
 import DailyQuizBanner from './components/DailyQuizBanner'
@@ -196,6 +196,7 @@ export default function HomeClient() {
   const [orderSubmitting, setOrderSubmitting] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState<string|null>(null)
 
+  const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([])
   const [supaUser, setSupaUser]       = useState<{email:string;name:string}|null>(null)
   const [showUserAuth, setShowUserAuth] = useState(false)
   const [userAuthMode, setUserAuthMode] = useState<'login'|'signup'>('login')
@@ -475,6 +476,15 @@ export default function HomeClient() {
     finally { setSubmittingBuy(false) }
   }
 
+  async function fetchAddresses() {
+    const { data: { session } } = await supabase.auth.getSession()
+    const jwt = session?.access_token
+    if (!jwt) return
+    try {
+      const r = await fetch('/api/addresses', { headers: { Authorization: `Bearer ${jwt}` } })
+      if (r.ok) setSavedAddresses(await r.json())
+    } catch { /* silent */ }
+  }
   function openOrderPopup(item: Item) {
     if (!supaUser) {
       pendingOrderItem.current = item
@@ -484,6 +494,7 @@ export default function HomeClient() {
     setOrderItem(item)
     setOrderForm({ name: supaUser.name ?? '', phone:'', address:'', note:'', payment_method:'cod' })
     setOrderSuccess(null)
+    fetchAddresses()
   }
   function closeOrderPopup() {
     setOrderItem(null); setOrderSuccess(null)
@@ -494,6 +505,7 @@ export default function HomeClient() {
   }
   function afterAuthSuccess(name: string) {
     setShowUserAuth(false)
+    fetchAddresses()
     if (pendingOrderItem.current) {
       const item = pendingOrderItem.current
       pendingOrderItem.current = null
@@ -1222,10 +1234,36 @@ export default function HomeClient() {
                   <div style={{display:'flex',alignItems:'center',gap:8,background:'var(--green-bg)',border:'1px solid #b7e4cc',borderRadius:8,padding:'8px 12px',marginBottom:12}}>
                     <span style={{fontSize:15}}>✓</span>
                     <span style={{fontSize:13,fontWeight:500,flex:1}}>{supaUser.name || supaUser.email}</span>
+                    <a href="/account" style={{fontSize:11,color:'var(--muted)',textDecoration:'none',padding:'2px 4px'}} target="_blank">Tài khoản</a>
                     <button onClick={supaSignOut} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:'var(--muted)',padding:'2px 4px'}}>Đăng xuất</button>
                   </div>
                 )}
 
+                {savedAddresses.length > 0 && (
+                  <div style={{marginBottom:12}}>
+                    <div className="lbl" style={{marginBottom:5}}>Chọn địa chỉ đã lưu</div>
+                    <select className="inp" style={{cursor:'pointer'}}
+                      defaultValue=""
+                      onChange={e => {
+                        const val = e.target.value
+                        if (val === '') return
+                        if (val === 'new') {
+                          setOrderForm(f => ({ ...f, phone: '', address: '' }))
+                        } else {
+                          const addr = savedAddresses.find(a => String(a.id) === val)
+                          if (addr) setOrderForm(f => ({ ...f, name: addr.full_name, phone: addr.phone, address: addr.address }))
+                        }
+                      }}>
+                      <option value="">— Chọn địa chỉ —</option>
+                      {savedAddresses.map(a => (
+                        <option key={a.id} value={String(a.id)}>
+                          {a.is_default ? '★ ' : ''}{a.full_name} · {a.phone} · {a.address.substring(0, 45)}{a.address.length > 45 ? '…' : ''}
+                        </option>
+                      ))}
+                      <option value="new">+ Thêm địa chỉ mới</option>
+                    </select>
+                  </div>
+                )}
                 <div className="modal-grid" style={{marginTop:4}}>
                   <div><label className="lbl">Họ tên <span style={{color:'var(--red)'}}>*</span></label>
                     <input className="inp" placeholder="Nguyễn Văn A" autoFocus
