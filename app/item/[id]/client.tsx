@@ -109,6 +109,14 @@ export default function ItemDetailClient({ item }: { item: Item }) {
   const [staffList, setStaffList] = useState<Array<{id: number; name: string}>>([])
   const [saving, setSaving] = useState(false)
 
+  // Sell modal state
+  const [sellOpen, setSellOpen] = useState(false)
+  const [sellForm, setSellForm] = useState({
+    customer_name: '', customer_phone: '', customer_address: '', customer_note: '',
+    payment_method: 'cod', total_amount: item.price?.toString() ?? '', fb_url: '',
+  })
+  const [sellSaving, setSellSaving] = useState(false)
+
   useEffect(() => {
     const key = sessionStorage.getItem('cq_admin_key')
     if (key && sessionStorage.getItem('cq_admin')) { adminKey.current = key; setIsAdmin(true) }
@@ -168,6 +176,53 @@ export default function ItemDetailClient({ item }: { item: Item }) {
     })
     if (r.ok) { setCurrentStatus(status as Item['status']); showToast(`Đã cập nhật: ${status}`) }
     else showToast('Lỗi cập nhật')
+  }
+
+  async function handleSell() {
+    if (!sellForm.customer_name || !sellForm.customer_phone || !sellForm.customer_address) {
+      showToast('Vui lòng nhập đầy đủ thông tin khách hàng')
+      return
+    }
+    setSellSaving(true)
+    try {
+      // Create the order
+      const r = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey.current },
+        body: JSON.stringify({
+          item_id: item.id,
+          item_title: item.title,
+          item_price: item.price ?? null,
+          total_amount: sellForm.total_amount ? Number(sellForm.total_amount) : (item.price ?? null),
+          customer_name: sellForm.customer_name,
+          customer_phone: sellForm.customer_phone,
+          customer_address: sellForm.customer_address,
+          customer_note: sellForm.customer_note || null,
+          shipping_carrier: 'spx',
+          payment_method: sellForm.payment_method,
+          fb_url: sellForm.fb_url || null,
+          created_by: 'admin',
+        }),
+      })
+      if (!r.ok) { showToast('Lỗi tạo đơn hàng'); return }
+      const orderData = await r.json()
+
+      // Add to order_items too
+      await fetch('/api/order-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey.current },
+        body: JSON.stringify({ order_id: orderData.id, item_id: item.id, item_title: item.title, item_price: item.price ?? null, quantity: 1 }),
+      })
+
+      // Mark item as sold
+      await patchStatus('sold')
+      setSellOpen(false)
+      showToast(`Đã tạo đơn ${orderData.order_number} và đánh dấu đã bán!`)
+    } catch {
+      showToast('Không thể kết nối server')
+    } finally {
+      setSellSaving(false)
+    }
   }
 
   async function deleteItem() {
@@ -438,7 +493,10 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                 </div>
                 <div className="admin-actions">
                   {(isAvailable || isIncoming) && (
-                    <button className="btn-admin-sold" onClick={()=>patchStatus('sold')}>✓ Đánh dấu đã bán</button>
+                    <button className="btn-admin-sold" onClick={() => {
+                      setSellForm(f => ({ ...f, total_amount: item.price?.toString() ?? '' }))
+                      setSellOpen(true)
+                    }}>✓ Đánh dấu đã bán</button>
                   )}
                   {isAvailable && (
                     <button className="btn-admin-incoming" onClick={()=>patchStatus('incoming')}>📦 Đánh dấu sắp về</button>
@@ -560,6 +618,68 @@ export default function ItemDetailClient({ item }: { item: Item }) {
               <button className="btn-ghost" onClick={() => setEditOpen(false)} disabled={saving}>Huỷ</button>
               <button className="btn-admin-sold" onClick={saveEdit} disabled={saving} style={{padding:'9px 20px'}}>
                 {saving ? 'Đang lưu...' : '✓ Lưu thay đổi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sell modal — create order when marking as sold */}
+      {sellOpen && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSellOpen(false)}>
+          <div className="modal sell-modal">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>Tạo đơn bán hàng</h3>
+              <button className="edit-modal-close" onClick={() => setSellOpen(false)}>✕</button>
+            </div>
+            <div style={{ background: '#f0efe9', borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontSize: 13 }}>
+              <strong>{item.title}</strong>
+              {item.price && <span style={{ color: '#2a7a4b', fontWeight: 700, marginLeft: 8 }}>{fmtVND(item.price)}</span>}
+            </div>
+            <div className="edit-grid">
+              <div className="edit-field">
+                <label className="lbl">Tên khách *</label>
+                <input className="inp" placeholder="Nguyễn Văn A" value={sellForm.customer_name}
+                  onChange={e => setSellForm(f => ({ ...f, customer_name: e.target.value }))} />
+              </div>
+              <div className="edit-field">
+                <label className="lbl">SĐT *</label>
+                <input className="inp" placeholder="09xxxxxxxx" value={sellForm.customer_phone}
+                  onChange={e => setSellForm(f => ({ ...f, customer_phone: e.target.value }))} />
+              </div>
+              <div className="edit-field edit-field-full">
+                <label className="lbl">Địa chỉ *</label>
+                <input className="inp" placeholder="Số nhà, đường, quận, tỉnh..." value={sellForm.customer_address}
+                  onChange={e => setSellForm(f => ({ ...f, customer_address: e.target.value }))} />
+              </div>
+              <div className="edit-field">
+                <label className="lbl">Giá bán (VNĐ)</label>
+                <input className="inp" type="number" value={sellForm.total_amount}
+                  onChange={e => setSellForm(f => ({ ...f, total_amount: e.target.value }))} />
+              </div>
+              <div className="edit-field">
+                <label className="lbl">Thanh toán</label>
+                <select className="inp" value={sellForm.payment_method}
+                  onChange={e => setSellForm(f => ({ ...f, payment_method: e.target.value }))}>
+                  <option value="cod">COD</option>
+                  <option value="bank_transfer">Chuyển khoản</option>
+                </select>
+              </div>
+              <div className="edit-field edit-field-full">
+                <label className="lbl">Facebook URL khách (tuỳ chọn)</label>
+                <input className="inp" placeholder="https://facebook.com/username" value={sellForm.fb_url}
+                  onChange={e => setSellForm(f => ({ ...f, fb_url: e.target.value }))} />
+              </div>
+              <div className="edit-field edit-field-full">
+                <label className="lbl">Ghi chú</label>
+                <input className="inp" placeholder="Ghi chú thêm..." value={sellForm.customer_note}
+                  onChange={e => setSellForm(f => ({ ...f, customer_note: e.target.value }))} />
+              </div>
+            </div>
+            <div className="modal-actions" style={{ marginTop: 16 }}>
+              <button className="btn-ghost" onClick={() => setSellOpen(false)}>Hủy</button>
+              <button className="btn-admin-sold" onClick={handleSell} disabled={sellSaving} style={{ padding: '9px 20px' }}>
+                {sellSaving ? 'Đang tạo...' : '✓ Tạo đơn & Đánh dấu đã bán'}
               </button>
             </div>
           </div>
@@ -720,6 +840,7 @@ main{max-width:1000px;margin:0 auto;padding:40px 24px}
 /* Modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:150;display:flex;align-items:center;justify-content:center;padding:20px}
 .modal{background:white;border-radius:12px;padding:28px;width:100%;max-width:440px}
+.sell-modal{max-width:520px;max-height:90vh;overflow-y:auto}
 .modal h3{font-size:15px;font-weight:600;margin-bottom:6px}
 .modal p{font-size:13px;color:var(--muted);margin-bottom:16px}
 .lbl{font-size:11px;font-weight:500;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px}
