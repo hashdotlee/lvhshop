@@ -232,11 +232,11 @@ export default function InventoryPage() {
           {printItems.map(item => (
             <div key={item.id} className="print-label">
               <div className="pl-barcode">{item.order_code}</div>
-              <div className="pl-sku">{item.sku ? `SKU: ${item.sku}` : ''}</div>
+              {item.sku && <div className="pl-sku">SKU: {item.sku}</div>}
               <div className="pl-title">{item.title}</div>
               <div className="pl-row">
-                {item.bin_location && <span>📦 {item.bin_location}</span>}
-                <span style={{ marginLeft: 8 }}>{fmtVND(item.price)}</span>
+                <span className="pl-bin">{item.bin_location ?? ''}</span>
+                <span className="pl-price">{fmtVND(item.price)}</span>
               </div>
             </div>
           ))}
@@ -960,9 +960,13 @@ const pageCSS = `
 `
 
 const printCSS = `
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
   @media print {
     body > * { display: none !important; }
-    .print-labels-container { display: flex !important; flex-wrap: wrap; gap: 0; }
+    .print-labels-container { display: block !important; }
   }
   .print-labels-container {
     display: none;
@@ -970,21 +974,42 @@ const printCSS = `
     background: white; width: 100%;
   }
   .print-label {
-    width: 90mm; height: 50mm;
-    border: 1.5px dashed #999;
-    padding: 8px 10px;
-    font-family: monospace;
+    width: 58mm;
+    min-height: 32mm;
+    padding: 3mm 4mm 3mm;
+    font-family: 'Courier New', Courier, monospace;
     color: #000;
-    display: flex; flex-direction: column; justify-content: center;
+    background: white;
+    display: flex; flex-direction: column; justify-content: flex-start; gap: 1.5mm;
+    page-break-after: always;
+    break-after: page;
     page-break-inside: avoid;
     break-inside: avoid;
+    border-bottom: 1px dashed #ccc;
   }
   .pl-barcode {
-    font-size: 18px; font-weight: 800; letter-spacing: 2px;
-    text-align: center; border-bottom: 2px solid #000;
-    padding-bottom: 4px; margin-bottom: 4px;
+    font-size: 12pt; font-weight: 900; letter-spacing: 1.5px;
+    text-align: center;
+    border-bottom: 1.5px solid #000;
+    padding-bottom: 2mm; margin-bottom: 1mm;
+    word-break: break-all;
+    line-height: 1.2;
   }
-  .pl-sku { font-size: 11px; color: #555; margin-bottom: 2px; }
-  .pl-title { font-size: 12px; font-weight: 600; margin-bottom: 4px; line-height: 1.3; }
-  .pl-row { font-size: 11px; display: flex; align-items: center; }
+  .pl-sku {
+    font-size: 7pt; color: #444; font-weight: 600; letter-spacing: 0.5px;
+  }
+  .pl-title {
+    font-size: 8pt; font-weight: 700; line-height: 1.35;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+  }
+  .pl-row {
+    font-size: 7.5pt;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 1mm;
+    border-top: 0.5px solid #ddd; padding-top: 1.5mm;
+  }
+  .pl-bin { font-weight: 700; font-size: 8pt; }
+  .pl-price { font-weight: 800; font-size: 8.5pt; text-align: right; }
 `
