@@ -20,7 +20,7 @@ function getImages(item: Item): string[] {
 type Step = 'browse' | 'auth' | 'form' | 'success'
 
 export default function OrderClient() {
-  const [supaUser, setSupaUser] = useState<{ email: string; name: string } | null>(null)
+  const [supaUser, setSupaUser] = useState<{ email: string; name: string; fb_url: string } | null>(null)
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' })
   const [authLoading, setAuthLoading] = useState(false)
@@ -29,7 +29,7 @@ export default function OrderClient() {
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null)
+  const [cart, setCart] = useState<Item[]>([])
   const [step, setStep] = useState<Step>('browse')
   const [submitting, setSubmitting] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
@@ -43,18 +43,20 @@ export default function OrderClient() {
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'bank_transfer'>('cod')
   const [note, setNote] = useState('')
 
+  const cartTotal = cart.reduce((s, i) => s + (i.price ?? 0), 0)
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const name = session.user.user_metadata?.full_name ?? session.user.email ?? ''
-        setSupaUser({ email: session.user.email ?? '', name })
+        setSupaUser({ email: session.user.email ?? '', name, fb_url: session.user.user_metadata?.fb_url ?? '' })
         fetchAddresses(session.access_token)
       }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const name = session.user.user_metadata?.full_name ?? session.user.email ?? ''
-        setSupaUser({ email: session.user.email ?? '', name })
+        setSupaUser({ email: session.user.email ?? '', name, fb_url: session.user.user_metadata?.fb_url ?? '' })
         fetchAddresses(session.access_token)
       } else {
         setSupaUser(null)
@@ -94,8 +96,15 @@ export default function OrderClient() {
     return !q || i.title.toLowerCase().includes(q) || (i.order_code ?? '').toLowerCase().includes(q)
   })
 
-  function selectItem(item: Item) {
-    setSelectedItem(item)
+  function toggleCart(item: Item) {
+    setCart(prev => {
+      const exists = prev.find(i => i.id === item.id)
+      return exists ? prev.filter(i => i.id !== item.id) : [...prev, item]
+    })
+  }
+
+  function proceedToCheckout() {
+    if (cart.length === 0) return
     if (!supaUser) {
       setStep('auth')
     } else {
@@ -106,7 +115,6 @@ export default function OrderClient() {
 
   function goBackToBrowse() {
     setStep('browse')
-    setSelectedItem(null)
     setAuthError('')
     setNote('')
     setPaymentMethod('cod')
@@ -128,13 +136,13 @@ export default function OrderClient() {
   async function handleSignUp() {
     if (!authForm.name.trim()) { setAuthError('Vui lòng nhập họ tên'); return }
     setAuthLoading(true); setAuthError('')
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email: authForm.email, password: authForm.password,
       options: { data: { full_name: authForm.name } },
     })
     setAuthLoading(false)
     if (error) { setAuthError(error.message); return }
-    await fetchAddresses()
+    await fetchAddresses(signUpData.session?.access_token)
     setStep('form')
     window.scrollTo(0, 0)
   }
@@ -166,6 +174,10 @@ export default function OrderClient() {
     if (!orderAddressId) { alert('Vui lòng chọn địa chỉ giao hàng'); return }
     const addr = savedAddresses.find(a => a.id === orderAddressId)
     if (!addr) { alert('Địa chỉ không hợp lệ'); return }
+    if (cart.length === 0) { alert('Giỏ hàng trống'); return }
+
+    const firstItem = cart[0]
+    const total = cartTotal || null
 
     setSubmitting(true)
     try {
@@ -173,10 +185,10 @@ export default function OrderClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          item_id: selectedItem?.id ?? null,
-          item_title: selectedItem?.title ?? null,
-          item_price: selectedItem?.price ?? null,
-          total_amount: selectedItem?.price ?? null,
+          item_id: firstItem.id,
+          item_title: firstItem.title,
+          item_price: firstItem.price ?? null,
+          total_amount: total,
           customer_name: addr.full_name,
           customer_phone: addr.phone,
           customer_address: addr.address,
@@ -185,11 +197,24 @@ export default function OrderClient() {
           payment_method: paymentMethod,
           created_by: 'customer',
           address_id: orderAddressId,
+          fb_url: supaUser?.fb_url || null,
         }),
       })
       if (!r.ok) { alert('Đặt hàng thất bại. Vui lòng thử lại.'); return }
       const data = await r.json()
+      const orderId = data.id
+
+      // Add all cart items to order_items
+      for (const item of cart) {
+        await fetch('/api/order-items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: orderId, item_id: item.id, item_title: item.title, item_price: item.price ?? null, quantity: 1 }),
+        })
+      }
+
       setOrderNumber(data.order_number)
+      setCart([])
       setStep('success')
       window.scrollTo(0, 0)
     } catch {
@@ -207,8 +232,6 @@ export default function OrderClient() {
     if (BANK_ACCOUNT_NAME) params.set('accountName', BANK_ACCOUNT_NAME)
     return `https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCOUNT}-compact2.png?${params.toString()}`
   }, [])
-
-  const selectedAddr = savedAddresses.find(a => a.id === orderAddressId)
 
   return (
     <>
@@ -247,8 +270,9 @@ export default function OrderClient() {
                 <div className="ord-grid">
                   {filtered.map(item => {
                     const imgs = getImages(item)
+                    const inCart = cart.some(i => i.id === item.id)
                     return (
-                      <div key={item.id} className="ord-card">
+                      <div key={item.id} className={`ord-card${inCart ? ' ord-card-selected' : ''}`}>
                         {imgs.length > 0 && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={imgs[0]} alt={item.title} className="ord-card-img" />
@@ -257,32 +281,55 @@ export default function OrderClient() {
                           <div className="ord-card-title">{item.title}</div>
                           {item.description && <div className="ord-card-desc">{item.description}</div>}
                           <div className="ord-card-price">{fmtVND(item.price)}</div>
-                          <button className="ord-btn-primary" onClick={() => selectItem(item)}>Đặt hàng</button>
+                          <button
+                            className={inCart ? 'ord-btn-remove' : 'ord-btn-primary'}
+                            onClick={() => toggleCart(item)}>
+                            {inCart ? '✓ Đã chọn — Bỏ' : 'Thêm vào giỏ'}
+                          </button>
                         </div>
                       </div>
                     )
                   })}
                 </div>
               )}
+
+              {/* Cart summary bar */}
+              {cart.length > 0 && (
+                <div className="ord-cart-bar">
+                  <div className="ord-cart-info">
+                    <span className="ord-cart-count">{cart.length} sản phẩm</span>
+                    {cartTotal > 0 && <span className="ord-cart-total">{fmtVND(cartTotal)}</span>}
+                    <div className="ord-cart-names">{cart.map(i => i.title).join(' · ')}</div>
+                  </div>
+                  <button className="ord-btn-checkout" onClick={proceedToCheckout}>
+                    Tiến hành đặt hàng →
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
           {/* AUTH STEP */}
-          {step === 'auth' && selectedItem && (
+          {step === 'auth' && cart.length > 0 && (
             <div className="ord-auth-wrap">
               <button className="ord-back-btn" onClick={goBackToBrowse}>← Quay lại</button>
               <div className="ord-selected-product" style={{ marginBottom: 28 }}>
-                <div className="ord-sp-label">Sản phẩm bạn chọn</div>
-                <div className="ord-sp-info">
-                  {(() => { const imgs = getImages(selectedItem); return imgs.length > 0 ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={imgs[0]} alt={selectedItem.title} className="ord-sp-thumb" />
-                  ) : null })()}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="ord-sp-name">{selectedItem.title}</div>
-                    <div className="ord-sp-price">{fmtVND(selectedItem.price)}</div>
-                  </div>
-                </div>
+                <div className="ord-sp-label">{cart.length} sản phẩm đã chọn</div>
+                {cart.map(item => {
+                  const imgs = getImages(item)
+                  return (
+                    <div key={item.id} className="ord-sp-info" style={{ marginTop: 8 }}>
+                      {imgs.length > 0 && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={imgs[0]} alt={item.title} className="ord-sp-thumb" />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="ord-sp-name">{item.title}</div>
+                        <div className="ord-sp-price">{fmtVND(item.price)}</div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
               <div className="ord-auth-box">
                 <h2 className="ord-auth-title">Đăng nhập để đặt hàng</h2>
@@ -322,21 +369,31 @@ export default function OrderClient() {
               <button className="ord-back-btn" onClick={goBackToBrowse}>← Quay lại</button>
               <h2 className="ord-form-title">Thông tin đặt hàng</h2>
 
-              {selectedItem && (
-                <div className="ord-selected-product">
-                  <div className="ord-sp-label">Sản phẩm đặt mua</div>
-                  <div className="ord-sp-info">
-                    {(() => { const imgs = getImages(selectedItem); return imgs.length > 0 ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imgs[0]} alt={selectedItem.title} className="ord-sp-thumb" />
-                    ) : null })()}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="ord-sp-name">{selectedItem.title}</div>
-                      <div className="ord-sp-price">{fmtVND(selectedItem.price)}</div>
+              {/* Cart items summary */}
+              <div className="ord-selected-product">
+                <div className="ord-sp-label">{cart.length} sản phẩm đặt mua</div>
+                {cart.map(item => {
+                  const imgs = getImages(item)
+                  return (
+                    <div key={item.id} className="ord-sp-info" style={{ marginTop: 8 }}>
+                      {imgs.length > 0 && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={imgs[0]} alt={item.title} className="ord-sp-thumb" />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="ord-sp-name">{item.title}</div>
+                        <div className="ord-sp-price">{fmtVND(item.price)}</div>
+                      </div>
                     </div>
+                  )
+                })}
+                {cartTotal > 0 && (
+                  <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #d8d6cf', display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                    <span>Tổng cộng</span>
+                    <span style={{ color: '#2a7a4b' }}>{fmtVND(cartTotal)}</span>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="ord-form">
                 {/* Address section */}
@@ -377,22 +434,22 @@ export default function OrderClient() {
                     </>
                   ) : (
                     <>
-                      <select className="ord-input" style={{ cursor: 'pointer', marginBottom: 8 }}
-                        value={orderAddressId ?? ''}
-                        onChange={e => setOrderAddressId(e.target.value ? Number(e.target.value) : null)}>
-                        <option value="">— Chọn địa chỉ —</option>
+                      {/* Address cards — click to select */}
+                      <div className="ord-addr-list">
                         {savedAddresses.map(a => (
-                          <option key={a.id} value={a.id}>
-                            {a.is_default ? '★ ' : ''}{a.full_name} · {a.phone} · {a.address.substring(0, 50)}{a.address.length > 50 ? '…' : ''}
-                          </option>
+                          <button
+                            key={a.id}
+                            type="button"
+                            className={`ord-addr-card${orderAddressId === a.id ? ' selected' : ''}`}
+                            onClick={() => setOrderAddressId(a.id)}>
+                            <div className="ord-addr-card-check">{orderAddressId === a.id ? '●' : '○'}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div className="ord-addr-name">{a.full_name} · {a.phone}{a.is_default ? ' ★' : ''}</div>
+                              <div className="ord-addr-text">{a.address}</div>
+                            </div>
+                          </button>
                         ))}
-                      </select>
-                      {selectedAddr && (
-                        <div className="ord-addr-selected">
-                          <div className="ord-addr-name">{selectedAddr.full_name} · {selectedAddr.phone}</div>
-                          <div className="ord-addr-text">{selectedAddr.address}</div>
-                        </div>
-                      )}
+                      </div>
                       <button type="button" className="ord-btn-ghost" style={{ width: '100%', marginTop: 8 }}
                         onClick={() => { setShowNewAddrForm(true); setNewAddrForm({ full_name: supaUser?.name ?? '', phone: '', address: '' }) }}>
                         + Thêm địa chỉ mới
@@ -434,13 +491,13 @@ export default function OrderClient() {
                       <div className="ord-qr-wrap">
                         <div className="ord-qr-title">Quét mã QR để thanh toán</div>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={qrUrl(selectedItem?.price ?? null, `Dat hang ${selectedItem?.title ?? ''}`)}
+                        <img src={qrUrl(cartTotal || null, `Dat hang ${cart.map(i => i.title).join(', ')}`)}
                           alt="QR thanh toán" className="ord-qr-img" />
                         <div className="ord-bank-info">
                           <div><span className="ord-bank-label">Ngân hàng:</span> {BANK_ID}</div>
                           <div><span className="ord-bank-label">Số tài khoản:</span> <strong>{BANK_ACCOUNT}</strong></div>
                           {BANK_ACCOUNT_NAME && <div><span className="ord-bank-label">Chủ tài khoản:</span> {BANK_ACCOUNT_NAME}</div>}
-                          {selectedItem?.price && <div><span className="ord-bank-label">Số tiền:</span> <strong className="ord-bank-amount">{fmtVND(selectedItem.price)}</strong></div>}
+                          {cartTotal > 0 && <div><span className="ord-bank-label">Số tiền:</span> <strong className="ord-bank-amount">{fmtVND(cartTotal)}</strong></div>}
                         </div>
                         <div className="ord-qr-note">Sau khi chuyển khoản, đơn hàng sẽ được xác nhận thủ công trong vòng 30 phút.</div>
                       </div>
@@ -461,6 +518,7 @@ export default function OrderClient() {
               <div className="ord-success-icon">✓</div>
               <h2 className="ord-success-title">Đặt hàng thành công!</h2>
               <p className="ord-success-sub">Cảm ơn {supaUser?.name ? supaUser.name.split(' ').pop() : 'bạn'} đã đặt hàng tại leviethoang.shop</p>
+
               <div className="ord-success-order">
                 <div className="ord-success-label">Mã đơn hàng của bạn</div>
                 <div className="ord-success-number">{orderNumber}</div>
@@ -513,6 +571,7 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .ord-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
 .ord-card{background:#fff;border:1px solid #e8e6e1;border-radius:10px;overflow:hidden;transition:all .15s}
 .ord-card:hover{border-color:#bbb8b0;box-shadow:0 4px 16px rgba(0,0,0,.07);transform:translateY(-2px)}
+.ord-card-selected{border-color:#2a7a4b!important;box-shadow:0 0 0 2px rgba(42,122,75,.15)!important}
 .ord-card-img{width:100%;height:200px;object-fit:cover;display:block}
 .ord-card-body{padding:14px}
 .ord-card-title{font-size:13px;font-weight:600;margin-bottom:4px;line-height:1.4}
@@ -520,6 +579,8 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .ord-card-price{font-size:15px;font-weight:700;color:#2a7a4b;margin-bottom:12px}
 .ord-btn-primary{background:#1a1916;color:#fff;border:none;padding:8px 16px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;width:100%;transition:opacity .15s}
 .ord-btn-primary:hover{opacity:.85}
+.ord-btn-remove{background:#f0fdf4;color:#2a7a4b;border:1.5px solid #2a7a4b;padding:8px 16px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;width:100%;transition:all .15s}
+.ord-btn-remove:hover{background:#dcfce7}
 .ord-auth-wrap{max-width:480px;margin:0 auto}
 .ord-auth-box{background:#fff;border:1px solid #e8e6e1;border-radius:14px;padding:28px;display:flex;flex-direction:column;gap:14px}
 .ord-auth-title{font-size:18px;font-weight:700;margin:0}
@@ -540,7 +601,12 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .ord-form{display:flex;flex-direction:column;gap:16px}
 .ord-section-title{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#8c8982}
 .ord-addr-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.ord-addr-selected{background:#eef4ff;border:1px solid #d4dfff;border-radius:8px;padding:10px 12px;margin-top:4px}
+.ord-addr-list{display:flex;flex-direction:column;gap:8px}
+.ord-addr-card{display:flex;align-items:flex-start;gap:10px;width:100%;background:#fff;border:1.5px solid #e8e6e1;border-radius:9px;padding:11px 14px;cursor:pointer;text-align:left;font-family:inherit;transition:all .15s}
+.ord-addr-card:hover{border-color:#bbb8b0}
+.ord-addr-card.selected{border-color:#1a1916;background:#f9f8f6}
+.ord-addr-card-check{font-size:16px;color:#8c8982;flex-shrink:0;margin-top:1px}
+.ord-addr-card.selected .ord-addr-card-check{color:#1a1916}
 .ord-addr-name{font-size:13px;font-weight:600;color:#1a1916;margin-bottom:2px}
 .ord-addr-text{font-size:12px;color:#5c5b58}
 .ord-field{display:flex;flex-direction:column;gap:4px}
@@ -568,6 +634,13 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .ord-bank-label{color:#8c8982;margin-right:6px}
 .ord-bank-amount{color:#2a7a4b}
 .ord-qr-note{font-size:12px;color:#8c8982;line-height:1.5}
+.ord-cart-bar{position:sticky;bottom:0;z-index:50;margin-top:24px;background:#1a1916;color:#fff;border-radius:14px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,.2);flex-wrap:wrap}
+.ord-cart-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ord-cart-count{font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.ord-cart-total{font-size:18px;font-weight:800;color:#fff}
+.ord-cart-names{font-size:11px;color:rgba(255,255,255,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px}
+.ord-btn-checkout{background:#fff;color:#1a1916;border:none;padding:10px 20px;border-radius:9px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;transition:opacity .15s;flex-shrink:0}
+.ord-btn-checkout:hover{opacity:.9}
 .ord-btn-submit{background:#1a1916;color:#fff;border:none;padding:12px 24px;border-radius:9px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;transition:opacity .15s;width:100%}
 .ord-btn-submit:hover{opacity:.85}
 .ord-btn-submit:disabled{opacity:.5;cursor:not-allowed}

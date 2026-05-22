@@ -3,6 +3,16 @@ import { useEffect, useRef, useState } from 'react'
 import type { Item } from '@/lib/supabase'
 
 // ─── Types ────────────────────────────────────────────────────────
+export type OrderItem = {
+  id: number
+  order_id: number
+  item_id: number | null
+  item_title: string
+  item_price: number | null
+  quantity: number
+  created_at: string
+}
+
 export type Order = {
   id: number
   order_number: string
@@ -20,10 +30,12 @@ export type Order = {
   order_status: 'pending' | 'confirmed' | 'shipping' | 'delivered' | 'cancelled'
   total_amount: number | null
   fb_psid: string | null
+  fb_url: string | null
   created_by: string | null
   created_at: string
   updated_at: string
   items?: { title: string; price: number | null; order_code: string; images: string[] } | null
+  order_items?: OrderItem[]
 }
 
 type Props = {
@@ -110,6 +122,15 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
     shipping_carrier: 'spx',
     fb_psid: '',
   })
+
+  // Add-item-to-order state (in edit modal)
+  const [addItemSearch, setAddItemSearch] = useState('')
+  const [addItemResults, setAddItemResults] = useState<Item[]>([])
+  const [addItemLoading, setAddItemLoading] = useState(false)
+  const [addItemPrice, setAddItemPrice] = useState('')
+  const [selectedAddItem, setSelectedAddItem] = useState<Item | null>(null)
+  const addItemTimer = useRef<ReturnType<typeof setTimeout>>()
+  const [editOrderItems, setEditOrderItems] = useState<OrderItem[]>([])
 
   // ── Fetch orders ───────────────────────────────────────────────
   async function fetchOrders() {
@@ -237,6 +258,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
   async function updateOrder(id: number, fields: Partial<Order>) {
     setSaving(true)
     try {
+      const prevOrder = orders.find(o => o.id === id)
       const r = await fetch('/api/orders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
@@ -244,9 +266,19 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
       })
       if (!r.ok) { onToast('Lỗi cập nhật đơn hàng'); return }
       const updated: Order = await r.json()
-      setOrders(prev => prev.map(o => o.id === id ? updated : o))
+      setOrders(prev => prev.map(o => o.id === id ? { ...updated, order_items: editOrderItems } : o))
       onToast('Đã cập nhật đơn hàng')
       setEditOrder(null)
+
+      // Auto-send notification when status changes
+      const newStatus = fields.order_status
+      if (newStatus && prevOrder && prevOrder.order_status !== newStatus) {
+        const psid = (fields.fb_psid as string | null) ?? prevOrder.fb_psid
+        if (psid) {
+          const notifType = newStatus === 'shipping' ? 'shipping' : 'created'
+          await sendNotification({ ...updated, order_items: editOrderItems }, notifType, psid)
+        }
+      }
     } catch {
       onToast('Không thể kết nối server')
     } finally {
@@ -300,27 +332,30 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
   }
 
   // ── Send notification ──────────────────────────────────────────
-  async function sendNotification(order: Order, type: 'created' | 'shipping') {
-    if (!order.fb_psid) {
+  async function sendNotification(order: Order, type: 'created' | 'shipping', overridePsid?: string | null) {
+    const psid = overridePsid ?? order.fb_psid
+    if (!psid) {
       onToast('Đơn hàng này chưa có FB PSID')
       return
     }
     const name = order.customer_name
     const order_number = order.order_number
-    const item_title = order.items?.title || order.item_title || 'Sản phẩm'
+    const allItems = order.order_items?.length
+      ? order.order_items.map(i => i.item_title).join(', ')
+      : (order.items?.title || order.item_title || 'Sản phẩm')
     const total_amount = fmtVND(order.total_amount)
     const carrier = CARRIER_LABEL[order.shipping_carrier] || order.shipping_carrier
     const tracking = order.tracking_number || '(chưa có)'
 
     const message = type === 'created'
-      ? `Xin chào ${name}! Đơn hàng ${order_number} của bạn đã được xác nhận.\nSản phẩm: ${item_title}\nTổng tiền: ${total_amount}\nCảm ơn bạn đã mua hàng! 🙏`
+      ? `Xin chào ${name}! Đơn hàng ${order_number} của bạn đã được xác nhận.\nSản phẩm: ${allItems}\nTổng tiền: ${total_amount}\nCảm ơn bạn đã mua hàng! 🙏`
       : `Đơn hàng ${order_number} đang được vận chuyển.\nĐơn vị: ${carrier}\nMã vận đơn: ${tracking}\nThời gian dự kiến: 1-3 ngày làm việc 📦`
 
     try {
       const r = await fetch('/api/orders/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
-        body: JSON.stringify({ psid: order.fb_psid, message }),
+        body: JSON.stringify({ psid, message }),
       })
       if (!r.ok) {
         const d = await r.json()
@@ -335,7 +370,9 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
 
   // ── Print invoice ──────────────────────────────────────────────
   function printInvoice(order: Order) {
-    setPrintOrder(order)
+    // Include the current editOrderItems if printing from the edit modal
+    const withItems = { ...order, order_items: editOrder?.id === order.id ? editOrderItems : order.order_items }
+    setPrintOrder(withItems)
     setTimeout(() => window.print(), 100)
   }
 
@@ -349,6 +386,77 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
       shipping_carrier: order.shipping_carrier,
       fb_psid: order.fb_psid ?? '',
     })
+    setEditOrderItems(order.order_items ?? [])
+    setAddItemSearch('')
+    setAddItemResults([])
+    setSelectedAddItem(null)
+    setAddItemPrice('')
+  }
+
+  // ── Search items for add-to-order ──────────────────────────────
+  async function searchAddItems(query: string) {
+    if (!query.trim()) { setAddItemResults([]); return }
+    setAddItemLoading(true)
+    try {
+      const r = await fetch('/api/items')
+      const d: Item[] = await r.json()
+      const q = query.toLowerCase()
+      setAddItemResults(
+        (Array.isArray(d) ? d : [])
+          .filter(i => i.title.toLowerCase().includes(q) || i.order_code.toLowerCase().includes(q))
+          .slice(0, 6)
+      )
+    } catch { setAddItemResults([]) }
+    finally { setAddItemLoading(false) }
+  }
+
+  function onAddItemSearchChange(val: string) {
+    setAddItemSearch(val)
+    setSelectedAddItem(null)
+    clearTimeout(addItemTimer.current)
+    addItemTimer.current = setTimeout(() => searchAddItems(val), 300)
+  }
+
+  // ── Add item to existing order ─────────────────────────────────
+  async function addItemToOrder(orderId: number) {
+    if (!selectedAddItem && !addItemSearch.trim()) return
+    const title = selectedAddItem?.title ?? addItemSearch.trim()
+    const price = addItemPrice ? Number(addItemPrice) : (selectedAddItem?.price ?? null)
+    try {
+      const r = await fetch('/api/order-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+        body: JSON.stringify({ order_id: orderId, item_id: selectedAddItem?.id ?? null, item_title: title, item_price: price, quantity: 1 }),
+      })
+      if (!r.ok) { onToast('Lỗi thêm sản phẩm'); return }
+      const newItem: OrderItem = await r.json()
+      setEditOrderItems(prev => [...prev, newItem])
+      // Recalculate total in local state
+      const newTotal = [...editOrderItems, newItem].reduce((s, i) => s + (i.item_price ?? 0) * i.quantity, 0)
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, order_items: [...(o.order_items ?? []), newItem], total_amount: newTotal || o.total_amount } : o))
+      setAddItemSearch('')
+      setAddItemResults([])
+      setSelectedAddItem(null)
+      setAddItemPrice('')
+      onToast('Đã thêm sản phẩm vào đơn!')
+    } catch { onToast('Không thể kết nối server') }
+  }
+
+  // ── Remove item from order ─────────────────────────────────────
+  async function removeItemFromOrder(itemId: number, orderId: number) {
+    try {
+      const r = await fetch('/api/order-items', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+        body: JSON.stringify({ id: itemId, order_id: orderId }),
+      })
+      if (!r.ok) { onToast('Lỗi xoá sản phẩm'); return }
+      const remaining = editOrderItems.filter(i => i.id !== itemId)
+      setEditOrderItems(remaining)
+      const newTotal = remaining.reduce((s, i) => s + (i.item_price ?? 0) * i.quantity, 0)
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, order_items: remaining, total_amount: newTotal || null } : o))
+      onToast('Đã xoá sản phẩm khỏi đơn')
+    } catch { onToast('Không thể kết nối server') }
   }
 
   // ── Filtered orders ────────────────────────────────────────────
@@ -715,12 +823,86 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
             <div className="om-order-summary">
               <code className="om-order-code">{editOrder.order_number}</code>
               <div className="om-summary-detail">
-                <span style={{ fontWeight: 500 }}>{editOrder.items?.title || editOrder.item_title || '—'}</span>
-                <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {editOrder.customer_name} · {editOrder.customer_phone}</span>
+                <span style={{ fontWeight: 500 }}>{editOrder.customer_name}</span>
+                <span style={{ color: 'var(--muted)', fontSize: 12 }}> · {editOrder.customer_phone}</span>
               </div>
               {editOrder.customer_address && (
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{editOrder.customer_address}</div>
               )}
+              {editOrder.fb_url && (
+                <div style={{ marginTop: 4 }}>
+                  <a href={editOrder.fb_url.startsWith('http') ? editOrder.fb_url : `https://${editOrder.fb_url}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="om-fb-link">
+                    Facebook →
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {/* Items list */}
+            <div className="om-section">
+              <div className="om-section-title">Sản phẩm trong đơn</div>
+              {editOrderItems.length === 0 && editOrder.item_title && (
+                <div className="om-edit-item-row" style={{ color: 'var(--muted)', fontSize: 12 }}>
+                  <span>{editOrder.item_title}</span>
+                  {editOrder.item_price && <span>{fmtVND(editOrder.item_price)}</span>}
+                </div>
+              )}
+              {editOrderItems.map(oi => (
+                <div key={oi.id} className="om-edit-item-row">
+                  <span style={{ flex: 1, fontSize: 13 }}>{oi.item_title}{oi.quantity > 1 ? ` ×${oi.quantity}` : ''}</span>
+                  <span style={{ color: 'var(--green)', fontWeight: 600, fontSize: 12, marginRight: 8 }}>{fmtVND(oi.item_price)}</span>
+                  <button className="om-remove-item-btn" onClick={() => removeItemFromOrder(oi.id, editOrder.id)}>✕</button>
+                </div>
+              ))}
+
+              {/* Add item */}
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.6px', color: 'var(--muted)', marginBottom: 6 }}>Thêm sản phẩm</div>
+                <div className="om-item-search-wrap">
+                  <input
+                    className="om-inp"
+                    placeholder="Tìm sản phẩm hoặc nhập tên..."
+                    value={addItemSearch}
+                    onChange={e => onAddItemSearchChange(e.target.value)}
+                  />
+                  {addItemLoading && <div className="om-spinner-sm" />}
+                </div>
+                {addItemResults.length > 0 && (
+                  <div className="om-item-list">
+                    {addItemResults.map(item => (
+                      <button key={item.id} className="om-item-option" onClick={() => {
+                        setSelectedAddItem(item)
+                        setAddItemSearch(item.title)
+                        setAddItemPrice(item.price ? String(item.price) : '')
+                        setAddItemResults([])
+                      }}>
+                        <div className="om-item-opt-title">{item.title}</div>
+                        <div className="om-item-opt-meta">
+                          <span className="om-order-code" style={{ fontSize: 10 }}>{item.order_code}</span>
+                          <span style={{ color: 'var(--green)', fontWeight: 600, fontSize: 12 }}>{fmtVND(item.price)}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  <input
+                    className="om-inp"
+                    type="number"
+                    placeholder="Giá (VNĐ)"
+                    value={addItemPrice}
+                    onChange={e => setAddItemPrice(e.target.value)}
+                    style={{ maxWidth: 130 }}
+                  />
+                  <button className="om-btn-primary" style={{ fontSize: 12, padding: '6px 12px' }}
+                    onClick={() => addItemToOrder(editOrder.id)}
+                    disabled={!addItemSearch.trim()}>
+                    + Thêm
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="om-form-grid">
@@ -770,11 +952,11 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
               <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.6px', color: 'var(--muted)', marginBottom: 6 }}>Thông báo Messenger</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <button className="om-btn-messenger"
-                  onClick={() => sendNotification({ ...editOrder, fb_psid: editForm.fb_psid || editOrder.fb_psid }, 'created')}>
+                  onClick={() => sendNotification({ ...editOrder, order_items: editOrderItems }, 'created', editForm.fb_psid || editOrder.fb_psid)}>
                   Gửi TB tạo đơn
                 </button>
                 <button className="om-btn-messenger"
-                  onClick={() => sendNotification({ ...editOrder, fb_psid: editForm.fb_psid || editOrder.fb_psid, tracking_number: editForm.tracking_number, shipping_carrier: editForm.shipping_carrier }, 'shipping')}>
+                  onClick={() => sendNotification({ ...editOrder, tracking_number: editForm.tracking_number, shipping_carrier: editForm.shipping_carrier, order_items: editOrderItems }, 'shipping', editForm.fb_psid || editOrder.fb_psid)}>
                   Gửi TB vận chuyển
                 </button>
                 <button className="om-btn-print-sm"
@@ -873,10 +1055,19 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td>{printOrder.items?.title || printOrder.item_title || '—'}</td>
-                  <td>{fmtVND(printOrder.total_amount ?? printOrder.item_price)}</td>
-                </tr>
+                {printOrder.order_items && printOrder.order_items.length > 0 ? (
+                  printOrder.order_items.map(oi => (
+                    <tr key={oi.id}>
+                      <td>{oi.item_title}{oi.quantity > 1 ? ` ×${oi.quantity}` : ''}</td>
+                      <td>{fmtVND(oi.item_price ? oi.item_price * oi.quantity : null)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td>{printOrder.items?.title || printOrder.item_title || '—'}</td>
+                    <td>{fmtVND(printOrder.item_price)}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
 
@@ -926,33 +1117,33 @@ const omStyles = `
     position:fixed;inset:0;z-index:9999;
     width:58mm;background:white;
     padding:3mm 4mm;
-    font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#000;
+    font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#000;
   }
   .invoice-print-wrap *{visibility:visible}
 }
 .inv-header{display:flex;flex-direction:column;align-items:center;margin-bottom:3mm;text-align:center}
-.inv-shop{font-size:11pt;font-weight:800;letter-spacing:-.3px}
+.inv-shop{font-size:13pt;font-weight:800;letter-spacing:-.3px}
 .inv-shop span{font-weight:300;color:#555}
-.inv-title{font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#444;margin-top:1mm}
+.inv-title{font-size:9pt;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#444;margin-top:1mm}
 .inv-divider{border:none;border-top:1px dashed #ccc;margin:2mm 0}
-.inv-section-title{font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#777;margin-bottom:1.5mm}
+.inv-section-title{font-size:8.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#777;margin-bottom:1.5mm}
 .inv-meta{display:flex;flex-direction:column;gap:1.5mm;margin-bottom:1mm}
-.inv-meta-row{display:flex;gap:4px;font-size:7.5pt;line-height:1.3}
+.inv-meta-row{display:flex;gap:4px;font-size:9.5pt;line-height:1.3}
 .inv-meta-key{min-width:22mm;color:#666;flex-shrink:0}
 .inv-meta-val{color:#000;font-weight:500}
-.inv-items-table{width:100%;border-collapse:collapse;margin-bottom:2mm;font-size:7.5pt}
-.inv-items-table th{padding:1.5mm 0;text-align:left;font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#777;border-bottom:1px solid #ccc}
+.inv-items-table{width:100%;border-collapse:collapse;margin-bottom:2mm;font-size:9.5pt}
+.inv-items-table th{padding:1.5mm 0;text-align:left;font-size:8.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#777;border-bottom:1px solid #ccc}
 .inv-items-table td{padding:2mm 0;border-bottom:1px dashed #eee;line-height:1.4}
 .inv-items-table td:last-child{text-align:right;font-weight:700;white-space:nowrap}
-.inv-total-row{display:flex;justify-content:space-between;align-items:center;padding:2mm 0;border-top:1.5px solid #000;border-bottom:1.5px solid #000;margin:1mm 0;font-weight:700;font-size:9pt}
-.inv-total-val{font-size:10pt;font-weight:900;color:#000}
-.inv-shipping{font-size:7pt;color:#666;padding:1.5mm 0;line-height:1.5}
+.inv-total-row{display:flex;justify-content:space-between;align-items:center;padding:2mm 0;border-top:1.5px solid #000;border-bottom:1.5px solid #000;margin:1mm 0;font-weight:700;font-size:11pt}
+.inv-total-val{font-size:12pt;font-weight:900;color:#000}
+.inv-shipping{font-size:9pt;color:#666;padding:1.5mm 0;line-height:1.5}
 .inv-qr-section{margin-top:2mm;text-align:center}
 .inv-bank-qr{display:flex;flex-direction:column;align-items:center;gap:2mm}
-.inv-bank-details{font-size:7pt;display:flex;flex-direction:column;gap:1.5mm;line-height:1.5;width:100%}
+.inv-bank-details{font-size:9pt;display:flex;flex-direction:column;gap:1.5mm;line-height:1.5;width:100%}
 .inv-bank-details div{display:flex;justify-content:space-between}
 .inv-qr-img{width:46mm;height:46mm;border:1px solid #ddd}
-.inv-footer{text-align:center;margin-top:3mm;padding-top:2mm;border-top:1px dashed #ccc;font-size:8pt;font-weight:700;color:#000}
+.inv-footer{text-align:center;margin-top:3mm;padding-top:2mm;border-top:1px dashed #ccc;font-size:10pt;font-weight:700;color:#000}
 
 /* ── Order management layout ── */
 .om-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
@@ -1080,6 +1271,14 @@ const omStyles = `
 /* edit order summary */
 .om-order-summary{background:var(--tag-bg,#f0efe9);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:13px}
 .om-summary-detail{margin-top:4px;font-size:13px}
+.om-fb-link{font-size:12px;color:#1877f2;text-decoration:none;font-weight:500}
+.om-fb-link:hover{text-decoration:underline}
+
+/* items in edit modal */
+.om-edit-item-row{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px dashed var(--border,#e8e6e1)}
+.om-edit-item-row:last-of-type{border-bottom:none}
+.om-remove-item-btn{background:none;border:none;cursor:pointer;color:var(--muted,#8c8982);font-size:11px;padding:2px 4px;border-radius:3px;line-height:1;flex-shrink:0}
+.om-remove-item-btn:hover{color:#ef4444;background:#fef2f2}
 
 /* notification */
 .om-notif-row{border:1px solid var(--border,#e8e6e1);border-radius:8px;padding:12px;margin-top:12px;margin-bottom:12px}
