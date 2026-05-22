@@ -1014,8 +1014,13 @@ const printCSS = `
     margin: 0;
   }
   @media print {
-    body > * { display: none !important; }
-    .print-labels-container { display: block !important; }
+    body * { visibility: hidden; }
+    .print-labels-container {
+      display: block !important;
+      visibility: visible !important;
+      position: fixed; top: 0; left: 0; width: 100%; background: white;
+    }
+    .print-labels-container * { visibility: visible !important; }
   }
   .print-labels-container {
     display: none;
