@@ -40,6 +40,8 @@ export default function InventoryPage() {
   const [form, setForm] = useState(INIT_FORM)
   const [imgFiles, setImgFiles] = useState<File[]>([])
   const [imgPreviews, setImgPreviews] = useState<string[]>([])
+  const [compressing, setCompressing] = useState(false)
+  const [compressInfo, setCompressInfo] = useState<{ original: number; compressed: number } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [lastImport, setLastImport] = useState<{ batch: InventoryBatch; items: Item[] } | null>(null)
   const [printItems, setPrintItems] = useState<Item[] | null>(null)
@@ -123,11 +125,22 @@ export default function InventoryPage() {
   }
 
   async function handleImgChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = Array.from(e.target.files ?? []).filter(f => f.size <= 8 * 1024 * 1024)
-    const compressed = await Promise.all(raw.map(f => compressToWebP(f)))
-    const merged = [...imgFiles, ...compressed].slice(0, 8)
-    setImgFiles(merged); setImgPreviews(merged.map(f => URL.createObjectURL(f)))
-    if (fileRef.current) fileRef.current.value = ''
+    const raw = Array.from(e.target.files ?? [])
+    if (!raw.length) return
+    setCompressing(true)
+    setCompressInfo(null)
+    try {
+      const originalSize = raw.reduce((s, f) => s + f.size, 0)
+      const compressed = await Promise.all(raw.map(f => compressToWebP(f)))
+      const compressedSize = compressed.reduce((s, f) => s + f.size, 0)
+      setCompressInfo({ original: originalSize, compressed: compressedSize })
+      const merged = [...imgFiles, ...compressed].slice(0, 8)
+      setImgFiles(merged)
+      setImgPreviews(merged.map(f => URL.createObjectURL(f)))
+    } finally {
+      setCompressing(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   function removeImg(i: number) {
@@ -338,7 +351,18 @@ export default function InventoryPage() {
 
               {/* Image upload */}
               <div style={{ marginBottom: 16 }}>
-                <div style={S.lbl}>Ảnh ({imgPreviews.length}/8)</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <div style={S.lbl}>Ảnh ({imgPreviews.length}/8)</div>
+                  {compressing && (
+                    <span className="inv-compress-badge inv-compress-loading">⏳ Đang nén...</span>
+                  )}
+                  {!compressing && compressInfo && (
+                    <span className="inv-compress-badge inv-compress-done">
+                      ↓ {Math.round((1 - compressInfo.compressed / compressInfo.original) * 100)}%
+                      ({(compressInfo.original / 1024 / 1024).toFixed(1)}MB → {(compressInfo.compressed / 1024 / 1024).toFixed(1)}MB)
+                    </span>
+                  )}
+                </div>
                 <div className="inv-img-grid">
                   {imgPreviews.map((src, i) => (
                     <div key={i} className="inv-img-wrap">
@@ -347,7 +371,12 @@ export default function InventoryPage() {
                       <button className="inv-img-remove" onClick={() => removeImg(i)}>✕</button>
                     </div>
                   ))}
-                  {imgPreviews.length < 8 && (
+                  {compressing && (
+                    <div className="inv-img-add inv-img-compressing">
+                      <div className="inv-compress-spinner" />
+                    </div>
+                  )}
+                  {!compressing && imgPreviews.length < 8 && (
                     <label className="inv-img-add">
                       <span style={{ fontSize: 28, color: '#666' }}>📷</span>
                       <span style={{ fontSize: 11, color: '#666', marginTop: 2 }}>Thêm ảnh</span>
@@ -943,6 +972,26 @@ const pageCSS = `
     gap: 6px;
     flex-shrink: 0;
   }
+
+  /* ── Compression feedback ── */
+  .inv-compress-badge {
+    font-size: 11px; font-weight: 600; padding: 2px 8px;
+    border-radius: 8px; white-space: nowrap;
+  }
+  .inv-compress-loading { background: #1e3a5f; color: #60a5fa; }
+  .inv-compress-done    { background: #14532d; color: #4ade80; }
+  .inv-img-compressing {
+    border-color: #2a2d3a;
+    display: flex; align-items: center; justify-content: center;
+    background: #1a1d27;
+  }
+  .inv-compress-spinner {
+    width: 22px; height: 22px;
+    border: 2px solid #2a2d3a; border-top-color: #4ade80;
+    border-radius: 50%;
+    animation: inv-spin 0.7s linear infinite;
+  }
+  @keyframes inv-spin { to { transform: rotate(360deg); } }
 
   /* ── Mobile breakpoint ── */
   @media (max-width: 640px) {
