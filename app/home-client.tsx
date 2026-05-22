@@ -191,7 +191,7 @@ export default function HomeClient() {
   const [msgPhone, setMsgPhone]       = useState('')
   const [msgText, setMsgText]         = useState('')
 
-  const [orderItem, setOrderItem]     = useState<Item|null>(null)
+  const [orderPopupOpen, setOrderPopupOpen] = useState(false)
   const [orderForm, setOrderForm]     = useState({ name:'', phone:'', address:'', note:'', payment_method:'cod' as 'cod'|'bank_transfer' })
   const [orderSubmitting, setOrderSubmitting] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState<string|null>(null)
@@ -207,12 +207,11 @@ export default function HomeClient() {
   const [userAuthForm, setUserAuthForm] = useState({ name:'', email:'', password:'' })
   const [userAuthLoading, setUserAuthLoading] = useState(false)
   const [userAuthError, setUserAuthError] = useState('')
-  const pendingOrderItem = useRef<Item|null>(null)
+  const pendingOrderItem = useRef<boolean>(false)
 
   const [toast, setToast]             = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
   // SKU group order: khi public chọn mua hàng có SKU, hiện danh sách mã để chọn thùng
-  const [skuOrderGroup, setSkuOrderGroup] = useState<Item[]|null>(null)
   function showToast(m: string) {
     setToast(m); clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(''), 2800)
@@ -489,13 +488,13 @@ export default function HomeClient() {
       if (r.ok) setSavedAddresses(await r.json())
     } catch { /* silent */ }
   }
-  function openOrderPopup(item: Item) {
+  function openOrderPopup() {
     if (!supaUser) {
-      pendingOrderItem.current = item
+      pendingOrderItem.current = true
       openUserAuth('login')
       return
     }
-    setOrderItem(item)
+    setOrderPopupOpen(true)
     setOrderForm({ name: supaUser.name ?? '', phone:'', address:'', note:'', payment_method:'cod' })
     setOrderSuccess(null)
     setOrderAddressId(null)
@@ -504,7 +503,7 @@ export default function HomeClient() {
     fetchAddresses()
   }
   function closeOrderPopup() {
-    setOrderItem(null); setOrderSuccess(null)
+    setOrderPopupOpen(false); setOrderSuccess(null)
     setOrderForm({ name:'', phone:'', address:'', note:'', payment_method:'cod' })
     setOrderAddressId(null)
     setShowNewAddrForm(false)
@@ -520,9 +519,8 @@ export default function HomeClient() {
     setNewAddrForm({ full_name: name, phone:'', address:'' })
     fetchAddresses()
     if (pendingOrderItem.current) {
-      const item = pendingOrderItem.current
-      pendingOrderItem.current = null
-      setOrderItem(item)
+      pendingOrderItem.current = false
+      setOrderPopupOpen(true)
       setOrderForm({ name, phone:'', address:'', note:'', payment_method:'cod' })
       setOrderSuccess(null)
     }
@@ -584,10 +582,10 @@ export default function HomeClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          item_id: orderItem?.id ?? null,
-          item_title: orderItem?.title ?? null,
-          item_price: orderItem?.price ?? null,
-          total_amount: orderItem?.price ?? null,
+          item_id: null,
+          item_title: null,
+          item_price: null,
+          total_amount: null,
           customer_name: addr.full_name,
           customer_phone: addr.phone,
           customer_address: addr.address,
@@ -1037,7 +1035,7 @@ export default function HomeClient() {
                           <div className="item-footer">
                             <div className="item-price">{fmtVND(g.rep.price)}</div>
                             {isAvail ? (
-                              <button className="btn-order-quick" onClick={()=>setSkuOrderGroup(g.available)}>Đặt hàng</button>
+                              <button className="btn-order-quick" onClick={openOrderPopup}>Đặt hàng</button>
                             ) : (
                               <span className="item-cta">Hết hàng</span>
                             )}
@@ -1084,7 +1082,7 @@ export default function HomeClient() {
                         <div className="item-footer">
                           <div className="item-price">{fmtVND(item.price)}</div>
                           {!isAdmin && item.status==='available' ? (
-                            <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup(item)}}>Đặt hàng</button>
+                            <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup()}}>Đặt hàng</button>
                           ) : (
                             <span className="item-cta">Xem chi tiết →</span>
                           )}
@@ -1270,14 +1268,14 @@ export default function HomeClient() {
       )}
 
       {/* ORDER POPUP */}
-      {orderItem && (
+      {orderPopupOpen && (
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&closeOrderPopup()}>
           <div className="modal" style={{maxWidth:500}}>
             {orderSuccess ? (
               <div style={{textAlign:'center',padding:'8px 0 16px'}}>
                 <div style={{width:56,height:56,borderRadius:'50%',background:'var(--green)',color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,margin:'0 auto 14px'}}>✓</div>
-                <h3 style={{marginBottom:6}}>Đặt hàng thành công!</h3>
-                <p style={{color:'var(--muted)',marginBottom:16}}>Chúng tôi sẽ liên hệ xác nhận trong thời gian sớm nhất.</p>
+                <h3 style={{marginBottom:6}}>Đã gửi yêu cầu!</h3>
+                <p style={{color:'var(--muted)',marginBottom:16}}>Nhân viên sẽ liên hệ xác nhận sản phẩm và sắp xếp giao hàng sớm nhất.</p>
                 <div style={{background:'var(--tag-bg)',borderRadius:8,padding:'12px 16px',marginBottom:20}}>
                   <div className="lbl" style={{marginBottom:4}}>Mã đơn hàng</div>
                   <div style={{fontSize:20,fontWeight:700,fontFamily:'monospace',color:'var(--text)'}}>{orderSuccess}</div>
@@ -1287,10 +1285,6 @@ export default function HomeClient() {
             ) : (
               <>
                 <h3>Đặt hàng</h3>
-                <div className="modal-item-info">
-                  <span style={{fontWeight:600}}>{orderItem.title}</span>
-                  {orderItem.price && <span style={{marginLeft:8,color:'var(--green)',fontWeight:700}}>{fmtVND(orderItem.price)}</span>}
-                </div>
 
                 {/* Address section */}
                 <div style={{marginBottom:14}}>
@@ -1341,8 +1335,8 @@ export default function HomeClient() {
                 {orderAddressId && !showNewAddrForm && (
                   <>
                     <div style={{marginBottom:12}}>
-                      <label className="lbl">Ghi chú</label>
-                      <input className="inp" placeholder="Ghi chú thêm nếu có..."
+                      <label className="lbl">Bạn muốn mua gì?</label>
+                      <input className="inp" placeholder="Mô tả sản phẩm, màu sắc, số lượng... nhân viên sẽ tư vấn thêm"
                         value={orderForm.note} onChange={e=>setOrderForm(f=>({...f,note:e.target.value}))} />
                     </div>
                     <div style={{marginBottom:14}}>
@@ -1363,14 +1357,15 @@ export default function HomeClient() {
                     {orderForm.payment_method==='bank_transfer' && BANK_ACCT && (
                       <div style={{display:'flex',alignItems:'center',gap:14,background:'var(--tag-bg)',borderRadius:10,padding:12,marginBottom:14}}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={`https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCT}-compact2.png?amount=${orderItem.price??''}&addInfo=${encodeURIComponent('DH '+orderItem.order_code)}&accountName=${encodeURIComponent(BANK_NAME)}`}
+                          src={`https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCT}-compact2.png?addInfo=${encodeURIComponent('Dat hang')}&accountName=${encodeURIComponent(BANK_NAME)}`}
                           alt="QR thanh toán" width={88} height={88} style={{borderRadius:6,flexShrink:0}} />
                         <div style={{fontSize:12,lineHeight:1.9}}>
                           <div><span style={{color:'var(--muted)'}}>Ngân hàng:</span> <strong>{BANK_ID}</strong></div>
                           <div><span style={{color:'var(--muted)'}}>STK:</span> <strong>{BANK_ACCT}</strong></div>
                           {BANK_NAME&&<div><span style={{color:'var(--muted)'}}>Chủ TK:</span> {BANK_NAME}</div>}
-                          {orderItem.price&&<div><span style={{color:'var(--muted)'}}>Số tiền:</span> <strong style={{color:'var(--green)'}}>{fmtVND(orderItem.price)}</strong></div>}
+                          <div style={{fontSize:11,color:'var(--muted)'}}>Nhân viên sẽ xác nhận số tiền sau.</div>
                         </div>
                       </div>
                     )}
@@ -1424,38 +1419,6 @@ export default function HomeClient() {
         </div>
       )}
 
-      {/* SKU SELECTOR MODAL */}
-      {skuOrderGroup && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setSkuOrderGroup(null)}>
-          <div className="modal" style={{maxWidth:480}}>
-            <h3>Chọn sản phẩm cụ thể</h3>
-            <p style={{color:'var(--muted)',fontSize:13,marginBottom:16}}>
-              Mỗi mã sản phẩm được để ở thùng riêng. Chọn mã bạn muốn để biết vị trí lấy hàng.
-            </p>
-            <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:320,overflowY:'auto'}}>
-              {skuOrderGroup.map(item => (
-                <button key={item.id} className="sku-select-row"
-                  onClick={()=>{setSkuOrderGroup(null);openOrderPopup(item)}}>
-                  <div style={{flex:1}}>
-                    <code style={{fontFamily:'monospace',fontWeight:700,fontSize:13,color:'var(--accent)'}}>{item.order_code}</code>
-                    {item.sku && <span style={{marginLeft:8,fontSize:11,color:'var(--muted)',background:'var(--tag-bg)',borderRadius:4,padding:'1px 6px'}}>{item.sku}</span>}
-                    {item.bin_location && (
-                      <div style={{fontSize:12,color:'var(--muted)',marginTop:3}}>
-                        📦 Thùng: <strong style={{color:'var(--text)'}}>{item.bin_location}</strong>
-                      </div>
-                    )}
-                  </div>
-                  <span style={{fontSize:13,fontWeight:600,color:'var(--green)',whiteSpace:'nowrap'}}>{fmtVND(item.price)}</span>
-                  <span style={{fontSize:13,color:'var(--muted)'}}>→</span>
-                </button>
-              ))}
-            </div>
-            <div className="modal-actions" style={{marginTop:16}}>
-              <button className="btn-ghost" onClick={()=>setSkuOrderGroup(null)}>Hủy</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {toast && <div className="toast">{toast}</div>}
     </>
