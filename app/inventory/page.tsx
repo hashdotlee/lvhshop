@@ -244,25 +244,25 @@ export default function InventoryPage() {
       )}
 
       {/* Header */}
-      <header style={S.header}>
+      <header className="inv-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <a href="/" style={{ color: '#4ade80', fontWeight: 700, textDecoration: 'none', fontSize: 16 }}>
             leviethoang.shop
           </a>
           <span style={{ color: '#555' }}>/</span>
-          <span style={{ fontWeight: 600, color: '#e5e7eb' }}>Quản lý kho</span>
+          <span style={{ fontWeight: 600, color: '#e5e7eb' }}>Kho</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button style={view === 'batches' ? S.tabActive : S.tab} onClick={() => { setView('batches'); setLastImport(null) }}>
             📋 Lô hàng
           </button>
           <button style={view === 'import' ? S.tabActive : S.tab} onClick={() => { setView('import'); setLastImport(null) }}>
-            + Nhập hàng
+            + Nhập
           </button>
         </div>
       </header>
 
-      <main style={S.main}>
+      <main className="inv-main">
 
         {/* ── BATCHES VIEW ── */}
         {view === 'batches' && (
@@ -308,95 +308,100 @@ export default function InventoryPage() {
 
         {/* ── IMPORT VIEW ── */}
         {view === 'import' && (
-          <div style={S.importWrap}>
+          <div className="inv-import-wrap">
             <div style={S.sectionTitle}>Nhập hàng mới</div>
 
             <div style={S.card}>
-              <div style={S.cardTitle}>📦 Thông tin lô hàng</div>
-              <div style={S.fgrid}>
+              <div style={S.cardTitle}>📦 Lô hàng</div>
+              <div className="inv-fgrid">
                 <div style={S.fg}>
-                  <div style={S.lbl}>Nhà cung cấp / Nguồn hàng</div>
-                  <input style={S.inp} placeholder="VD: Nguồn Nhật, chợ đồ cũ..." value={form.supplier} onChange={e => f('supplier', e.target.value)} />
+                  <div style={S.lbl}>Nguồn hàng</div>
+                  <input className="inv-inp" placeholder="VD: Nguồn Nhật, chợ đồ cũ..." value={form.supplier} onChange={e => f('supplier', e.target.value)} />
                 </div>
                 <div style={S.fg}>
-                  <div style={S.lbl}>Người nhập hàng</div>
-                  <select style={S.inp} value={form.staff_id} onChange={e => f('staff_id', e.target.value)}>
+                  <div style={S.lbl}>Người nhập</div>
+                  <select className="inv-inp" value={form.staff_id} onChange={e => f('staff_id', e.target.value)}>
                     <option value="">— Chọn —</option>
                     {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
-                <div style={{ ...S.fg, gridColumn: '1 / -1' }}>
-                  <div style={S.lbl}>Ghi chú lô hàng</div>
-                  <input style={S.inp} placeholder="Ghi chú nội bộ (không hiển thị cho khách)..."
+                <div className="inv-fg-full">
+                  <div style={S.lbl}>Ghi chú lô</div>
+                  <input className="inv-inp" placeholder="Ghi chú nội bộ..."
                     value={form.notes} onChange={e => f('notes', e.target.value)} />
                 </div>
               </div>
             </div>
 
             <div style={S.card}>
-              <div style={S.cardTitle}>🏷️ Thông tin sản phẩm</div>
+              <div style={S.cardTitle}>🏷️ Sản phẩm</div>
 
               {/* Image upload */}
               <div style={{ marginBottom: 16 }}>
-                <div style={S.lbl}>Ảnh sản phẩm ({imgPreviews.length}/8)</div>
-                <div style={S.imgGrid}>
+                <div style={S.lbl}>Ảnh ({imgPreviews.length}/8)</div>
+                <div className="inv-img-grid">
                   {imgPreviews.map((src, i) => (
-                    <div key={i} style={S.imgThumbWrap}>
+                    <div key={i} className="inv-img-wrap">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={src} alt="" style={S.imgThumb} />
-                      <button style={S.imgRemove} onClick={() => removeImg(i)}>✕</button>
+                      <img src={src} alt="" className="inv-img-thumb" />
+                      <button className="inv-img-remove" onClick={() => removeImg(i)}>✕</button>
                     </div>
                   ))}
                   {imgPreviews.length < 8 && (
-                    <label style={S.imgAdd}>
-                      <span style={{ fontSize: 24, color: '#666' }}>+</span>
+                    <label className="inv-img-add">
+                      <span style={{ fontSize: 28, color: '#666' }}>📷</span>
+                      <span style={{ fontSize: 11, color: '#666', marginTop: 2 }}>Thêm ảnh</span>
                       <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleImgChange} style={{ display: 'none' }} />
                     </label>
                   )}
                 </div>
               </div>
 
-              <div style={S.fgrid}>
-                <div style={{ ...S.fg, gridColumn: '1 / -1' }}>
+              <div className="inv-fgrid">
+                <div className="inv-fg-full">
                   <div style={S.lbl}>Tên sản phẩm <span style={{ color: '#f87171' }}>*</span></div>
-                  <input style={S.inp} placeholder="VD: Xe mô hình Tomica Honda Civic..." value={form.title} onChange={e => f('title', e.target.value)} />
+                  <input className="inv-inp" placeholder="VD: Xe mô hình Tomica Honda Civic..." value={form.title} onChange={e => f('title', e.target.value)} />
                 </div>
                 <div style={S.fg}>
-                  <div style={S.lbl}>SKU <span style={{ color: '#888', fontWeight: 400 }}>(mã phân loại chung)</span></div>
-                  <input style={S.inp} placeholder="VD: TOMICA-001, LEGO-CITY-42..." value={form.sku} onChange={e => f('sku', e.target.value.toUpperCase())} />
+                  <div style={S.lbl}>SKU</div>
+                  <input className="inv-inp" placeholder="VD: TOMICA-001..." value={form.sku} onChange={e => f('sku', e.target.value.toUpperCase())} />
                 </div>
                 <div style={S.fg}>
                   <div style={S.lbl}>Danh mục</div>
-                  <input style={S.inp} placeholder="VD: Đồ chơi, Điện tử, Thời trang..." value={form.category} onChange={e => f('category', e.target.value)} />
+                  <input className="inv-inp" placeholder="VD: Đồ chơi, Điện tử..." value={form.category} onChange={e => f('category', e.target.value)} />
                 </div>
-                <div style={{ ...S.fg, gridColumn: '1 / -1' }}>
+                <div className="inv-fg-full">
                   <div style={S.lbl}>Mô tả</div>
-                  <input style={S.inp} placeholder="Mô tả chi tiết sản phẩm..." value={form.description} onChange={e => f('description', e.target.value)} />
+                  <input className="inv-inp" placeholder="Mô tả chi tiết sản phẩm..." value={form.description} onChange={e => f('description', e.target.value)} />
                 </div>
                 <div style={S.fg}>
                   <div style={S.lbl}>Tình trạng</div>
-                  <select style={S.inp} value={form.condition} onChange={e => f('condition', e.target.value)}>
+                  <select className="inv-inp" value={form.condition} onChange={e => f('condition', e.target.value)}>
                     {['Mới', 'Cũ - Như mới', 'Cũ - Còn tốt', 'Cũ - Có lỗi nhỏ'].map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div style={S.fg}>
+                  <div style={S.lbl}>Vị trí thùng</div>
+                  <input className="inv-inp" placeholder="VD: A1, Kệ B..." value={form.bin_location} onChange={e => f('bin_location', e.target.value)} />
+                </div>
+                <div style={S.fg}>
                   <div style={S.lbl}>Giá nhập (VNĐ)</div>
-                  <input style={S.inp} type="number" min="0" step="1000" placeholder="0 (giá mua vào, ẩn với khách)" value={form.cost_price} onChange={e => f('cost_price', e.target.value)} />
+                  <input className="inv-inp" type="number" inputMode="numeric" min="0" step="1000" placeholder="0" value={form.cost_price} onChange={e => f('cost_price', e.target.value)} />
                   {form.cost_price && <div style={S.pricePreview}>{fmtVND(Number(form.cost_price))}</div>}
                 </div>
                 <div style={S.fg}>
                   <div style={S.lbl}>Giá bán (VNĐ)</div>
-                  <input style={S.inp} type="number" min="0" step="1000" placeholder="0" value={form.price} onChange={e => f('price', e.target.value)} />
+                  <input className="inv-inp" type="number" inputMode="numeric" min="0" step="1000" placeholder="0" value={form.price} onChange={e => f('price', e.target.value)} />
                   {form.price && <div style={S.pricePreview}>{fmtVND(Number(form.price))}</div>}
                 </div>
-                <div style={S.fg}>
-                  <div style={S.lbl}>Vị trí lưu kho (thùng)</div>
-                  <input style={S.inp} placeholder="VD: A1, Kệ B Hàng 3, Thùng Xanh..." value={form.bin_location} onChange={e => f('bin_location', e.target.value)} />
-                </div>
-                <div style={S.fg}>
-                  <div style={S.lbl}>Số lượng nhập</div>
-                  <input style={S.inp} type="number" min="1" max="200" value={form.quantity}
-                    onChange={e => f('quantity', e.target.value)} />
+                <div className="inv-fg-full">
+                  <div style={S.lbl}>Số lượng</div>
+                  <div className="inv-qty-row">
+                    <button className="inv-qty-btn" onClick={() => f('quantity', String(Math.max(1, (parseInt(form.quantity)||1) - 1)))}>−</button>
+                    <input className="inv-inp inv-qty-input" type="number" inputMode="numeric" min="1" max="200" value={form.quantity}
+                      onChange={e => f('quantity', e.target.value)} />
+                    <button className="inv-qty-btn" onClick={() => f('quantity', String(Math.min(200, (parseInt(form.quantity)||1) + 1)))}>+</button>
+                  </div>
                   <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
                     Tạo {Math.max(1, parseInt(form.quantity) || 1)} mã sản phẩm riêng biệt
                   </div>
@@ -404,52 +409,41 @@ export default function InventoryPage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+            {/* Sticky submit */}
+            <div className="inv-submit-bar">
               <button style={S.btnGhost} onClick={() => setView('batches')}>← Quay lại</button>
-              <button style={{ ...S.btnGreen, flex: 1 }} onClick={submitImport} disabled={submitting}>
-                {submitting ? 'Đang nhập...' : `📥 Nhập ${Math.max(1, parseInt(form.quantity) || 1)} sản phẩm →`}
+              <button className="inv-submit-btn" onClick={submitImport} disabled={submitting}>
+                {submitting ? 'Đang nhập...' : `📥 Nhập ${Math.max(1, parseInt(form.quantity) || 1)} sản phẩm`}
               </button>
             </div>
 
             {/* Results after successful import */}
             {lastImport && (
               <div style={S.importResult}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div className="inv-result-header">
                   <div>
                     <span style={{ color: '#4ade80', fontWeight: 700, fontSize: 16 }}>✓ Nhập thành công!</span>
                     <code style={{ ...S.batchCode, marginLeft: 12 }}>{lastImport.batch.batch_code}</code>
                   </div>
                   <button style={S.btnPrint} onClick={() => startPrint(lastImport.items)}>
-                    🖨️ In nhãn tất cả ({lastImport.items.length})
+                    🖨️ In tất cả ({lastImport.items.length})
                   </button>
                 </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={S.table}>
-                    <thead>
-                      <tr>
-                        <th style={S.th}>Mã sản phẩm</th>
-                        <th style={S.th}>SKU</th>
-                        <th style={S.th}>Tên sản phẩm</th>
-                        <th style={S.th}>Thùng</th>
-                        <th style={S.th}>Giá bán</th>
-                        <th style={S.th}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lastImport.items.map(item => (
-                        <tr key={item.id} style={S.tr}>
-                          <td style={S.td}><code style={S.code}>{item.order_code}</code></td>
-                          <td style={S.td}>{item.sku ?? '—'}</td>
-                          <td style={S.td}>{item.title}</td>
-                          <td style={S.td}>{item.bin_location ?? '—'}</td>
-                          <td style={S.td}>{fmtVND(item.price)}</td>
-                          <td style={S.td}>
-                            <button style={S.btnPrintSm} onClick={() => startPrint([item])}>🖨️</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="inv-result-list">
+                  {lastImport.items.map(item => (
+                    <div key={item.id} className="inv-result-card">
+                      <div className="inv-result-main">
+                        <code style={S.code}>{item.order_code}</code>
+                        {item.sku && <span style={{ color: '#60a5fa', fontSize: 12, fontWeight: 600 }}>{item.sku}</span>}
+                      </div>
+                      <div className="inv-result-title">{item.title}</div>
+                      <div className="inv-result-meta">
+                        {item.bin_location && <span>📦 {item.bin_location}</span>}
+                        <span style={{ color: '#4ade80' }}>{fmtVND(item.price)}</span>
+                        <button style={S.btnPrintSm} onClick={() => startPrint([item])}>🖨️</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -459,26 +453,22 @@ export default function InventoryPage() {
         {/* ── BATCH ITEMS VIEW ── */}
         {view === 'batch-items' && selectedBatch && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <div className="inv-batch-header">
               <button style={S.btnGhost} onClick={() => { setView('batches'); setSelectedBatch(null) }}>← Lô hàng</button>
               <code style={S.batchCode}>{selectedBatch.batch_code}</code>
-              <span style={{ color: '#888' }}>{selectedBatch.item_count ?? selectedBatch.items?.length ?? 0} sản phẩm</span>
+              <span style={{ color: '#888', fontSize: 13 }}>{selectedBatch.item_count ?? selectedBatch.items?.length ?? 0} sp</span>
               {selectedBatch.items && selectedBatch.items.length > 0 && (
                 <button style={{ ...S.btnPrint, marginLeft: 'auto' }} onClick={() => startPrint(selectedBatch.items!)}>
-                  🖨️ In nhãn tất cả
+                  🖨️ In tất cả
                 </button>
               )}
             </div>
 
-            {selectedBatch.supplier && (
-              <div style={{ color: '#888', fontSize: 13, marginBottom: 4 }}>NCC: {selectedBatch.supplier}</div>
-            )}
-            {selectedBatch.notes && (
-              <div style={{ color: '#888', fontSize: 13, marginBottom: 4, fontStyle: 'italic' }}>{selectedBatch.notes}</div>
-            )}
-            {selectedBatch.created_by && (
-              <div style={{ color: '#888', fontSize: 13, marginBottom: 12 }}>Nhập bởi: {selectedBatch.created_by} · {fmtDate(selectedBatch.created_at)}</div>
-            )}
+            <div className="inv-batch-meta">
+              {selectedBatch.supplier && <span>NCC: {selectedBatch.supplier}</span>}
+              {selectedBatch.created_by && <span>Nhập bởi: {selectedBatch.created_by}</span>}
+              {selectedBatch.notes && <span style={{ fontStyle: 'italic' }}>{selectedBatch.notes}</span>}
+            </div>
 
             {loading ? (
               <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>Đang tải...</div>
@@ -512,12 +502,13 @@ export default function InventoryPage() {
                   )
                 })()}
 
-                <div style={{ overflowX: 'auto' }}>
+                {/* Desktop: table | Mobile: cards */}
+                <div className="inv-items-table-wrap">
                   <table style={S.table}>
                     <thead>
                       <tr>
                         <th style={S.th}>Ảnh</th>
-                        <th style={S.th}>Mã sản phẩm</th>
+                        <th style={S.th}>Mã SP</th>
                         <th style={S.th}>SKU</th>
                         <th style={S.th}>Tên sản phẩm</th>
                         <th style={S.th}>Thùng</th>
@@ -531,10 +522,7 @@ export default function InventoryPage() {
                       {selectedBatch.items!.map(item => {
                         const imgs = getImages(item)
                         return (
-                          <tr key={item.id} style={{
-                            ...S.tr,
-                            opacity: item.status === 'sold' ? 0.5 : 1,
-                          }}>
+                          <tr key={item.id} style={{ ...S.tr, opacity: item.status === 'sold' ? 0.5 : 1 }}>
                             <td style={S.td}>
                               {imgs.length > 0 ? (
                                 // eslint-disable-next-line @next/next/no-img-element
@@ -564,6 +552,41 @@ export default function InventoryPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Mobile cards */}
+                <div className="inv-items-cards">
+                  {selectedBatch.items!.map(item => {
+                    const imgs = getImages(item)
+                    return (
+                      <div key={item.id} className={`inv-item-card${item.status === 'sold' ? ' inv-item-sold' : ''}`}>
+                        <div className="inv-item-card-left">
+                          {imgs.length > 0 ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={imgs[0]} alt="" className="inv-item-card-img" />
+                          ) : <div className="inv-item-card-img inv-item-no-img">📦</div>}
+                        </div>
+                        <div className="inv-item-card-body">
+                          <div className="inv-item-card-codes">
+                            <code className="inv-item-card-code">{item.order_code}</code>
+                            {item.sku && <span className="inv-item-card-sku">{item.sku}</span>}
+                          </div>
+                          <div className="inv-item-card-title">{item.title}</div>
+                          <div className="inv-item-card-meta">
+                            {item.bin_location && <span>📦 {item.bin_location}</span>}
+                            <span style={{ color: '#4ade80' }}>{fmtVND(item.price)}</span>
+                            {item.status === 'available' && <span style={S.badgeAvail}>Còn</span>}
+                            {item.status === 'sold' && <span style={S.badgeSold}>Đã bán</span>}
+                            {item.status === 'incoming' && <span style={S.badgeIncoming}>Sắp về</span>}
+                          </div>
+                        </div>
+                        <div className="inv-item-card-actions">
+                          <button style={S.btnPrintSm} onClick={() => startPrint([item])}>🖨️</button>
+                          <a href={`/item/${item.id}`} style={{ ...S.btnPrintSm, textDecoration: 'none' }} target="_blank">👁️</a>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </>
             )}
           </div>
@@ -584,23 +607,23 @@ const S: Record<string, React.CSSProperties> = {
   authWrap:{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0f1117' },
   authBox: { background: '#1a1d27', border: '1px solid #2a2d3a', borderRadius: 12, padding: '32px 28px', width: 340, textAlign: 'center' },
   logo:    { fontSize: 22, fontWeight: 800, color: '#e5e7eb', marginBottom: 4 },
-  header:  { background: '#1a1d27', borderBottom: '1px solid #2a2d3a', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 },
-  main:    { maxWidth: 1100, margin: '0 auto', padding: '24px 20px' },
+  header:  {},
+  main:    {},
   tab:     { background: 'transparent', border: '1px solid #2a2d3a', color: '#9ca3af', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 13 },
   tabActive:{ background: '#1e3a2a', border: '1px solid #4ade80', color: '#4ade80', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 },
   sectionTitle: { fontSize: 16, fontWeight: 700, color: '#e5e7eb', marginBottom: 20, display: 'flex', alignItems: 'center' },
   card:    { background: '#1a1d27', border: '1px solid #2a2d3a', borderRadius: 12, padding: 20, marginBottom: 16 },
   cardTitle: { fontSize: 13, fontWeight: 700, color: '#9ca3af', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 },
-  fgrid:   { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 },
+  fgrid:   {},
   fg:      { display: 'flex', flexDirection: 'column' },
   lbl:     { fontSize: 12, fontWeight: 600, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
-  inp:     { background: '#0f1117', border: '1px solid #2a2d3a', borderRadius: 8, padding: '9px 12px', color: '#e5e7eb', fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box' },
+  inp:     { background: '#0f1117', border: '1px solid #2a2d3a', borderRadius: 8, padding: '9px 12px', color: '#e5e7eb', fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box' as const },
   pricePreview: { fontSize: 12, color: '#4ade80', marginTop: 4 },
-  imgGrid: { display: 'flex', flexWrap: 'wrap', gap: 8 },
-  imgThumbWrap: { position: 'relative', width: 80, height: 80 },
-  imgThumb: { width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #2a2d3a' },
-  imgRemove: { position: 'absolute', top: -6, right: -6, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 },
-  imgAdd:  { width: 80, height: 80, border: '2px dashed #2a2d3a', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+  imgGrid: {},
+  imgThumbWrap: {},
+  imgThumb: {},
+  imgRemove: {},
+  imgAdd:  {},
   batchGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 },
   batchCard: { background: '#1a1d27', border: '1px solid #2a2d3a', borderRadius: 12, padding: 16 },
   batchCode: { background: '#0f1117', border: '1px solid #2a2d3a', borderRadius: 6, padding: '3px 8px', fontSize: 13, fontFamily: 'monospace', color: '#60a5fa', fontWeight: 700 },
@@ -614,7 +637,7 @@ const S: Record<string, React.CSSProperties> = {
   btnGhost: { background: 'transparent', border: '1px solid #2a2d3a', color: '#9ca3af', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 },
   btnPrint: { background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: 600 },
   btnPrintSm: { background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontSize: 12 },
-  importWrap: { maxWidth: 680, margin: '0 auto' },
+  importWrap: {},
   importResult: { background: '#1a1d27', border: '1px solid #16a34a', borderRadius: 12, padding: 20, marginTop: 20 },
   table:   { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th:      { textAlign: 'left', padding: '8px 12px', borderBottom: '1px solid #2a2d3a', color: '#9ca3af', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', whiteSpace: 'nowrap' },
@@ -634,8 +657,305 @@ const pageCSS = `
   * { box-sizing: border-box; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: #4ade80 !important; }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
-  @media (max-width: 600px) {
-    .inv-fgrid { grid-template-columns: 1fr !important; }
+
+  /* ── Layout ── */
+  .inv-header {
+    background: #1a1d27;
+    border-bottom: 1px solid #2a2d3a;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    gap: 8px;
+  }
+  .inv-main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px 16px;
+    padding-bottom: 100px; /* room for sticky button */
+  }
+  .inv-import-wrap { max-width: 680px; margin: 0 auto; }
+
+  /* ── Form grid ── */
+  .inv-fgrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .inv-fg-full { grid-column: 1 / -1; }
+
+  /* ── Inputs ── */
+  .inv-inp {
+    background: #0f1117;
+    border: 1px solid #2a2d3a;
+    border-radius: 8px;
+    padding: 11px 12px;
+    color: #e5e7eb;
+    font-size: 16px; /* prevents iOS zoom */
+    outline: none;
+    width: 100%;
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 48px;
+  }
+  .inv-inp:focus { border-color: #4ade80; }
+
+  /* ── Quantity stepper ── */
+  .inv-qty-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .inv-qty-btn {
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    color: #e5e7eb;
+    border-radius: 8px;
+    width: 48px;
+    height: 48px;
+    font-size: 22px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    line-height: 1;
+    user-select: none;
+  }
+  .inv-qty-btn:active { background: #2a2d3a; }
+  .inv-qty-input { text-align: center; }
+
+  /* ── Image grid ── */
+  .inv-img-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .inv-img-wrap {
+    position: relative;
+    width: 80px;
+    height: 80px;
+  }
+  .inv-img-thumb {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #2a2d3a;
+  }
+  .inv-img-remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .inv-img-add {
+    width: 80px;
+    height: 80px;
+    border: 2px dashed #2a2d3a;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    gap: 2px;
+  }
+
+  /* ── Sticky submit bar ── */
+  .inv-submit-bar {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #0f1117;
+    border-top: 1px solid #2a2d3a;
+    padding: 12px 16px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 16px -16px -100px;
+    z-index: 10;
+  }
+  .inv-submit-btn {
+    flex: 1;
+    background: #16a34a;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 20px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    min-height: 52px;
+    font-family: inherit;
+  }
+  .inv-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .inv-submit-btn:active { background: #15803d; }
+
+  /* ── Import result ── */
+  .inv-result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .inv-result-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .inv-result-card {
+    background: #0f1117;
+    border: 1px solid #2a2d3a;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .inv-result-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .inv-result-title {
+    font-size: 13px;
+    color: #e5e7eb;
+    font-weight: 500;
+  }
+  .inv-result-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: #9ca3af;
+    flex-wrap: wrap;
+  }
+
+  /* ── Batch header ── */
+  .inv-batch-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .inv-batch-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 13px;
+    color: #9ca3af;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  /* ── Batch items: desktop table / mobile cards ── */
+  .inv-items-table-wrap { overflow-x: auto; }
+  .inv-items-cards { display: none; }
+
+  .inv-item-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #1a1d27;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  .inv-item-sold { opacity: 0.5; }
+  .inv-item-card-left { flex-shrink: 0; }
+  .inv-item-card-img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #2a2d3a;
+  }
+  .inv-item-no-img {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    background: #0f1117;
+  }
+  .inv-item-card-body { flex: 1; min-width: 0; }
+  .inv-item-card-codes {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+  .inv-item-card-code {
+    font-family: monospace;
+    background: #0f1117;
+    border: 1px solid #2a2d3a;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 12px;
+    color: #60a5fa;
+    font-weight: 700;
+  }
+  .inv-item-card-sku {
+    color: #60a5fa;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .inv-item-card-title {
+    font-size: 13px;
+    color: #e5e7eb;
+    font-weight: 500;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .inv-item-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #9ca3af;
+    flex-wrap: wrap;
+  }
+  .inv-item-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── Mobile breakpoint ── */
+  @media (max-width: 640px) {
+    .inv-main { padding: 12px 12px; padding-bottom: 100px; }
+    .inv-fgrid { grid-template-columns: 1fr; }
+    .inv-fg-full { grid-column: 1; }
+    .inv-img-wrap { width: 72px; height: 72px; }
+    .inv-img-thumb { width: 72px; height: 72px; }
+    .inv-img-add { width: 72px; height: 72px; }
+    .inv-submit-bar { margin: 16px -12px -100px; }
+    .inv-items-table-wrap { display: none; }
+    .inv-items-cards { display: block; }
+    .inv-batch-header { gap: 8px; }
   }
 `
 
