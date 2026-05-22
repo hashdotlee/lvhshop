@@ -820,43 +820,43 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
           <div className="invoice-print-wrap">
             <div className="inv-header">
               <div className="inv-shop">leviethoang<span>.shop</span></div>
-              <div className="inv-title">HÓA ĐƠN BÁN HÀNG</div>
+              <div className="inv-title">HOA DON BAN HANG</div>
             </div>
 
             <div className="inv-meta">
               <div className="inv-meta-row">
-                <span className="inv-meta-key">Mã đơn</span>
+                <span className="inv-meta-key">Ma don</span>
                 <span className="inv-meta-val"><strong>{printOrder.order_number}</strong></span>
               </div>
               <div className="inv-meta-row">
-                <span className="inv-meta-key">Ngày tạo</span>
+                <span className="inv-meta-key">Ngay</span>
                 <span className="inv-meta-val">{fmtDate(printOrder.created_at)}</span>
               </div>
               <div className="inv-meta-row">
-                <span className="inv-meta-key">Phương thức TT</span>
-                <span className="inv-meta-val">{printOrder.payment_method === 'cod' ? 'COD (Thanh toán khi nhận)' : 'Chuyển khoản'}</span>
+                <span className="inv-meta-key">Thanh toan</span>
+                <span className="inv-meta-val">{printOrder.payment_method === 'cod' ? 'COD' : 'Chuyen khoan'}</span>
               </div>
             </div>
 
             <div className="inv-divider" />
 
-            <div className="inv-section-title">Thông tin khách hàng</div>
+            <div className="inv-section-title">Khach hang</div>
             <div className="inv-meta">
               <div className="inv-meta-row">
-                <span className="inv-meta-key">Họ tên</span>
+                <span className="inv-meta-key">Ten</span>
                 <span className="inv-meta-val">{printOrder.customer_name}</span>
               </div>
               <div className="inv-meta-row">
-                <span className="inv-meta-key">SĐT</span>
+                <span className="inv-meta-key">SDT</span>
                 <span className="inv-meta-val">{printOrder.customer_phone}</span>
               </div>
               <div className="inv-meta-row">
-                <span className="inv-meta-key">Địa chỉ</span>
+                <span className="inv-meta-key">Dia chi</span>
                 <span className="inv-meta-val">{printOrder.customer_address}</span>
               </div>
               {printOrder.customer_note && (
                 <div className="inv-meta-row">
-                  <span className="inv-meta-key">Ghi chú</span>
+                  <span className="inv-meta-key">Ghi chu</span>
                   <span className="inv-meta-val">{printOrder.customer_note}</span>
                 </div>
               )}
@@ -864,54 +864,49 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
 
             <div className="inv-divider" />
 
-            <div className="inv-section-title">Sản phẩm</div>
+            <div className="inv-section-title">San pham</div>
             <table className="inv-items-table">
               <thead>
                 <tr>
-                  <th>Sản phẩm</th>
-                  <th>SL</th>
-                  <th style={{ textAlign: 'right' }}>Thành tiền</th>
+                  <th>Ten</th>
+                  <th style={{ textAlign: 'right' }}>Tien</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>{printOrder.items?.title || printOrder.item_title || '—'}</td>
-                  <td>1</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmtVND(printOrder.total_amount ?? printOrder.item_price)}</td>
+                  <td>{fmtVND(printOrder.total_amount ?? printOrder.item_price)}</td>
                 </tr>
               </tbody>
             </table>
 
             <div className="inv-total-row">
-              <span>Tổng cộng</span>
+              <span>TONG</span>
               <span className="inv-total-val">{fmtVND(printOrder.total_amount ?? printOrder.item_price)}</span>
             </div>
 
-            <div className="inv-divider" />
-
             <div className="inv-shipping">
-              <span>Vận chuyển: {CARRIER_LABEL[printOrder.shipping_carrier] || printOrder.shipping_carrier}</span>
-              {printOrder.tracking_number && <span> · Mã vận đơn: <strong>{printOrder.tracking_number}</strong></span>}
+              {CARRIER_LABEL[printOrder.shipping_carrier] || printOrder.shipping_carrier}
+              {printOrder.tracking_number && <><br /><strong>{printOrder.tracking_number}</strong></>}
             </div>
 
             {printOrder.payment_method === 'bank_transfer' && process.env.NEXT_PUBLIC_BANK_ID && (
               <div className="inv-qr-section">
-                <div className="inv-section-title">Thanh toán chuyển khoản</div>
+                <div className="inv-section-title">Chuyen khoan</div>
                 <div className="inv-bank-qr">
                   <div className="inv-bank-details">
-                    <div>Ngân hàng: <strong>{process.env.NEXT_PUBLIC_BANK_ID?.toUpperCase()}</strong></div>
-                    <div>STK: <strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT}</strong></div>
-                    <div>Tên TK: <strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME}</strong></div>
-                    <div>Nội dung: <strong>{printOrder.order_number}</strong></div>
-                    <div>Số tiền: <strong style={{ color: '#2a7a4b' }}>{fmtVND(printOrder.total_amount)}</strong></div>
+                    <div><span>{process.env.NEXT_PUBLIC_BANK_ID?.toUpperCase()}</span><strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT}</strong></div>
+                    <div><span>Ten TK</span><strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME}</strong></div>
+                    <div><span>ND</span><strong>{printOrder.order_number}</strong></div>
+                    <div><span>So tien</span><strong>{fmtVND(printOrder.total_amount)}</strong></div>
                   </div>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={vietQRUrlForOrder(printOrder)} alt="QR chuyển khoản" className="inv-qr-img" />
+                  <img src={vietQRUrlForOrder(printOrder)} alt="QR" className="inv-qr-img" />
                 </div>
               </div>
             )}
 
-            <div className="inv-footer">Cảm ơn quý khách! 🙏</div>
+            <div className="inv-footer">Cam on quy khach!</div>
           </div>
         </>
       )}
@@ -921,34 +916,43 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
 
 // ─── Styles ───────────────────────────────────────────────────────
 const omStyles = `
-/* ── Print invoice (hidden except @media print) ── */
+/* ── Print invoice — 58mm thermal ── */
 .invoice-print-wrap{display:none}
+@page{size:58mm auto;margin:0}
 @media print{
-  .invoice-print-wrap{display:block;position:fixed;inset:0;background:white;z-index:9999;padding:40px;font-family:'Be Vietnam Pro',sans-serif;font-size:13px;color:#1a1916}
   body *{visibility:hidden}
-  .invoice-print-wrap,.invoice-print-wrap *{visibility:visible}
+  .invoice-print-wrap{
+    display:block!important;visibility:visible;
+    position:fixed;inset:0;z-index:9999;
+    width:58mm;background:white;
+    padding:3mm 4mm;
+    font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#000;
+  }
+  .invoice-print-wrap *{visibility:visible}
 }
-.inv-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.inv-shop{font-size:18px;font-weight:700;letter-spacing:-.3px}
-.inv-shop span{font-weight:300;color:#8c8982}
-.inv-title{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#1a1916}
-.inv-divider{border:none;border-top:1px solid #e8e6e1;margin:12px 0}
-.inv-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#8c8982;margin-bottom:8px}
-.inv-meta{display:flex;flex-direction:column;gap:4px;margin-bottom:4px}
-.inv-meta-row{display:flex;gap:12px;font-size:12px}
-.inv-meta-key{min-width:120px;color:#8c8982}
-.inv-meta-val{color:#1a1916}
-.inv-items-table{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:12px}
-.inv-items-table th{background:#f0efe9;padding:6px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#8c8982}
-.inv-items-table td{padding:8px 10px;border-bottom:1px solid #e8e6e1}
-.inv-total-row{display:flex;justify-content:space-between;align-items:center;padding:10px 10px;background:#f0efe9;border-radius:6px;font-weight:600;font-size:14px}
-.inv-total-val{font-size:16px;font-weight:700;color:#2a7a4b}
-.inv-shipping{font-size:12px;color:#8c8982;padding:8px 0}
-.inv-qr-section{margin-top:12px}
-.inv-bank-qr{display:flex;gap:20px;align-items:flex-start}
-.inv-bank-details{font-size:12px;display:flex;flex-direction:column;gap:4px;line-height:1.7}
-.inv-qr-img{width:120px;height:120px;border:1px solid #e8e6e1;border-radius:8px}
-.inv-footer{text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid #e8e6e1;font-size:14px;font-weight:600;color:#2a7a4b}
+.inv-header{display:flex;flex-direction:column;align-items:center;margin-bottom:3mm;text-align:center}
+.inv-shop{font-size:11pt;font-weight:800;letter-spacing:-.3px}
+.inv-shop span{font-weight:300;color:#555}
+.inv-title{font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#444;margin-top:1mm}
+.inv-divider{border:none;border-top:1px dashed #ccc;margin:2mm 0}
+.inv-section-title{font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#777;margin-bottom:1.5mm}
+.inv-meta{display:flex;flex-direction:column;gap:1.5mm;margin-bottom:1mm}
+.inv-meta-row{display:flex;gap:4px;font-size:7.5pt;line-height:1.3}
+.inv-meta-key{min-width:22mm;color:#666;flex-shrink:0}
+.inv-meta-val{color:#000;font-weight:500}
+.inv-items-table{width:100%;border-collapse:collapse;margin-bottom:2mm;font-size:7.5pt}
+.inv-items-table th{padding:1.5mm 0;text-align:left;font-size:6.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#777;border-bottom:1px solid #ccc}
+.inv-items-table td{padding:2mm 0;border-bottom:1px dashed #eee;line-height:1.4}
+.inv-items-table td:last-child{text-align:right;font-weight:700;white-space:nowrap}
+.inv-total-row{display:flex;justify-content:space-between;align-items:center;padding:2mm 0;border-top:1.5px solid #000;border-bottom:1.5px solid #000;margin:1mm 0;font-weight:700;font-size:9pt}
+.inv-total-val{font-size:10pt;font-weight:900;color:#000}
+.inv-shipping{font-size:7pt;color:#666;padding:1.5mm 0;line-height:1.5}
+.inv-qr-section{margin-top:2mm;text-align:center}
+.inv-bank-qr{display:flex;flex-direction:column;align-items:center;gap:2mm}
+.inv-bank-details{font-size:7pt;display:flex;flex-direction:column;gap:1.5mm;line-height:1.5;width:100%}
+.inv-bank-details div{display:flex;justify-content:space-between}
+.inv-qr-img{width:46mm;height:46mm;border:1px solid #ddd}
+.inv-footer{text-align:center;margin-top:3mm;padding-top:2mm;border-top:1px dashed #ccc;font-size:8pt;font-weight:700;color:#000}
 
 /* ── Order management layout ── */
 .om-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}

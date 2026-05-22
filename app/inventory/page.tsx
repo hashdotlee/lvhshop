@@ -40,6 +40,8 @@ export default function InventoryPage() {
   const [form, setForm] = useState(INIT_FORM)
   const [imgFiles, setImgFiles] = useState<File[]>([])
   const [imgPreviews, setImgPreviews] = useState<string[]>([])
+  const [compressing, setCompressing] = useState(false)
+  const [compressInfo, setCompressInfo] = useState<{ original: number; compressed: number } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [lastImport, setLastImport] = useState<{ batch: InventoryBatch; items: Item[] } | null>(null)
   const [printItems, setPrintItems] = useState<Item[] | null>(null)
@@ -123,11 +125,22 @@ export default function InventoryPage() {
   }
 
   async function handleImgChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = Array.from(e.target.files ?? []).filter(f => f.size <= 8 * 1024 * 1024)
-    const compressed = await Promise.all(raw.map(f => compressToWebP(f)))
-    const merged = [...imgFiles, ...compressed].slice(0, 8)
-    setImgFiles(merged); setImgPreviews(merged.map(f => URL.createObjectURL(f)))
-    if (fileRef.current) fileRef.current.value = ''
+    const raw = Array.from(e.target.files ?? [])
+    if (!raw.length) return
+    setCompressing(true)
+    setCompressInfo(null)
+    try {
+      const originalSize = raw.reduce((s, f) => s + f.size, 0)
+      const compressed = await Promise.all(raw.map(f => compressToWebP(f)))
+      const compressedSize = compressed.reduce((s, f) => s + f.size, 0)
+      setCompressInfo({ original: originalSize, compressed: compressedSize })
+      const merged = [...imgFiles, ...compressed].slice(0, 8)
+      setImgFiles(merged)
+      setImgPreviews(merged.map(f => URL.createObjectURL(f)))
+    } finally {
+      setCompressing(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   function removeImg(i: number) {
@@ -232,11 +245,11 @@ export default function InventoryPage() {
           {printItems.map(item => (
             <div key={item.id} className="print-label">
               <div className="pl-barcode">{item.order_code}</div>
-              <div className="pl-sku">{item.sku ? `SKU: ${item.sku}` : ''}</div>
+              {item.sku && <div className="pl-sku">SKU: {item.sku}</div>}
               <div className="pl-title">{item.title}</div>
               <div className="pl-row">
-                {item.bin_location && <span>📦 {item.bin_location}</span>}
-                <span style={{ marginLeft: 8 }}>{fmtVND(item.price)}</span>
+                <span className="pl-bin">{item.bin_location ?? ''}</span>
+                <span className="pl-price">{fmtVND(item.price)}</span>
               </div>
             </div>
           ))}
@@ -338,7 +351,18 @@ export default function InventoryPage() {
 
               {/* Image upload */}
               <div style={{ marginBottom: 16 }}>
-                <div style={S.lbl}>Ảnh ({imgPreviews.length}/8)</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <div style={S.lbl}>Ảnh ({imgPreviews.length}/8)</div>
+                  {compressing && (
+                    <span className="inv-compress-badge inv-compress-loading">⏳ Đang nén...</span>
+                  )}
+                  {!compressing && compressInfo && (
+                    <span className="inv-compress-badge inv-compress-done">
+                      ↓ {Math.round((1 - compressInfo.compressed / compressInfo.original) * 100)}%
+                      ({(compressInfo.original / 1024 / 1024).toFixed(1)}MB → {(compressInfo.compressed / 1024 / 1024).toFixed(1)}MB)
+                    </span>
+                  )}
+                </div>
                 <div className="inv-img-grid">
                   {imgPreviews.map((src, i) => (
                     <div key={i} className="inv-img-wrap">
@@ -347,7 +371,12 @@ export default function InventoryPage() {
                       <button className="inv-img-remove" onClick={() => removeImg(i)}>✕</button>
                     </div>
                   ))}
-                  {imgPreviews.length < 8 && (
+                  {compressing && (
+                    <div className="inv-img-add inv-img-compressing">
+                      <div className="inv-compress-spinner" />
+                    </div>
+                  )}
+                  {!compressing && imgPreviews.length < 8 && (
                     <label className="inv-img-add">
                       <span style={{ fontSize: 28, color: '#666' }}>📷</span>
                       <span style={{ fontSize: 11, color: '#666', marginTop: 2 }}>Thêm ảnh</span>
@@ -944,6 +973,26 @@ const pageCSS = `
     flex-shrink: 0;
   }
 
+  /* ── Compression feedback ── */
+  .inv-compress-badge {
+    font-size: 11px; font-weight: 600; padding: 2px 8px;
+    border-radius: 8px; white-space: nowrap;
+  }
+  .inv-compress-loading { background: #1e3a5f; color: #60a5fa; }
+  .inv-compress-done    { background: #14532d; color: #4ade80; }
+  .inv-img-compressing {
+    border-color: #2a2d3a;
+    display: flex; align-items: center; justify-content: center;
+    background: #1a1d27;
+  }
+  .inv-compress-spinner {
+    width: 22px; height: 22px;
+    border: 2px solid #2a2d3a; border-top-color: #4ade80;
+    border-radius: 50%;
+    animation: inv-spin 0.7s linear infinite;
+  }
+  @keyframes inv-spin { to { transform: rotate(360deg); } }
+
   /* ── Mobile breakpoint ── */
   @media (max-width: 640px) {
     .inv-main { padding: 12px 12px; padding-bottom: 100px; }
@@ -960,9 +1009,13 @@ const pageCSS = `
 `
 
 const printCSS = `
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
   @media print {
     body > * { display: none !important; }
-    .print-labels-container { display: flex !important; flex-wrap: wrap; gap: 0; }
+    .print-labels-container { display: block !important; }
   }
   .print-labels-container {
     display: none;
@@ -970,21 +1023,42 @@ const printCSS = `
     background: white; width: 100%;
   }
   .print-label {
-    width: 90mm; height: 50mm;
-    border: 1.5px dashed #999;
-    padding: 8px 10px;
-    font-family: monospace;
+    width: 58mm;
+    min-height: 32mm;
+    padding: 3mm 4mm 3mm;
+    font-family: 'Courier New', Courier, monospace;
     color: #000;
-    display: flex; flex-direction: column; justify-content: center;
+    background: white;
+    display: flex; flex-direction: column; justify-content: flex-start; gap: 1.5mm;
+    page-break-after: always;
+    break-after: page;
     page-break-inside: avoid;
     break-inside: avoid;
+    border-bottom: 1px dashed #ccc;
   }
   .pl-barcode {
-    font-size: 18px; font-weight: 800; letter-spacing: 2px;
-    text-align: center; border-bottom: 2px solid #000;
-    padding-bottom: 4px; margin-bottom: 4px;
+    font-size: 12pt; font-weight: 900; letter-spacing: 1.5px;
+    text-align: center;
+    border-bottom: 1.5px solid #000;
+    padding-bottom: 2mm; margin-bottom: 1mm;
+    word-break: break-all;
+    line-height: 1.2;
   }
-  .pl-sku { font-size: 11px; color: #555; margin-bottom: 2px; }
-  .pl-title { font-size: 12px; font-weight: 600; margin-bottom: 4px; line-height: 1.3; }
-  .pl-row { font-size: 11px; display: flex; align-items: center; }
+  .pl-sku {
+    font-size: 7pt; color: #444; font-weight: 600; letter-spacing: 0.5px;
+  }
+  .pl-title {
+    font-size: 8pt; font-weight: 700; line-height: 1.35;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+  }
+  .pl-row {
+    font-size: 7.5pt;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 1mm;
+    border-top: 0.5px solid #ddd; padding-top: 1.5mm;
+  }
+  .pl-bin { font-weight: 700; font-size: 8pt; }
+  .pl-price { font-weight: 800; font-size: 8.5pt; text-align: right; }
 `
