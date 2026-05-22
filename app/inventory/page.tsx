@@ -207,8 +207,18 @@ export default function InventoryPage() {
 
   function startPrint(items: Item[]) {
     setPrintItems(items)
-    setTimeout(() => { window.print(); setPrintItems(null) }, 400)
   }
+
+  useEffect(() => {
+    if (!printItems) return
+    const timer = setTimeout(() => { window.print() }, 300)
+    const cleanup = () => setPrintItems(null)
+    window.addEventListener('afterprint', cleanup)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('afterprint', cleanup)
+    }
+  }, [printItems])
 
   function f(key: keyof typeof INIT_FORM, val: string) {
     setForm(prev => ({ ...prev, [key]: val }))
