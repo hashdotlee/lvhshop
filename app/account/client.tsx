@@ -35,7 +35,7 @@ async function getJwt() {
 }
 
 export default function AccountClient() {
-  const [supaUser, setSupaUser] = useState<{ id: string; email: string; name: string } | null>(null)
+  const [supaUser, setSupaUser] = useState<{ id: string; email: string; name: string; fb_url: string } | null>(null)
   const [checking, setChecking] = useState(true)
   const [tab, setTab] = useState<Tab>('profile')
 
@@ -52,6 +52,7 @@ export default function AccountClient() {
           id: session.user.id,
           email: session.user.email ?? '',
           name: session.user.user_metadata?.full_name ?? session.user.email ?? '',
+          fb_url: session.user.user_metadata?.fb_url ?? '',
         })
       }
       setChecking(false)
@@ -62,6 +63,7 @@ export default function AccountClient() {
           id: session.user.id,
           email: session.user.email ?? '',
           name: session.user.user_metadata?.full_name ?? session.user.email ?? '',
+          fb_url: session.user.user_metadata?.fb_url ?? '',
         })
       } else {
         setSupaUser(null)
@@ -142,7 +144,7 @@ export default function AccountClient() {
 
               {/* Content */}
               <div className="ac-content">
-                {tab === 'profile' && <ProfileTab user={supaUser} onNameChange={name => setSupaUser(u => u ? { ...u, name } : u)} />}
+                {tab === 'profile' && <ProfileTab user={supaUser} onNameChange={name => setSupaUser(u => u ? { ...u, name } : u)} onFbUrlChange={fb_url => setSupaUser(u => u ? { ...u, fb_url } : u)} />}
                 {tab === 'orders' && <OrdersTab />}
                 {tab === 'addresses' && <AddressesTab />}
               </div>
@@ -207,20 +209,29 @@ function AuthBox({ mode, setMode, form, setForm, onLogin, onSignup, loading, err
 }
 
 // ── Profile Tab ───────────────────────────────────────────────────
-function ProfileTab({ user, onNameChange }: { user: { id: string; email: string; name: string }; onNameChange: (name: string) => void }) {
+function ProfileTab({ user, onNameChange, onFbUrlChange }: {
+  user: { id: string; email: string; name: string; fb_url: string }
+  onNameChange: (name: string) => void
+  onFbUrlChange: (fb_url: string) => void
+}) {
   const [name, setName] = useState(user.name)
+  const [fbUrl, setFbUrl] = useState(user.fb_url)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
   const [pwSaving, setPwSaving] = useState(false)
   const [pwMsg, setPwMsg] = useState('')
 
-  async function saveName() {
+  async function saveProfile() {
     if (!name.trim()) return
     setSaving(true); setMsg('')
-    const { error } = await supabase.auth.updateUser({ data: { full_name: name } })
+    const { error } = await supabase.auth.updateUser({ data: { full_name: name, fb_url: fbUrl.trim() } })
     setSaving(false)
-    if (error) { setMsg('Lỗi: ' + error.message) } else { setMsg('Đã cập nhật tên!'); onNameChange(name) }
+    if (error) { setMsg('Lỗi: ' + error.message) } else {
+      setMsg('Đã cập nhật hồ sơ!')
+      onNameChange(name)
+      onFbUrlChange(fbUrl.trim())
+    }
   }
 
   async function changePassword() {
@@ -231,6 +242,8 @@ function ProfileTab({ user, onNameChange }: { user: { id: string; email: string;
     setPwSaving(false)
     if (error) { setPwMsg('Lỗi: ' + error.message) } else { setPwMsg('Đã đổi mật khẩu!'); setPwForm({ current: '', next: '', confirm: '' }) }
   }
+
+  const profileChanged = name !== user.name || fbUrl.trim() !== user.fb_url
 
   return (
     <div>
@@ -247,12 +260,21 @@ function ProfileTab({ user, onNameChange }: { user: { id: string; email: string;
             <label className="ac-label">Họ và tên</label>
             <input className="ac-input" placeholder="Nguyễn Văn A" value={name}
               onChange={e => setName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && saveName()} />
+              onKeyDown={e => e.key === 'Enter' && saveProfile()} />
+          </div>
+        </div>
+        <div className="ac-field" style={{ marginTop: 10 }}>
+          <label className="ac-label">Facebook URL</label>
+          <input className="ac-input" placeholder="https://facebook.com/username" value={fbUrl}
+            onChange={e => setFbUrl(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && saveProfile()} />
+          <div style={{ fontSize: 11, color: '#8c8982', marginTop: 3 }}>
+            Dùng để shop liên hệ khi có cập nhật đơn hàng
           </div>
         </div>
         {msg && <div className={`ac-msg${msg.startsWith('Lỗi') ? ' err' : ''}`}>{msg}</div>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-          <button className="ac-btn-primary" onClick={saveName} disabled={saving || name === user.name}>
+          <button className="ac-btn-primary" onClick={saveProfile} disabled={saving || !profileChanged}>
             {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
           </button>
         </div>
