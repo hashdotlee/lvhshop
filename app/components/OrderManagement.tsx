@@ -1000,117 +1000,71 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
 
           {/* The actual printable area */}
           <div className="invoice-print-wrap">
-            <div className="inv-layout">
 
-              {/* ── Left column: branding + order meta + customer ── */}
-              <div className="inv-col-left">
-                <div className="inv-header">
-                  <div className="inv-shop">leviethoang<span>.shop</span></div>
-                  <div className="inv-title">HOA DON BAN HANG</div>
-                </div>
+            <div className="inv-shop">leviethoang<span>.shop</span></div>
+            <div className="inv-divider" />
 
-                <div className="inv-divider" />
-
-                <div className="inv-meta">
-                  <div className="inv-meta-row">
-                    <span className="inv-meta-key">Ma don</span>
-                    <span className="inv-meta-val"><strong>{printOrder.order_number}</strong></span>
-                  </div>
-                  <div className="inv-meta-row">
-                    <span className="inv-meta-key">Ngay</span>
-                    <span className="inv-meta-val">{fmtDate(printOrder.created_at)}</span>
-                  </div>
-                  <div className="inv-meta-row">
-                    <span className="inv-meta-key">TT</span>
-                    <span className="inv-meta-val">{printOrder.payment_method === 'cod' ? 'COD' : 'Chuyen khoan'}</span>
-                  </div>
-                </div>
-
-                <div className="inv-divider" />
-
-                <div className="inv-section-title">Khach hang</div>
-                <div className="inv-meta">
-                  <div className="inv-meta-row">
-                    <span className="inv-meta-key">Ten</span>
-                    <span className="inv-meta-val">{printOrder.customer_name}</span>
-                  </div>
-                  <div className="inv-meta-row">
-                    <span className="inv-meta-key">SDT</span>
-                    <span className="inv-meta-val">{printOrder.customer_phone}</span>
-                  </div>
-                  <div className="inv-meta-row">
-                    <span className="inv-meta-key">Dia chi</span>
-                    <span className="inv-meta-val">{printOrder.customer_address}</span>
-                  </div>
-                  {printOrder.customer_note && (
-                    <div className="inv-meta-row">
-                      <span className="inv-meta-key">Ghi chu</span>
-                      <span className="inv-meta-val">{printOrder.customer_note}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="inv-footer">Cam on quy khach!</div>
-              </div>
-
-              {/* ── Vertical separator ── */}
-              <div className="inv-vsep" />
-
-              {/* ── Right column: products + total + shipping + QR ── */}
-              <div className="inv-col-right">
-                <div className="inv-section-title">San pham</div>
-                <table className="inv-items-table">
-                  <thead>
-                    <tr>
-                      <th>Ten</th>
-                      <th style={{ textAlign: 'right' }}>Tien</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {printOrder.order_items && printOrder.order_items.length > 0 ? (
-                      printOrder.order_items.map(oi => (
-                        <tr key={oi.id}>
-                          <td>{oi.item_title}{oi.quantity > 1 ? ` ×${oi.quantity}` : ''}</td>
-                          <td>{fmtVND(oi.item_price ? oi.item_price * oi.quantity : null)}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td>{printOrder.items?.title || printOrder.item_title || '—'}</td>
-                        <td>{fmtVND(printOrder.item_price)}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-
-                <div className="inv-total-row">
-                  <span>TONG</span>
-                  <span className="inv-total-val">{fmtVND(printOrder.total_amount ?? printOrder.item_price)}</span>
-                </div>
-
-                <div className="inv-shipping">
-                  {CARRIER_LABEL[printOrder.shipping_carrier] || printOrder.shipping_carrier}
-                  {printOrder.tracking_number && <><br /><strong>{printOrder.tracking_number}</strong></>}
-                </div>
-
-                {printOrder.payment_method === 'bank_transfer' && process.env.NEXT_PUBLIC_BANK_ID && (
-                  <div className="inv-qr-section">
-                    <div className="inv-section-title">Chuyen khoan</div>
-                    <div className="inv-bank-qr">
-                      <div className="inv-bank-details">
-                        <div><span>{process.env.NEXT_PUBLIC_BANK_ID?.toUpperCase()}</span><strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT}</strong></div>
-                        <div><span>Ten TK</span><strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME}</strong></div>
-                        <div><span>ND</span><strong>{printOrder.order_number}</strong></div>
-                        <div><span>So tien</span><strong>{fmtVND(printOrder.total_amount)}</strong></div>
-                      </div>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={vietQRUrlForOrder(printOrder)} alt="QR" className="inv-qr-img" />
-                    </div>
-                  </div>
-                )}
-              </div>
-
+            {/* Order meta — 2 items per line */}
+            <div className="inv-inline-row">
+              <strong>{printOrder.order_number}</strong>
+              <span>{fmtDate(printOrder.created_at)}</span>
             </div>
+            <div className="inv-tag">{printOrder.payment_method === 'cod' ? 'COD' : 'Chuyen khoan'}</div>
+
+            <div className="inv-divider" />
+
+            {/* Customer — compact */}
+            <div className="inv-customer-name">{printOrder.customer_name} · {printOrder.customer_phone}</div>
+            <div className="inv-customer-addr">{printOrder.customer_address}</div>
+            {printOrder.customer_note && <div className="inv-customer-note">"{printOrder.customer_note}"</div>}
+
+            <div className="inv-divider" />
+
+            {/* Products */}
+            <table className="inv-items-table">
+              <tbody>
+                {printOrder.order_items && printOrder.order_items.length > 0 ? (
+                  printOrder.order_items.map(oi => (
+                    <tr key={oi.id}>
+                      <td>{oi.item_title}{oi.quantity > 1 ? ` ×${oi.quantity}` : ''}</td>
+                      <td>{fmtVND(oi.item_price ? oi.item_price * oi.quantity : null)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td>{printOrder.items?.title || printOrder.item_title || '—'}</td>
+                    <td>{fmtVND(printOrder.item_price)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            <div className="inv-total-row">
+              <span>TONG</span>
+              <span className="inv-total-val">{fmtVND(printOrder.total_amount ?? printOrder.item_price)}</span>
+            </div>
+
+            {/* Shipping */}
+            <div className="inv-divider" />
+            <div className="inv-shipping">
+              {CARRIER_LABEL[printOrder.shipping_carrier] || printOrder.shipping_carrier}
+              {printOrder.tracking_number && <span className="inv-tracking"> · {printOrder.tracking_number}</span>}
+            </div>
+
+            {/* QR */}
+            {printOrder.payment_method === 'bank_transfer' && process.env.NEXT_PUBLIC_BANK_ID && (
+              <>
+                <div className="inv-divider" />
+                <div className="inv-bank-row"><span>{process.env.NEXT_PUBLIC_BANK_ID?.toUpperCase()}</span><strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT}</strong></div>
+                <div className="inv-bank-row"><span>TK</span><strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME}</strong></div>
+                <div className="inv-bank-row"><span>ND</span><strong>{printOrder.order_number}</strong></div>
+                <div className="inv-bank-row"><span>So tien</span><strong>{fmtVND(printOrder.total_amount)}</strong></div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={vietQRUrlForOrder(printOrder)} alt="QR" className="inv-qr-img" />
+              </>
+            )}
+
+            <div className="inv-footer">Cam on quy khach!</div>
           </div>
         </>
       )}
@@ -1120,68 +1074,42 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
 
 // ─── Styles ───────────────────────────────────────────────────────
 const omStyles = `
-/* ── Print invoice — horizontal 2-column layout ── */
+/* ── Print invoice — 58mm vertical, ultra-compact ── */
 .invoice-print-wrap{display:none}
-@page{size:210mm 148mm;margin:6mm 8mm}
+@page{size:58mm auto;margin:0}
 @media print{
   body *{visibility:hidden}
   .invoice-print-wrap{
     display:block!important;visibility:visible;
     position:fixed;inset:0;z-index:9999;
-    width:210mm;height:148mm;background:white;
-    font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#000;
-    box-sizing:border-box;padding:5mm 7mm;
+    width:58mm;background:white;
+    padding:2mm 3mm;
+    font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#000;
+    line-height:1.25;
   }
   .invoice-print-wrap *{visibility:visible}
 }
-
-/* Two-column horizontal layout */
-.inv-layout{display:flex;gap:0;height:100%;align-items:stretch}
-.inv-col-left{width:88mm;flex-shrink:0;display:flex;flex-direction:column;padding-right:5mm}
-.inv-vsep{width:1px;background:#ccc;flex-shrink:0;margin:0 5mm;align-self:stretch}
-.inv-col-right{flex:1;display:flex;flex-direction:column;min-width:0}
-
-/* Header */
-.inv-header{margin-bottom:3mm}
-.inv-shop{font-size:16pt;font-weight:800;letter-spacing:-.4px;line-height:1}
-.inv-shop span{font-weight:300;color:#666}
-.inv-title{font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#555;margin-top:1mm}
-
-/* Divider */
-.inv-divider{border:none;border-top:1px dashed #ccc;margin:2.5mm 0}
-
-/* Section label */
-.inv-section-title{font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#888;margin-bottom:1.5mm}
-
-/* Key-value rows */
-.inv-meta{display:flex;flex-direction:column;gap:1.5mm;margin-bottom:1.5mm}
-.inv-meta-row{display:flex;gap:3px;font-size:9pt;line-height:1.35}
-.inv-meta-key{width:16mm;color:#777;flex-shrink:0;font-size:8.5pt}
-.inv-meta-val{color:#000;font-weight:500;flex:1;min-width:0}
-
-/* Footer pinned to bottom of left col */
-.inv-footer{margin-top:auto;padding-top:2.5mm;border-top:1px dashed #ccc;font-size:9pt;font-weight:700;color:#444;text-align:center}
-
-/* Products table */
-.inv-items-table{width:100%;border-collapse:collapse;margin-bottom:2mm;font-size:9pt}
-.inv-items-table th{padding:1.5mm 0;text-align:left;font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#888;border-bottom:1px solid #ccc}
-.inv-items-table td{padding:2mm 0;border-bottom:1px dashed #eee;line-height:1.4}
-.inv-items-table td:last-child{text-align:right;font-weight:700;white-space:nowrap;padding-left:4mm}
-
-/* Total */
-.inv-total-row{display:flex;justify-content:space-between;align-items:center;padding:2mm 0;border-top:1.5px solid #000;border-bottom:1.5px solid #000;margin:1mm 0;font-weight:700;font-size:11pt}
-.inv-total-val{font-size:13pt;font-weight:900}
-
-/* Shipping */
-.inv-shipping{font-size:8.5pt;color:#666;padding:1.5mm 0;line-height:1.5}
-
-/* QR / bank transfer */
-.inv-qr-section{margin-top:2mm}
-.inv-bank-qr{display:flex;gap:3mm;align-items:flex-start}
-.inv-bank-details{flex:1;font-size:8pt;display:flex;flex-direction:column;gap:1mm;line-height:1.5}
-.inv-bank-details div{display:flex;justify-content:space-between;gap:2mm}
-.inv-bank-details span{color:#777}
-.inv-qr-img{width:28mm;height:28mm;border:1px solid #ddd;flex-shrink:0}
+.inv-shop{font-size:13pt;font-weight:800;letter-spacing:-.3px;text-align:center;display:block}
+.inv-shop span{font-weight:300;color:#555}
+.inv-divider{border:none;border-top:1px dashed #bbb;margin:1.5mm 0}
+.inv-inline-row{display:flex;justify-content:space-between;align-items:baseline;font-size:8.5pt;gap:2mm}
+.inv-inline-row strong{font-size:9pt;font-family:monospace}
+.inv-tag{font-size:8pt;color:#555;margin-top:.5mm}
+.inv-customer-name{font-size:10pt;font-weight:700;margin-top:.5mm}
+.inv-customer-addr{font-size:8.5pt;color:#333;line-height:1.3;margin-top:.5mm}
+.inv-customer-note{font-size:8pt;color:#666;font-style:italic;margin-top:.5mm}
+.inv-items-table{width:100%;border-collapse:collapse;margin:1mm 0}
+.inv-items-table td{padding:.8mm 0;font-size:9pt;line-height:1.3;vertical-align:top}
+.inv-items-table td:last-child{text-align:right;font-weight:700;white-space:nowrap;padding-left:2mm;width:1%}
+.inv-items-table tr:not(:last-child) td{border-bottom:1px dashed #ddd}
+.inv-total-row{display:flex;justify-content:space-between;align-items:center;border-top:1.5px solid #000;border-bottom:1.5px solid #000;padding:1.5mm 0;margin:.5mm 0;font-weight:800;font-size:10.5pt}
+.inv-total-val{font-size:12pt;font-weight:900}
+.inv-shipping{font-size:8.5pt;color:#555;margin-top:.5mm}
+.inv-tracking{font-weight:700;color:#000}
+.inv-bank-row{display:flex;justify-content:space-between;font-size:8.5pt;line-height:1.4}
+.inv-bank-row span{color:#666}
+.inv-qr-img{display:block;width:44mm;height:44mm;margin:1.5mm auto 0;border:1px solid #ddd}
+.inv-footer{text-align:center;margin-top:2mm;padding-top:1.5mm;border-top:1px dashed #bbb;font-size:9pt;font-weight:700}
 
 /* ── Order management layout ── */
 .om-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
