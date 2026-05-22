@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Item } from '@/lib/supabase'
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -110,10 +110,6 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
     shipping_carrier: 'spx',
     fb_psid: '',
   })
-
-  // Expanded SKU groups (all expanded by default)
-  const [expandedSKUs, setExpandedSKUs] = useState<Set<string>>(new Set())
-  const [skusInitialized, setSkusInitialized] = useState(false)
 
   // ── Fetch orders ───────────────────────────────────────────────
   async function fetchOrders() {
@@ -364,47 +360,9 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
       o.customer_name,
       o.customer_phone,
       o.items?.title || o.item_title || '',
-      o.items?.order_code || '',
     ].some(v => v?.toLowerCase().includes(q))
     return statusOk && searchOk
   })
-
-  // ── Group by SKU ───────────────────────────────────────────────
-  type SKUGroup = { skuKey: string; orderCode: string; title: string; orders: Order[] }
-  const skuGroups: SKUGroup[] = Object.values(
-    filteredOrders.reduce((acc, o) => {
-      const orderCode = o.items?.order_code || ''
-      const skuKey = orderCode || o.item_title || '(Không có SKU)'
-      if (!acc[skuKey]) {
-        acc[skuKey] = {
-          skuKey,
-          orderCode,
-          title: o.items?.title || o.item_title || '—',
-          orders: [],
-        }
-      }
-      acc[skuKey].orders.push(o)
-      return acc
-    }, {} as Record<string, SKUGroup>)
-  )
-
-  // Auto-expand all groups when data first loads
-  useEffect(() => {
-    if (skuGroups.length > 0 && !skusInitialized) {
-      setExpandedSKUs(new Set(skuGroups.map(g => g.skuKey)))
-      setSkusInitialized(true)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [skuGroups.length, skusInitialized])
-
-  function toggleSKU(skuKey: string) {
-    setExpandedSKUs(prev => {
-      const next = new Set(prev)
-      if (next.has(skuKey)) next.delete(skuKey)
-      else next.add(skuKey)
-      return next
-    })
-  }
 
   // ── VietQR URL ─────────────────────────────────────────────────
   function vietQRUrl(amount: string | number) {
@@ -431,7 +389,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
       <div className="om-header">
         <div className="om-title">
           Quản lý đơn hàng
-          <span className="om-count">{skuGroups.length} SKU · {filteredOrders.length} đơn</span>
+          <span className="om-count">{filteredOrders.length} đơn</span>
         </div>
         <div className="om-header-controls">
           <div className="om-search-wrap">
@@ -471,7 +429,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
       {/* ── Table ── */}
       {loading ? (
         <div className="om-empty"><div className="om-spinner" />Đang tải...</div>
-      ) : skuGroups.length === 0 ? (
+      ) : filteredOrders.length === 0 ? (
         <div className="om-empty">
           <div className="om-empty-icon">📋</div>
           <p>Chưa có đơn hàng nào{statusFilter !== 'all' ? ` ở trạng thái "${ORDER_STATUS_LABEL[statusFilter]}"` : ''}.</p>
@@ -481,9 +439,9 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
           <table className="om-table">
             <thead>
               <tr>
-                <th style={{ width: 28 }} />
-                <th>SKU / Sản phẩm</th>
-                <th>Mã đơn · Khách hàng</th>
+                <th>Mã đơn</th>
+                <th>Sản phẩm</th>
+                <th>Khách hàng</th>
                 <th>SĐT</th>
                 <th>TT Thanh toán</th>
                 <th>TT Đơn</th>
@@ -493,70 +451,45 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
               </tr>
             </thead>
             <tbody>
-              {skuGroups.map(group => {
-                const isOpen = expandedSKUs.has(group.skuKey)
-                const totalAmt = group.orders.reduce((s, o) => s + (o.total_amount ?? 0), 0)
-                return (
-                  <React.Fragment key={group.skuKey}>
-                    {/* ── SKU group header row ── */}
-                    <tr className="om-sku-row" onClick={() => toggleSKU(group.skuKey)}>
-                      <td className="om-sku-toggle">{isOpen ? '▾' : '▸'}</td>
-                      <td colSpan={2}>
-                        <div className="om-sku-title-row">
-                          {group.orderCode && (
-                            <code className="om-sku-code">{group.orderCode}</code>
-                          )}
-                          <span className="om-sku-name">{group.title}</span>
-                          <span className="om-sku-meta">{group.orders.length} đơn</span>
-                          {totalAmt > 0 && (
-                            <span className="om-sku-total">{fmtVND(totalAmt)}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td colSpan={6} />
-                    </tr>
-
-                    {/* ── Order sub-rows ── */}
-                    {isOpen && group.orders.map(order => (
-                      <tr key={order.id} className="om-order-subrow">
-                        <td />
-                        <td className="om-td-order-num">
-                          <code className="om-order-code">{order.order_number}</code>
-                          {(order.total_amount != null) && (
-                            <div className="om-product-price">{fmtVND(order.total_amount)}</div>
-                          )}
-                        </td>
-                        <td style={{ fontWeight: 500 }}>{order.customer_name}</td>
-                        <td style={{ whiteSpace: 'nowrap' }}>{order.customer_phone}</td>
-                        <td>
-                          <span className={`om-badge om-pay-${order.payment_status}`}>
-                            {PAYMENT_STATUS_LABEL[order.payment_status] || order.payment_status}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`om-badge om-status-${order.order_status}`}>
-                            {ORDER_STATUS_LABEL[order.order_status] || order.order_status}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: 12 }}>{CARRIER_LABEL[order.shipping_carrier] || order.shipping_carrier}</div>
-                          {order.tracking_number && (
-                            <code style={{ fontSize: 10, color: 'var(--muted)' }}>{order.tracking_number}</code>
-                          )}
-                        </td>
-                        <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: 12 }}>{fmtDate(order.created_at)}</td>
-                        <td>
-                          <div className="om-actions">
-                            <button className="om-btn-edit" onClick={() => openEdit(order)}>Sửa</button>
-                            <button className="om-btn-print" onClick={() => printInvoice(order)}>In</button>
-                            <button className="om-btn-delete" onClick={() => deleteOrder(order.id)}>Xoá</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </React.Fragment>
-                )
-              })}
+              {filteredOrders.map(order => (
+                <tr key={order.id}>
+                  <td>
+                    <code className="om-order-code">{order.order_number}</code>
+                  </td>
+                  <td className="om-td-product">
+                    <div className="om-product-title">{order.items?.title || order.item_title || '—'}</div>
+                    {(order.total_amount != null) && (
+                      <div className="om-product-price">{fmtVND(order.total_amount)}</div>
+                    )}
+                  </td>
+                  <td style={{ fontWeight: 500 }}>{order.customer_name}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{order.customer_phone}</td>
+                  <td>
+                    <span className={`om-badge om-pay-${order.payment_status}`}>
+                      {PAYMENT_STATUS_LABEL[order.payment_status] || order.payment_status}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`om-badge om-status-${order.order_status}`}>
+                      {ORDER_STATUS_LABEL[order.order_status] || order.order_status}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ fontSize: 12 }}>{CARRIER_LABEL[order.shipping_carrier] || order.shipping_carrier}</div>
+                    {order.tracking_number && (
+                      <code style={{ fontSize: 10, color: 'var(--muted)' }}>{order.tracking_number}</code>
+                    )}
+                  </td>
+                  <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: 12 }}>{fmtDate(order.created_at)}</td>
+                  <td>
+                    <div className="om-actions">
+                      <button className="om-btn-edit" onClick={() => openEdit(order)}>Sửa</button>
+                      <button className="om-btn-print" onClick={() => printInvoice(order)}>In</button>
+                      <button className="om-btn-delete" onClick={() => deleteOrder(order.id)}>Xoá</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -1054,22 +987,6 @@ const omStyles = `
 .om-td-product{max-width:180px}
 .om-product-title{font-weight:500;font-size:13px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
 .om-product-price{font-size:11px;color:var(--green,#2a7a4b);font-weight:600;margin-top:1px}
-
-/* SKU group rows */
-.om-sku-row{background:var(--tag-bg,#f0efe9);cursor:pointer;user-select:none}
-.om-sku-row:hover td{background:#e8e6e0}
-.om-sku-toggle{text-align:center;font-size:10px;color:var(--muted,#8c8982);width:28px;padding-left:8px!important}
-.om-sku-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.om-sku-code{background:white;border:1px solid var(--border,#e8e6e1);padding:2px 7px;border-radius:4px;font-size:11px;font-family:monospace;color:var(--accent,#1a1916);font-weight:600;letter-spacing:.3px}
-.om-sku-name{font-weight:600;font-size:13px;color:var(--text,#1a1916)}
-.om-sku-meta{font-size:11px;color:var(--muted,#8c8982);background:white;border:1px solid var(--border,#e8e6e1);padding:1px 7px;border-radius:10px}
-.om-sku-total{font-size:11px;color:var(--green,#2a7a4b);font-weight:600}
-
-/* Order sub-rows */
-.om-order-subrow td{background:#fdfcfb}
-.om-order-subrow:hover td{background:#f8f6f2}
-.om-order-subrow td:first-child{border-left:3px solid var(--border,#e8e6e1)}
-.om-td-order-num{min-width:130px}
 .om-actions{display:flex;gap:4px}
 .om-btn-edit{background:none;border:1px solid var(--border,#e8e6e1);padding:3px 9px;border-radius:5px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--muted,#8c8982);transition:all .15s}
 .om-btn-edit:hover{border-color:#3b82f6;color:#3b82f6}

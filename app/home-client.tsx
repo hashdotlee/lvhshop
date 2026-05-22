@@ -633,7 +633,6 @@ export default function HomeClient() {
   type SkuGroup = { _type:'sku'; sku:string; available:Item[]; all:Item[]; rep:Item }
   type DisplayEntry = Item | SkuGroup
   const displayItems: DisplayEntry[] = (() => {
-    if (isAdmin) return filtered // admin thấy từng mặt hàng riêng
     const skuMap = new Map<string, Item[]>()
     const noSku: Item[] = []
     for (const item of filtered) {
@@ -1018,6 +1017,22 @@ export default function HomeClient() {
                               {g.rep.category&&<span className="tag">{g.rep.category}</span>}
                               <span className="item-time"><span className="status-dot"/>{reltime(g.rep.created_at)}</span>
                             </div>
+                            {/* Admin: hiện từng mã đơn + vị trí */}
+                            {isAdmin && (
+                              <div className="sku-units-list">
+                                {g.all.map(u => (
+                                  <a key={u.id} href={`/item/${u.id}`} className={`sku-unit-row${u.status==='sold'?' sku-unit-sold':''}`}>
+                                    <code className="sku-unit-code">{u.order_code}</code>
+                                    {u.bin_location && <span className="sku-unit-bin">📦 {u.bin_location}</span>}
+                                    {u.status==='sold'
+                                      ? <span className="sku-unit-badge sku-unit-badge-sold">Đã bán</span>
+                                      : u.status==='incoming'
+                                        ? <span className="sku-unit-badge sku-unit-badge-incoming">Sắp về</span>
+                                        : <span className="sku-unit-badge sku-unit-badge-avail">Còn</span>}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <div className="item-footer">
                             <div className="item-price">{fmtVND(g.rep.price)}</div>
@@ -1501,6 +1516,16 @@ nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 .logout-btn{background:none;border:none;cursor:pointer;font-family:inherit;font-size:11px;color:var(--muted);padding:2px 5px}
 .logout-btn:hover{color:var(--red)}
 .badge-bin{background:#e8f0fe;color:#1d4ed8;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:500}
+.sku-units-list{display:flex;flex-direction:column;gap:4px;margin-top:10px;border-top:1px solid var(--border);padding-top:8px}
+.sku-unit-row{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;background:var(--tag-bg);text-decoration:none;transition:background .12s;flex-wrap:wrap}
+.sku-unit-row:hover{background:#e8f0fe}
+.sku-unit-sold{opacity:.5}
+.sku-unit-code{font-family:monospace;font-size:11px;font-weight:600;color:var(--accent);background:white;border:1px solid var(--border);padding:1px 6px;border-radius:4px}
+.sku-unit-bin{font-size:11px;color:#1d4ed8;background:#e8f0fe;padding:1px 6px;border-radius:4px}
+.sku-unit-badge{font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;margin-left:auto}
+.sku-unit-badge-avail{background:#d1fae5;color:#065f46}
+.sku-unit-badge-sold{background:#fee2e2;color:#991b1b}
+.sku-unit-badge-incoming{background:#fef3c7;color:#92400e}
 .badge-app{background:#d1fae5;color:#065f46;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:5px;vertical-align:middle}
 :root.dark .badge-bin{background:#1e293b;color:#93c5fd}
 .sku-select-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;text-align:left;width:100%;transition:all .15s;font-family:inherit;color:var(--text)}
