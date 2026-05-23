@@ -12,17 +12,28 @@ function checkAdmin(req: NextRequest) {
   return req.headers.get('x-admin-key') === process.env.ADMIN_PASSWORD
 }
 
+const SELECT_FULL = '*, items(title, price, order_code, images), order_items(*)'
+const SELECT_BASE = '*, items(title, price, order_code, images)'
+
 export async function GET(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const db = adminClient()
   const url = new URL(req.url)
   const id = url.searchParams.get('id')
+
   if (id) {
-    const { data, error } = await db.from('orders').select('*, items(title, price, order_code, images), order_items(*)').eq('id', id).single()
+    let { data, error } = await db.from('orders').select(SELECT_FULL).eq('id', id).single()
+    if (error?.message?.includes('order_items')) {
+      ;({ data, error } = await db.from('orders').select(SELECT_BASE).eq('id', id).single())
+    }
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   }
-  const { data, error } = await db.from('orders').select('*, items(title, price, order_code, images), order_items(*)').order('created_at', { ascending: false })
+
+  let { data, error } = await db.from('orders').select(SELECT_FULL).order('created_at', { ascending: false })
+  if (error?.message?.includes('order_items')) {
+    ;({ data, error } = await db.from('orders').select(SELECT_BASE).order('created_at', { ascending: false }))
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
@@ -35,10 +46,11 @@ export async function POST(req: NextRequest) {
   }
   const isAdmin = checkAdmin(req)
   const db = adminClient()
+  // New orders have no order_items yet — use base select to avoid schema cache issues
   const { data, error } = await db
     .from('orders')
     .insert({ item_id: item_id || null, item_title, item_price, customer_name, customer_phone, customer_address, customer_note, shipping_carrier: shipping_carrier || 'spx', payment_method, total_amount, fb_psid, fb_url: fb_url || null, created_by: created_by || (isAdmin ? 'admin' : 'customer'), address_id: address_id || null })
-    .select('*, items(title, price, order_code, images), order_items(*)')
+    .select(SELECT_BASE)
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data, { status: 201 })
@@ -49,7 +61,8 @@ export async function PATCH(req: NextRequest) {
   const { id, ...fields } = await req.json()
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
   const db = adminClient()
-  const { data, error } = await db.from('orders').update(fields).eq('id', id).select('*, items(title, price, order_code, images), order_items(*)').single()
+  // order_items are managed separately; admin panel merges them client-side
+  const { data, error } = await db.from('orders').update(fields).eq('id', id).select(SELECT_BASE).single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }

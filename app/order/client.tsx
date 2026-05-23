@@ -222,9 +222,9 @@ export default function OrderClient() {
               <div className="ord-form">
                 {/* What they want to buy */}
                 <div className="ord-field">
-                  <label className="ord-label ord-label-prominent">Bạn muốn mua gì?</label>
+                  <label className="ord-label">Ghi chú đặt hàng</label>
                   <textarea className="ord-input ord-textarea ord-textarea-lg"
-                    placeholder="Mô tả sản phẩm bạn muốn mua, kích thước, màu sắc, số lượng... Nhân viên sẽ tư vấn và xác nhận đơn hàng."
+                    placeholder="Mô tả sản phẩm, màu sắc, kích thước, số lượng... Nhân viên sẽ liên hệ xác nhận."
                     value={note} onChange={e => setNote(e.target.value)} />
                 </div>
 

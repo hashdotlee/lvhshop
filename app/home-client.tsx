@@ -1335,8 +1335,8 @@ export default function HomeClient() {
                 {orderAddressId && !showNewAddrForm && (
                   <>
                     <div style={{marginBottom:12}}>
-                      <label className="lbl">Bạn muốn mua gì?</label>
-                      <input className="inp" placeholder="Mô tả sản phẩm, màu sắc, số lượng... nhân viên sẽ tư vấn thêm"
+                      <label className="lbl">Ghi chú</label>
+                      <input className="inp" placeholder="Ghi chú thêm nếu có (màu sắc, kích thước, số lượng...)"
                         value={orderForm.note} onChange={e=>setOrderForm(f=>({...f,note:e.target.value}))} />
                     </div>
                     <div style={{marginBottom:14}}>
