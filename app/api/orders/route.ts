@@ -46,12 +46,13 @@ export async function POST(req: NextRequest) {
   }
   const isAdmin = checkAdmin(req)
   const db = adminClient()
+  const baseRow = { item_id: item_id || null, item_title, item_price, customer_name, customer_phone, customer_address, customer_note, shipping_carrier: shipping_carrier || 'spx', payment_method, total_amount, fb_psid, created_by: created_by || (isAdmin ? 'admin' : 'customer'), address_id: address_id || null }
   // New orders have no order_items yet — use base select to avoid schema cache issues
-  const { data, error } = await db
-    .from('orders')
-    .insert({ item_id: item_id || null, item_title, item_price, customer_name, customer_phone, customer_address, customer_note, shipping_carrier: shipping_carrier || 'spx', payment_method, total_amount, fb_psid, fb_url: fb_url || null, created_by: created_by || (isAdmin ? 'admin' : 'customer'), address_id: address_id || null })
-    .select(SELECT_BASE)
-    .single()
+  let { data, error } = await db.from('orders').insert({ ...baseRow, fb_url: fb_url || null }).select(SELECT_BASE).single()
+  // Retry without fb_url if the column isn't in the schema cache yet
+  if (error?.message?.includes('fb_url')) {
+    ;({ data, error } = await db.from('orders').insert(baseRow).select(SELECT_BASE).single())
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data, { status: 201 })
 }
@@ -61,8 +62,12 @@ export async function PATCH(req: NextRequest) {
   const { id, ...fields } = await req.json()
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
   const db = adminClient()
-  // order_items are managed separately; admin panel merges them client-side
-  const { data, error } = await db.from('orders').update(fields).eq('id', id).select(SELECT_BASE).single()
+  let { data, error } = await db.from('orders').update(fields).eq('id', id).select(SELECT_BASE).single()
+  // Retry without unknown columns if schema cache is stale
+  if (error?.message?.includes('schema cache')) {
+    const { fb_url: _fb, ...safeFields } = fields
+    ;({ data, error } = await db.from('orders').update(safeFields).eq('id', id).select(SELECT_BASE).single())
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
