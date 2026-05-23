@@ -1028,7 +1028,7 @@ const printCSS = `
     .print-labels-container {
       display: block !important;
       visibility: visible !important;
-      position: fixed; top: 0; left: 0; width: 100%; background: white;
+      position: relative; background: white;
     }
     .print-labels-container * { visibility: visible !important; }
   }
@@ -1045,11 +1045,16 @@ const printCSS = `
     color: #000;
     background: white;
     display: flex; flex-direction: column; justify-content: flex-start; gap: 1.5mm;
-    page-break-after: always;
-    break-after: page;
     page-break-inside: avoid;
     break-inside: avoid;
     border-bottom: 1px dashed #ccc;
+  }
+  .print-label:not(:last-child) {
+    page-break-after: always;
+    break-after: page;
+  }
+  .print-label:last-child {
+    border-bottom: none;
   }
   .pl-barcode {
     font-size: 12pt; font-weight: 900; letter-spacing: 1.5px;
