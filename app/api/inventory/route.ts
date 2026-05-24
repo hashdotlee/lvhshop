@@ -105,6 +105,66 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ batch, items: createdItems }, { status: 201 })
 }
 
+// PATCH /api/inventory → bổ sung items vào lô đã tồn tại
+export async function PATCH(req: NextRequest) {
+  if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const body = await req.json()
+  const { batch_id, items: itemsPayload } = body
+
+  if (!batch_id) return NextResponse.json({ error: 'batch_id required' }, { status: 400 })
+
+  const db = adminClient()
+
+  const { data: batch, error: batchErr } = await db
+    .from('inventory_batches')
+    .select('*')
+    .eq('id', Number(batch_id))
+    .single()
+  if (batchErr || !batch) return NextResponse.json({ error: 'Lô hàng không tồn tại' }, { status: 404 })
+
+  if (!Array.isArray(itemsPayload) || !itemsPayload.length) {
+    return NextResponse.json({ batch, items: [] }, { status: 200 })
+  }
+
+  type ItemPayload = {
+    title: string
+    description?: string
+    price?: number | string | null
+    cost_price?: number | string | null
+    condition?: string
+    category?: string
+    images?: string[]
+    sku?: string | null
+    bin_location?: string | null
+  }
+
+  const rows = (itemsPayload as ItemPayload[]).map(item => ({
+    title: item.title,
+    description: item.description || null,
+    price: item.price != null && item.price !== '' ? Number(item.price) || null : null,
+    cost_price: item.cost_price != null && item.cost_price !== '' ? Number(item.cost_price) || null : null,
+    condition: item.condition || 'Mới',
+    category: item.category || null,
+    type: 'ban' as const,
+    images: Array.isArray(item.images) ? item.images : [],
+    image_url: Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : null,
+    status: 'available' as const,
+    sku: item.sku || null,
+    bin_location: item.bin_location || null,
+    batch_id: Number(batch_id),
+    staff_id: (batch as Record<string, unknown>).staff_id ?? null,
+    posted_by: (batch as Record<string, unknown>).created_by ?? null,
+  }))
+
+  const { data: createdItems, error: itemsErr } = await db
+    .from('items')
+    .insert(rows)
+    .select()
+  if (itemsErr) return NextResponse.json({ error: itemsErr.message }, { status: 500 })
+
+  return NextResponse.json({ batch, items: createdItems }, { status: 200 })
+}
+
 // DELETE /api/inventory?batch_id=N → xóa lô hàng
 export async function DELETE(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
