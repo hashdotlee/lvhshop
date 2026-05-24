@@ -127,8 +127,7 @@ export default function InventoryPage() {
     showToast('Đã xóa lô hàng')
   }
 
-  async function handleImgChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = Array.from(e.target.files ?? [])
+  const addImagesFromRaw = useCallback(async (raw: File[]) => {
     if (!raw.length) return
     setCompressing(true)
     setCompressInfo(null)
@@ -137,14 +136,35 @@ export default function InventoryPage() {
       const compressed = await Promise.all(raw.map(f => compressToWebP(f)))
       const compressedSize = compressed.reduce((s, f) => s + f.size, 0)
       setCompressInfo({ original: originalSize, compressed: compressedSize })
-      const merged = [...imgFiles, ...compressed].slice(0, 8)
-      setImgFiles(merged)
-      setImgPreviews(merged.map(f => URL.createObjectURL(f)))
+      setImgFiles(prev => {
+        const merged = [...prev, ...compressed].slice(0, 8)
+        setImgPreviews(merged.map(f => URL.createObjectURL(f)))
+        return merged
+      })
     } finally {
       setCompressing(false)
       if (fileRef.current) fileRef.current.value = ''
     }
+  }, [])
+
+  async function handleImgChange(e: React.ChangeEvent<HTMLInputElement>) {
+    await addImagesFromRaw(Array.from(e.target.files ?? []))
   }
+
+  useEffect(() => {
+    if (view !== 'import' && !addingItems) return
+    function onPaste(e: ClipboardEvent) {
+      const imgs = Array.from(e.clipboardData?.items ?? [])
+        .filter(it => it.type.startsWith('image/'))
+        .map(it => it.getAsFile())
+        .filter((f): f is File => f !== null)
+      if (!imgs.length) return
+      e.preventDefault()
+      addImagesFromRaw(imgs)
+    }
+    document.addEventListener('paste', onPaste)
+    return () => document.removeEventListener('paste', onPaste)
+  }, [view, addingItems, addImagesFromRaw])
 
   function removeImg(i: number) {
     setImgFiles(p => p.filter((_, j) => j !== i))
@@ -464,6 +484,7 @@ export default function InventoryPage() {
                     </label>
                   )}
                 </div>
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>· Ctrl+V để dán ảnh từ clipboard</span>
               </div>
 
               <div className="inv-fgrid">
@@ -625,6 +646,7 @@ export default function InventoryPage() {
                       </label>
                     )}
                   </div>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>· Ctrl+V để dán ảnh từ clipboard</span>
                 </div>
 
                 <div className="inv-fgrid">
