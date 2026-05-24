@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Item } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
 
-const CHOT_TOT  = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
 const FB_PAGE   = process.env.NEXT_PUBLIC_FB_PAGE_ID   ?? ''
 
 function fmtVND(v: number | null | undefined) {
@@ -511,9 +510,6 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
                       Facebook
                     </button>
-                    <a href={CHOT_TOT} target="_blank" rel="noopener noreferrer" className="btn-chottot">
-                      Xem thêm trên Chợ Tốt →
-                    </a>
                   </>
                 )}
               </div>
@@ -870,8 +866,6 @@ main{max-width:1000px;margin:0 auto;padding:40px 24px}
 .btn-msg:hover{opacity:.85}
 .btn-fb{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--fb);color:white;border:none;padding:11px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s}
 .btn-fb:hover{opacity:.85}
-.btn-chottot{display:flex;align-items:center;justify-content:center;background:var(--ct);color:white;border:none;padding:11px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;transition:opacity .15s}
-.btn-chottot:hover{opacity:.85}
 .btn-zalo{display:flex;align-items:center;justify-content:center;gap:10px;background:#0068FF;color:white;text-decoration:none;padding:12px;border-radius:10px;font-family:inherit;font-size:15px;font-weight:600;transition:opacity .15s}
 .btn-zalo:hover{opacity:.85}
 .btn-buy{display:flex;align-items:center;justify-content:center;gap:8px;background:#e63946;color:white;border:none;padding:13px;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s;letter-spacing:.2px}

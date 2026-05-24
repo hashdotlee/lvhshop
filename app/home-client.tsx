@@ -7,7 +7,6 @@ import DailyQuizBanner from './components/DailyQuizBanner'
 import OrderManagement from './components/OrderManagement'
 
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
-const CHOT_TOT   = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
 const FB_PAGE_ID = process.env.NEXT_PUBLIC_FB_PAGE_ID   ?? ''
 const BANK_ID    = process.env.NEXT_PUBLIC_BANK_ID           ?? ''
 const BANK_ACCT  = process.env.NEXT_PUBLIC_BANK_ACCOUNT      ?? ''
@@ -1660,8 +1659,6 @@ textarea::placeholder{color:#c0bdb5}
 .btn-messenger:hover{opacity:.85}
 .btn-facebook{display:flex;align-items:center;justify-content:center;gap:4px;background:var(--fb);color:white;border:none;padding:5px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;transition:opacity .15s}
 .btn-facebook:hover{opacity:.85}
-.btn-chottot{display:flex;align-items:center;justify-content:center;background:var(--ct);color:white;border:none;padding:5px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;text-decoration:none;transition:opacity .15s}
-.btn-chottot:hover{opacity:.85}
 .btn-copy{background:none;border:1px solid var(--border);padding:4px 9px;border-radius:6px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--muted);transition:all .15s;text-align:center}
 .btn-copy:hover{border-color:var(--accent);color:var(--text)}
 .btn-sold{background:var(--accent);color:white;border:none;padding:5px 10px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;transition:opacity .15s;text-align:center}
