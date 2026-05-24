@@ -22,9 +22,12 @@ interface Props {
   open: boolean
   onClose: () => void
   item?: OrderItem
+  items?: OrderItem[]
+  onSuccess?: () => void
 }
 
-export default function OrderPopup({ open, onClose, item }: Props) {
+export default function OrderPopup({ open, onClose, item, items, onSuccess }: Props) {
+  const effectiveItems: OrderItem[] = items?.length ? items : (item ? [item] : [])
   const [supaUser, setSupaUser] = useState<{ email: string; name: string } | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
 
@@ -126,15 +129,14 @@ export default function OrderPopup({ open, onClose, item }: Props) {
     const addr = savedAddresses.find(a => a.id === orderAddressId)
     if (!addr) { showToast('Địa chỉ không hợp lệ'); return }
     setOrderSubmitting(true)
+    const totalAmt = effectiveItems.reduce((s, i) => s + (i.price ?? 0), 0) || null
     try {
       const r = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          item_id: item?.id ?? null,
-          item_title: item?.title ?? null,
-          item_price: item?.price ?? null,
-          total_amount: item?.price ?? null,
+          cart_items: effectiveItems.map(i => ({ id: i.id, title: i.title, price: i.price })),
+          total_amount: totalAmt,
           customer_name: addr.full_name,
           customer_phone: addr.phone,
           customer_address: addr.address,
@@ -198,17 +200,21 @@ export default function OrderPopup({ open, onClose, item }: Props) {
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--green)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto 14px' }}>✓</div>
               <h3 style={{ marginBottom: 6 }}>Đã gửi yêu cầu!</h3>
               <p style={{ color: 'var(--muted)', marginBottom: 16 }}>Nhân viên sẽ liên hệ xác nhận và sắp xếp giao hàng sớm nhất.</p>
-              {item && (
-                <div className="op-item-bar" style={{ marginBottom: 12, justifyContent: 'center', flexDirection: 'column', textAlign: 'center', gap: 4 }}>
-                  <span style={{ fontWeight: 600 }}>{item.title}</span>
-                  <span style={{ color: 'var(--green)', fontWeight: 700 }}>{fmtVND(item.price)}</span>
+              {effectiveItems.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  {effectiveItems.map((it, idx) => (
+                    <div key={idx} className="op-item-bar" style={{ marginBottom: 6 }}>
+                      <span style={{ fontWeight: 500 }}>{it.title}</span>
+                      <span style={{ color: 'var(--green)', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtVND(it.price)}</span>
+                    </div>
+                  ))}
                 </div>
               )}
               <div style={{ background: 'var(--tag-bg)', borderRadius: 8, padding: '12px 16px', marginBottom: 20 }}>
                 <div className="lbl" style={{ marginBottom: 4 }}>Mã đơn hàng</div>
                 <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>{orderSuccess}</div>
               </div>
-              <button className="btn-ghost" onClick={onClose}>Đóng</button>
+              <button className="btn-ghost" onClick={() => { onSuccess?.(); onClose() }}>Đóng</button>
             </div>
 
           ) : !authChecked ? (
@@ -217,10 +223,14 @@ export default function OrderPopup({ open, onClose, item }: Props) {
           ) : !supaUser ? (
             <>
               <h3 style={{ marginBottom: 12 }}>Đăng nhập để đặt hàng</h3>
-              {item && (
-                <div className="op-item-bar">
-                  <span style={{ fontWeight: 500 }}>{item.title}</span>
-                  <span style={{ color: 'var(--green)', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtVND(item.price)}</span>
+              {effectiveItems.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  {effectiveItems.map((it, idx) => (
+                    <div key={idx} className="op-item-bar" style={{ marginBottom: 6 }}>
+                      <span style={{ fontWeight: 500 }}>{it.title}</span>
+                      <span style={{ color: 'var(--green)', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtVND(it.price)}</span>
+                    </div>
+                  ))}
                 </div>
               )}
               <div className="op-tabs">
@@ -262,10 +272,14 @@ export default function OrderPopup({ open, onClose, item }: Props) {
           ) : (
             <>
               <h3>Đặt hàng</h3>
-              {item && (
-                <div className="op-item-bar">
-                  <span style={{ fontWeight: 500 }}>{item.title}</span>
-                  <span style={{ color: 'var(--green)', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtVND(item.price)}</span>
+              {effectiveItems.length > 0 && (
+                <div style={{ marginBottom: 4 }}>
+                  {effectiveItems.map((it, idx) => (
+                    <div key={idx} className="op-item-bar" style={{ marginBottom: 6 }}>
+                      <span style={{ fontWeight: 500 }}>{it.title}</span>
+                      <span style={{ color: 'var(--green)', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtVND(it.price)}</span>
+                    </div>
+                  ))}
                 </div>
               )}
 

@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Item } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
-import OrderPopup from '@/app/components/OrderPopup'
+import CartDrawer from '@/app/components/CartDrawer'
+import { addToCart, getCartCount } from '@/lib/cart'
 
 const FB_PAGE   = process.env.NEXT_PUBLIC_FB_PAGE_ID   ?? ''
 
@@ -117,12 +118,14 @@ export default function ItemDetailClient({ item }: { item: Item }) {
   })
   const [sellSaving, setSellSaving] = useState(false)
 
-  // Buy popup state (customer-facing)
-  const [buyOpen, setBuyOpen] = useState(false)
+  // Cart state
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
+  const [cartCount, setCartCount] = useState(0)
 
   useEffect(() => {
     const key = sessionStorage.getItem('cq_admin_key')
     if (key && sessionStorage.getItem('cq_admin')) { adminKey.current = key; setIsAdmin(true) }
+    setCartCount(getCartCount())
   }, [])
 
   useEffect(() => {
@@ -345,6 +348,10 @@ export default function ItemDetailClient({ item }: { item: Item }) {
           leviethoang<span>.shop</span>
         </a>
         <div className="header-actions">
+          <button className="btn-cart-icon" onClick={() => setCartDrawerOpen(true)} title="Giỏ hàng">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+            {cartCount > 0 && <span className="btn-cart-badge">{cartCount}</span>}
+          </button>
           <button className="btn-icon-action" onClick={copyInfo} title="Copy thông tin">
             {infoCopied
               ? <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg> Đã copy</>
@@ -457,7 +464,13 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                   )
                 ) : (
                   <>
-                    <button className="btn-buy" onClick={() => setBuyOpen(true)}>
+                    <button className="btn-buy" onClick={() => {
+                      const added = addToCart({ id: item.id, title: item.title, price: item.price ?? null })
+                      const cnt = getCartCount()
+                      setCartCount(cnt)
+                      showToast(added ? 'Đã thêm vào giỏ hàng 🛒' : 'Sản phẩm đã có trong giỏ')
+                      setCartDrawerOpen(true)
+                    }}>
                       🛒 Đặt mua ngay
                     </button>
                     {item.phone && (
@@ -627,8 +640,8 @@ export default function ItemDetailClient({ item }: { item: Item }) {
         </div>
       )}
 
-      {/* Buy popup — shared order flow */}
-      <OrderPopup open={buyOpen} onClose={() => setBuyOpen(false)} item={{ id: item.id, title: item.title, price: item.price ?? null }} />
+      {/* Cart drawer */}
+      <CartDrawer open={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} onCartChange={() => setCartCount(getCartCount())} />
 
       {/* Sell modal — create order when marking as sold */}
       {sellOpen && (
@@ -729,6 +742,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:16p
 .header-actions{display:flex;gap:8px}
 .btn-share,.btn-icon-action{display:flex;align-items:center;gap:6px;background:none;border:1px solid var(--border);padding:6px 14px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted);transition:all .15s}
 .btn-share:hover,.btn-icon-action:hover{border-color:var(--accent);color:var(--text)}
+.btn-cart-icon{position:relative;display:flex;align-items:center;background:none;border:1px solid var(--border);padding:6px 10px;border-radius:7px;cursor:pointer;color:var(--muted);transition:all .15s}
+.btn-cart-icon:hover{border-color:var(--accent);color:var(--text)}
+.btn-cart-badge{position:absolute;top:-6px;right:-6px;background:#c0392b;color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center;line-height:1.5}
 .btn-share-fb{color:#1877f2!important;border-color:#1877f2!important}
 .btn-share-fb:hover{background:#f0f4ff!important}
 

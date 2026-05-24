@@ -5,7 +5,8 @@ import { supabase } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
 import DailyQuizBanner from './components/DailyQuizBanner'
 import OrderManagement from './components/OrderManagement'
-import OrderPopup from './components/OrderPopup'
+import CartDrawer from './components/CartDrawer'
+import { addToCart, getCartCount } from '@/lib/cart'
 import type { OrderItem } from './components/OrderPopup'
 
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
@@ -195,8 +196,8 @@ export default function HomeClient() {
   const [msgPhone, setMsgPhone]       = useState('')
   const [msgText, setMsgText]         = useState('')
 
-  const [orderPopupOpen, setOrderPopupOpen] = useState(false)
-  const [currentOrderItem, setCurrentOrderItem] = useState<OrderItem | null>(null)
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
+  const [cartCount, setCartCount] = useState(0)
 
   const [supaUser, setSupaUser]       = useState<{email:string;name:string}|null>(null)
   const [showUserAuth, setShowUserAuth] = useState(false)
@@ -260,6 +261,7 @@ export default function HomeClient() {
       setIsAdmin(true)
       fetchBatches()
     }
+    setCartCount(getCartCount())
     fetchItems()
     fetchStaff()
 
@@ -484,13 +486,11 @@ export default function HomeClient() {
     finally { setSubmittingBuy(false) }
   }
 
-  function openOrderPopup(item?: OrderItem) {
-    setCurrentOrderItem(item ?? null)
-    setOrderPopupOpen(true)
-  }
-  function closeOrderPopup() {
-    setOrderPopupOpen(false)
-    setCurrentOrderItem(null)
+  function addToCartAndToast(item: OrderItem) {
+    const added = addToCart({ id: item.id, title: item.title, price: item.price })
+    const count = getCartCount()
+    setCartCount(count)
+    showToast(added ? `Đã thêm vào giỏ hàng 🛒` : 'Sản phẩm đã có trong giỏ')
   }
   function openUserAuth(mode: 'login'|'signup' = 'login') {
     setUserAuthMode(mode); setUserAuthForm({ name:'', email:'', password:'' }); setUserAuthError(''); setShowUserAuth(true)
@@ -671,6 +671,10 @@ export default function HomeClient() {
               ) : (
                 <button className="nav-login-btn" onClick={()=>openUserAuth('login')}>Đăng nhập</button>
               )}
+              <button className="nav-cart-btn" onClick={()=>setCartDrawerOpen(true)} title="Giỏ hàng">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+                {cartCount > 0 && <span className="nav-cart-badge">{cartCount}</span>}
+              </button>
             </nav>
           )}
         </div>
@@ -1036,7 +1040,7 @@ export default function HomeClient() {
                           <div className="item-footer">
                             <div className="item-price">{fmtVND(g.rep.price)}</div>
                             {isAvail ? (
-                              <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup(g.available[0]??g.rep)}}>Đặt hàng</button>
+                              <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();addToCartAndToast(g.available[0]??g.rep)}}>+ Giỏ hàng</button>
                             ) : (
                               <span className="item-cta">Xem chi tiết →</span>
                             )}
@@ -1083,7 +1087,7 @@ export default function HomeClient() {
                         <div className="item-footer">
                           <div className="item-price">{fmtVND(item.price)}</div>
                           {!isAdmin && item.status==='available' ? (
-                            <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup(item)}}>Đặt hàng</button>
+                            <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();addToCartAndToast(item)}}>+ Giỏ hàng</button>
                           ) : (
                             <span className="item-cta">Xem chi tiết →</span>
                           )}
@@ -1268,8 +1272,8 @@ export default function HomeClient() {
         </div>
       )}
 
-      {/* ORDER POPUP */}
-      <OrderPopup open={orderPopupOpen} onClose={closeOrderPopup} item={currentOrderItem ?? undefined} />
+      {/* CART DRAWER */}
+      <CartDrawer open={cartDrawerOpen} onClose={()=>setCartDrawerOpen(false)} onCartChange={()=>setCartCount(getCartCount())} />
 
       {/* USER AUTH MODAL */}
       {showUserAuth && (
@@ -1356,6 +1360,9 @@ nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 .nav-user-name{font-size:12px;font-weight:500;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-login-btn{background:none;border:1px solid var(--border);padding:5px 13px;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .15s;margin-left:4px}
 .nav-login-btn:hover{border-color:var(--accent);color:var(--text);background:var(--tag-bg)}
+.nav-cart-btn{position:relative;background:none;border:1px solid var(--border);padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--muted);transition:all .15s;display:flex;align-items:center;margin-left:4px}
+.nav-cart-btn:hover{border-color:var(--accent);color:var(--text);background:var(--tag-bg)}
+.nav-cart-badge{position:absolute;top:-6px;right:-6px;background:var(--red,#c0392b);color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center;line-height:1.5}
 .tab-btn{background:none;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--muted);transition:all .15s;display:flex;align-items:center;gap:5px}
 .tab-btn:hover,.tab-active{background:var(--tag-bg);color:var(--text)}
 .tab-active{font-weight:500}
