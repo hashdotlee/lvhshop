@@ -12,10 +12,72 @@ function fmtDate(iso: string) {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }
+function dateSuffix() {
+  const now = new Date()
+  const d = String(now.getDate()).padStart(2, '0')
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const y = String(now.getFullYear()).slice(2)
+  return `-${d}${m}${y}`
+}
 function getImages(item: Item): string[] {
   if (item.images && item.images.length > 0) return item.images
   if (item.image_url) return [item.image_url]
   return []
+}
+
+function SkuInput({ value, onChange, existingSkus }: { value: string; onChange: (v: string) => void; existingSkus: string[] }) {
+  const [open, setOpen] = useState(false)
+  const q = value.trim().toUpperCase()
+  const suggestions = q.length > 0
+    ? existingSkus.filter(s => s !== q && s.includes(q)).slice(0, 8)
+    : []
+  const isExact = q.length > 0 && existingSkus.includes(q)
+
+  function handleBlur() {
+    setTimeout(() => setOpen(false), 160)
+    if (isExact) onChange(q + dateSuffix())
+  }
+  function pick(sku: string) {
+    onChange(sku + dateSuffix())
+    setOpen(false)
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        className="inv-inp"
+        placeholder="VD: TOMICA-001..."
+        value={value}
+        onChange={e => { onChange(e.target.value.toUpperCase()); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onBlur={handleBlur}
+      />
+      {isExact && (
+        <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 3, lineHeight: 1.4 }}>
+          ⚠️ SKU đã tồn tại — sẽ thêm suffix ngày khi rời trường
+        </div>
+      )}
+      {open && suggestions.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, marginTop: 2,
+          background: '#1a1d27', border: '1px solid #2a2d3a', borderRadius: 8,
+          maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,.5)',
+        }}>
+          {suggestions.map(s => (
+            <div key={s}
+              style={{ padding: '9px 12px', cursor: 'pointer', fontSize: 13, color: '#e5e7eb', fontFamily: 'monospace', borderBottom: '1px solid #1a1d27' }}
+              onMouseDown={e => { e.preventDefault(); pick(s) }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#2a2d3a')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              {s}
+              <span style={{ color: '#4ade80', fontSize: 10, marginLeft: 6 }}>→ sẽ thêm suffix</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 const INIT_FORM = {
@@ -35,6 +97,7 @@ export default function InventoryPage() {
 
   const [batches, setBatches] = useState<InventoryBatch[]>([])
   const [staffList, setStaffList] = useState<Staff[]>([])
+  const [existingSkus, setExistingSkus] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
   const [form, setForm] = useState(INIT_FORM)
@@ -57,6 +120,17 @@ export default function InventoryPage() {
     setToast(m); clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(''), 2800)
   }
+
+  const fetchExistingSkus = useCallback(async () => {
+    try {
+      const r = await fetch('/api/items')
+      const d = await r.json()
+      if (Array.isArray(d)) {
+        const skus = Array.from(new Set(d.map((i: Item) => i.sku).filter(Boolean))) as string[]
+        setExistingSkus(skus)
+      }
+    } catch {}
+  }, [])
 
   const fetchBatches = useCallback(async (key?: string) => {
     setLoading(true)
@@ -85,6 +159,7 @@ export default function InventoryPage() {
       setIsAdmin(true)
       fetchBatches(key)
       fetchStaff()
+      fetchExistingSkus()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -103,6 +178,7 @@ export default function InventoryPage() {
       setIsAdmin(true)
       fetchBatches(authInput)
       fetchStaff()
+      fetchExistingSkus()
     }
   }
 
@@ -223,6 +299,7 @@ export default function InventoryPage() {
       setForm(prev => ({ ...prev, notes: '', quantity: '1' }))
       setImgFiles([]); setImgPreviews([])
       fetchBatches()
+      fetchExistingSkus()
       showToast(`Đã nhập ${qty} sản phẩm · Lô ${data.batch.batch_code}`)
     } catch { showToast('Lỗi kết nối server') }
     finally { setSubmitting(false) }
@@ -494,7 +571,7 @@ export default function InventoryPage() {
                 </div>
                 <div style={S.fg}>
                   <div style={S.lbl}>SKU</div>
-                  <input className="inv-inp" placeholder="VD: TOMICA-001..." value={form.sku} onChange={e => f('sku', e.target.value.toUpperCase())} />
+                  <SkuInput value={form.sku} onChange={v => f('sku', v)} existingSkus={existingSkus} />
                 </div>
                 <div style={S.fg}>
                   <div style={S.lbl}>Danh mục</div>
@@ -656,7 +733,7 @@ export default function InventoryPage() {
                   </div>
                   <div style={S.fg}>
                     <div style={S.lbl}>SKU</div>
-                    <input className="inv-inp" placeholder="VD: TOMICA-001..." value={form.sku} onChange={e => f('sku', e.target.value.toUpperCase())} />
+                    <SkuInput value={form.sku} onChange={v => f('sku', v)} existingSkus={existingSkus} />
                   </div>
                   <div style={S.fg}>
                     <div style={S.lbl}>Danh mục</div>
