@@ -117,6 +117,12 @@ export default function ItemDetailClient({ item }: { item: Item }) {
   })
   const [sellSaving, setSellSaving] = useState(false)
 
+  // Buy modal state (customer-facing)
+  const [buyOpen, setBuyOpen] = useState(false)
+  const [buyForm, setBuyForm] = useState({ name: '', phone: '', address: '', note: '' })
+  const [buySaving, setBuySaving] = useState(false)
+  const [buySuccess, setBuySuccess] = useState(false)
+
   useEffect(() => {
     const key = sessionStorage.getItem('cq_admin_key')
     if (key && sessionStorage.getItem('cq_admin')) { adminKey.current = key; setIsAdmin(true) }
@@ -222,6 +228,38 @@ export default function ItemDetailClient({ item }: { item: Item }) {
       showToast('Không thể kết nối server')
     } finally {
       setSellSaving(false)
+    }
+  }
+
+  async function handleBuy() {
+    if (!buyForm.name.trim() || !buyForm.phone.trim() || !buyForm.address.trim()) {
+      showToast('Vui lòng nhập đầy đủ tên, SĐT và địa chỉ')
+      return
+    }
+    setBuySaving(true)
+    try {
+      const r = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          item_id: item.id,
+          item_title: item.title,
+          item_price: item.price ?? null,
+          customer_name: buyForm.name,
+          customer_phone: buyForm.phone,
+          customer_address: buyForm.address,
+          customer_note: buyForm.note || null,
+          payment_method: 'cod',
+          total_amount: item.price ?? null,
+          created_by: 'customer',
+        }),
+      })
+      if (!r.ok) { showToast('Đặt hàng thất bại, vui lòng thử lại'); return }
+      setBuySuccess(true)
+    } catch {
+      showToast('Không thể kết nối server')
+    } finally {
+      setBuySaving(false)
     }
   }
 
@@ -454,6 +492,9 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                   )
                 ) : (
                   <>
+                    <button className="btn-buy" onClick={() => { setBuyForm({ name: '', phone: '', address: '', note: '' }); setBuySuccess(false); setBuyOpen(true) }}>
+                      🛒 Đặt mua ngay
+                    </button>
                     {item.phone && (
                       <>
                         <a href={`tel:${item.phone}`} className="btn-call">
@@ -624,6 +665,64 @@ export default function ItemDetailClient({ item }: { item: Item }) {
         </div>
       )}
 
+      {/* Buy modal — customer-facing order request */}
+      {buyOpen && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setBuyOpen(false)}>
+          <div className="modal buy-modal">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>Đặt mua hàng</h3>
+              <button className="edit-modal-close" onClick={() => setBuyOpen(false)}>✕</button>
+            </div>
+            {buySuccess ? (
+              <div className="buy-success">
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Đặt hàng thành công!</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
+                  Cảm ơn bạn đã đặt mua <strong>{item.title}</strong>.<br />
+                  Chúng tôi sẽ liên hệ xác nhận đơn hàng sớm nhất.
+                </div>
+                <button className="btn-call" style={{ marginTop: 18 }} onClick={() => setBuyOpen(false)}>Đóng</button>
+              </div>
+            ) : (
+              <>
+                <div style={{ background: '#f0efe9', borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontSize: 13 }}>
+                  <strong>{item.title}</strong>
+                  {item.price && <span style={{ color: '#2a7a4b', fontWeight: 700, marginLeft: 8 }}>{fmtVND(item.price)}</span>}
+                </div>
+                <div className="edit-grid">
+                  <div className="edit-field">
+                    <label className="lbl">Họ tên *</label>
+                    <input className="inp" placeholder="Nguyễn Văn A" value={buyForm.name}
+                      onChange={e => setBuyForm(f => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  <div className="edit-field">
+                    <label className="lbl">Số điện thoại *</label>
+                    <input className="inp" type="tel" placeholder="09xxxxxxxx" value={buyForm.phone}
+                      onChange={e => setBuyForm(f => ({ ...f, phone: e.target.value }))} />
+                  </div>
+                  <div className="edit-field edit-field-full">
+                    <label className="lbl">Địa chỉ nhận hàng *</label>
+                    <input className="inp" placeholder="Số nhà, đường, quận, tỉnh/thành..." value={buyForm.address}
+                      onChange={e => setBuyForm(f => ({ ...f, address: e.target.value }))} />
+                  </div>
+                  <div className="edit-field edit-field-full">
+                    <label className="lbl">Ghi chú (tuỳ chọn)</label>
+                    <input className="inp" placeholder="Ghi chú thêm cho người bán..." value={buyForm.note}
+                      onChange={e => setBuyForm(f => ({ ...f, note: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="modal-actions" style={{ marginTop: 16 }}>
+                  <button className="btn-ghost" onClick={() => setBuyOpen(false)}>Hủy</button>
+                  <button className="btn-buy-submit" onClick={handleBuy} disabled={buySaving}>
+                    {buySaving ? 'Đang đặt...' : '🛒 Xác nhận đặt mua'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Sell modal — create order when marking as sold */}
       {sellOpen && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSellOpen(false)}>
@@ -775,6 +874,13 @@ main{max-width:1000px;margin:0 auto;padding:40px 24px}
 .btn-chottot:hover{opacity:.85}
 .btn-zalo{display:flex;align-items:center;justify-content:center;gap:10px;background:#0068FF;color:white;text-decoration:none;padding:12px;border-radius:10px;font-family:inherit;font-size:15px;font-weight:600;transition:opacity .15s}
 .btn-zalo:hover{opacity:.85}
+.btn-buy{display:flex;align-items:center;justify-content:center;gap:8px;background:#e63946;color:white;border:none;padding:13px;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s;letter-spacing:.2px}
+.btn-buy:hover{opacity:.88}
+.buy-modal{max-width:480px}
+.buy-success{display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px 0 8px}
+.btn-buy-submit{background:#e63946;color:white;border:none;padding:9px 20px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s}
+.btn-buy-submit:hover{opacity:.88}
+.btn-buy-submit:disabled{opacity:.6;cursor:not-allowed}
 .sold-notice{background:#fff8ec;border:1px solid #fde68a;border-radius:10px;padding:14px 16px;font-size:13px;color:#92400e;line-height:1.6}
 .sold-notice a{color:#92400e;font-weight:600}
 .item-meta-footer{display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
