@@ -1,13 +1,14 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Item, Customer, Staff, CustomerAddress } from '@/lib/supabase'
+import type { Item, Customer, Staff } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
 import DailyQuizBanner from './components/DailyQuizBanner'
 import OrderManagement from './components/OrderManagement'
+import OrderPopup from './components/OrderPopup'
+import type { OrderItem } from './components/OrderPopup'
 
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
-const CHOT_TOT   = process.env.NEXT_PUBLIC_CHOT_TOT_URL ?? 'https://cho-tot.com'
 const FB_PAGE_ID = process.env.NEXT_PUBLIC_FB_PAGE_ID   ?? ''
 const BANK_ID    = process.env.NEXT_PUBLIC_BANK_ID           ?? ''
 const BANK_ACCT  = process.env.NEXT_PUBLIC_BANK_ACCOUNT      ?? ''
@@ -192,22 +193,14 @@ export default function HomeClient() {
   const [msgText, setMsgText]         = useState('')
 
   const [orderPopupOpen, setOrderPopupOpen] = useState(false)
-  const [orderForm, setOrderForm]     = useState({ name:'', phone:'', address:'', note:'', payment_method:'cod' as 'cod'|'bank_transfer' })
-  const [orderSubmitting, setOrderSubmitting] = useState(false)
-  const [orderSuccess, setOrderSuccess] = useState<string|null>(null)
+  const [currentOrderItem, setCurrentOrderItem] = useState<OrderItem | null>(null)
 
-  const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([])
-  const [orderAddressId, setOrderAddressId] = useState<number | null>(null)
-  const [showNewAddrForm, setShowNewAddrForm] = useState(false)
-  const [newAddrForm, setNewAddrForm]   = useState({ full_name:'', phone:'', address:'' })
-  const [newAddrSaving, setNewAddrSaving] = useState(false)
   const [supaUser, setSupaUser]       = useState<{email:string;name:string}|null>(null)
   const [showUserAuth, setShowUserAuth] = useState(false)
   const [userAuthMode, setUserAuthMode] = useState<'login'|'signup'>('login')
   const [userAuthForm, setUserAuthForm] = useState({ name:'', email:'', password:'' })
   const [userAuthLoading, setUserAuthLoading] = useState(false)
   const [userAuthError, setUserAuthError] = useState('')
-  const pendingOrderItem = useRef<boolean>(false)
 
   const [toast, setToast]             = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -479,51 +472,16 @@ export default function HomeClient() {
     finally { setSubmittingBuy(false) }
   }
 
-  async function fetchAddresses() {
-    const { data: { session } } = await supabase.auth.getSession()
-    const jwt = session?.access_token
-    if (!jwt) return
-    try {
-      const r = await fetch('/api/addresses', { headers: { Authorization: `Bearer ${jwt}` } })
-      if (r.ok) setSavedAddresses(await r.json())
-    } catch { /* silent */ }
-  }
-  function openOrderPopup() {
-    if (!supaUser) {
-      pendingOrderItem.current = true
-      openUserAuth('login')
-      return
-    }
+  function openOrderPopup(item?: OrderItem) {
+    setCurrentOrderItem(item ?? null)
     setOrderPopupOpen(true)
-    setOrderForm({ name: supaUser.name ?? '', phone:'', address:'', note:'', payment_method:'cod' })
-    setOrderSuccess(null)
-    setOrderAddressId(null)
-    setShowNewAddrForm(false)
-    setNewAddrForm({ full_name: supaUser?.name ?? '', phone:'', address:'' })
-    fetchAddresses()
   }
   function closeOrderPopup() {
-    setOrderPopupOpen(false); setOrderSuccess(null)
-    setOrderForm({ name:'', phone:'', address:'', note:'', payment_method:'cod' })
-    setOrderAddressId(null)
-    setShowNewAddrForm(false)
-    setNewAddrForm({ full_name:'', phone:'', address:'' })
+    setOrderPopupOpen(false)
+    setCurrentOrderItem(null)
   }
   function openUserAuth(mode: 'login'|'signup' = 'login') {
     setUserAuthMode(mode); setUserAuthForm({ name:'', email:'', password:'' }); setUserAuthError(''); setShowUserAuth(true)
-  }
-  function afterAuthSuccess(name: string) {
-    setShowUserAuth(false)
-    setOrderAddressId(null)
-    setShowNewAddrForm(false)
-    setNewAddrForm({ full_name: name, phone:'', address:'' })
-    fetchAddresses()
-    if (pendingOrderItem.current) {
-      pendingOrderItem.current = false
-      setOrderPopupOpen(true)
-      setOrderForm({ name, phone:'', address:'', note:'', payment_method:'cod' })
-      setOrderSuccess(null)
-    }
   }
   async function supaSignIn() {
     if (!userAuthForm.email || !userAuthForm.password) { setUserAuthError('Nhập email và mật khẩu'); return }
@@ -532,7 +490,7 @@ export default function HomeClient() {
     setUserAuthLoading(false)
     if (error) { setUserAuthError(error.message === 'Invalid login credentials' ? 'Email hoặc mật khẩu không đúng' : error.message); return }
     const name = data.user?.user_metadata?.full_name ?? data.user?.email ?? ''
-    showToast('Đã đăng nhập!'); afterAuthSuccess(name)
+    showToast(`Chào ${name}!`); setShowUserAuth(false)
   }
   async function supaSignUp() {
     if (!userAuthForm.name.trim()) { setUserAuthError('Nhập họ tên'); return }
@@ -545,62 +503,10 @@ export default function HomeClient() {
     })
     setUserAuthLoading(false)
     if (error) { setUserAuthError(error.message); return }
-    showToast('Đăng ký thành công!'); afterAuthSuccess(userAuthForm.name)
+    showToast('Đăng ký thành công!'); setShowUserAuth(false)
   }
   async function supaSignOut() {
     await supabase.auth.signOut(); showToast('Đã đăng xuất')
-  }
-  async function saveNewAddrInPopup() {
-    if (!newAddrForm.full_name.trim()) { showToast('Nhập họ tên'); return }
-    if (!newAddrForm.phone.trim())     { showToast('Nhập số điện thoại'); return }
-    if (!newAddrForm.address.trim())   { showToast('Nhập địa chỉ'); return }
-    setNewAddrSaving(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const jwt = session?.access_token
-      if (!jwt) { showToast('Cần đăng nhập để lưu địa chỉ'); return }
-      const r = await fetch('/api/addresses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
-        body: JSON.stringify({ ...newAddrForm, is_default: savedAddresses.length === 0 }),
-      })
-      if (!r.ok) { showToast('Lưu địa chỉ thất bại'); return }
-      const saved = await r.json()
-      await fetchAddresses()
-      setOrderAddressId(saved.id)
-      setShowNewAddrForm(false)
-    } catch { showToast('Không thể kết nối server') }
-    finally { setNewAddrSaving(false) }
-  }
-  async function submitOrderPopup() {
-    if (!orderAddressId) { showToast('Vui lòng chọn địa chỉ giao hàng'); return }
-    const addr = savedAddresses.find(a => a.id === orderAddressId)
-    if (!addr) { showToast('Địa chỉ không hợp lệ'); return }
-    setOrderSubmitting(true)
-    try {
-      const r = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          item_id: null,
-          item_title: null,
-          item_price: null,
-          total_amount: null,
-          customer_name: addr.full_name,
-          customer_phone: addr.phone,
-          customer_address: addr.address,
-          customer_note: orderForm.note || null,
-          shipping_carrier: 'spx',
-          payment_method: orderForm.payment_method,
-          created_by: 'customer',
-          address_id: orderAddressId,
-        }),
-      })
-      if (!r.ok) { showToast('Đặt hàng thất bại, vui lòng thử lại'); return }
-      const d = await r.json()
-      setOrderSuccess(d.order_number)
-    } catch { showToast('Không thể kết nối server') }
-    finally { setOrderSubmitting(false) }
   }
 
   const categories = Array.from(new Set(items.map(i => i.category).filter(Boolean))) as string[]
@@ -1035,7 +941,7 @@ export default function HomeClient() {
                           <div className="item-footer">
                             <div className="item-price">{fmtVND(g.rep.price)}</div>
                             {isAvail ? (
-                              <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup()}}>Đặt hàng</button>
+                              <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup(g.available[0]??g.rep)}}>Đặt hàng</button>
                             ) : (
                               <span className="item-cta">Xem chi tiết →</span>
                             )}
@@ -1082,7 +988,7 @@ export default function HomeClient() {
                         <div className="item-footer">
                           <div className="item-price">{fmtVND(item.price)}</div>
                           {!isAdmin && item.status==='available' ? (
-                            <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup()}}>Đặt hàng</button>
+                            <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup(item)}}>Đặt hàng</button>
                           ) : (
                             <span className="item-cta">Xem chi tiết →</span>
                           )}
@@ -1268,122 +1174,7 @@ export default function HomeClient() {
       )}
 
       {/* ORDER POPUP */}
-      {orderPopupOpen && (
-        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&closeOrderPopup()}>
-          <div className="modal" style={{maxWidth:500}}>
-            {orderSuccess ? (
-              <div style={{textAlign:'center',padding:'8px 0 16px'}}>
-                <div style={{width:56,height:56,borderRadius:'50%',background:'var(--green)',color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontSize:26,margin:'0 auto 14px'}}>✓</div>
-                <h3 style={{marginBottom:6}}>Đã gửi yêu cầu!</h3>
-                <p style={{color:'var(--muted)',marginBottom:16}}>Nhân viên sẽ liên hệ xác nhận sản phẩm và sắp xếp giao hàng sớm nhất.</p>
-                <div style={{background:'var(--tag-bg)',borderRadius:8,padding:'12px 16px',marginBottom:20}}>
-                  <div className="lbl" style={{marginBottom:4}}>Mã đơn hàng</div>
-                  <div style={{fontSize:20,fontWeight:700,fontFamily:'monospace',color:'var(--text)'}}>{orderSuccess}</div>
-                </div>
-                <button className="btn-ghost" onClick={closeOrderPopup}>Đóng</button>
-              </div>
-            ) : (
-              <>
-                <h3>Đặt hàng</h3>
-
-                {/* Address section */}
-                <div style={{marginBottom:14}}>
-                  <div className="lbl" style={{marginBottom:5}}>Địa chỉ giao hàng <span style={{color:'var(--red)'}}>*</span></div>
-                  {showNewAddrForm || savedAddresses.length === 0 ? (
-                    <>
-                      <div className="modal-grid" style={{marginTop:4,marginBottom:8}}>
-                        <div><label className="lbl">Họ tên <span style={{color:'var(--red)'}}>*</span></label>
-                          <input className="inp" placeholder="Nguyễn Văn A" autoFocus
-                            value={newAddrForm.full_name} onChange={e=>setNewAddrForm(f=>({...f,full_name:e.target.value}))} /></div>
-                        <div><label className="lbl">Số điện thoại <span style={{color:'var(--red)'}}>*</span></label>
-                          <input className="inp" placeholder="09xxxxxxxx" type="tel"
-                            value={newAddrForm.phone} onChange={e=>setNewAddrForm(f=>({...f,phone:e.target.value}))} /></div>
-                        <div style={{gridColumn:'1/-1'}}><label className="lbl">Địa chỉ nhận hàng <span style={{color:'var(--red)'}}>*</span></label>
-                          <input className="inp" placeholder="Số nhà, đường, phường, quận, tỉnh..."
-                            value={newAddrForm.address} onChange={e=>setNewAddrForm(f=>({...f,address:e.target.value}))} /></div>
-                      </div>
-                      <div style={{display:'flex',gap:8}}>
-                        {savedAddresses.length > 0 && (
-                          <button type="button" className="btn-ghost" style={{flex:1}} onClick={()=>setShowNewAddrForm(false)}>← Quay lại</button>
-                        )}
-                        <button type="button" className="btn-dark" style={{flex:1}} onClick={saveNewAddrInPopup} disabled={newAddrSaving}>
-                          {newAddrSaving ? 'Đang lưu...' : 'Lưu địa chỉ →'}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <select className="inp" style={{cursor:'pointer',marginBottom:8}}
-                        value={orderAddressId ?? ''}
-                        onChange={e=>setOrderAddressId(e.target.value?Number(e.target.value):null)}>
-                        <option value="">— Chọn địa chỉ —</option>
-                        {savedAddresses.map(a=>(
-                          <option key={a.id} value={a.id}>
-                            {a.is_default?'★ ':''}{a.full_name} · {a.phone} · {a.address.substring(0,45)}{a.address.length>45?'…':''}
-                          </option>
-                        ))}
-                      </select>
-                      <button type="button" className="btn-ghost-sm" style={{width:'100%'}}
-                        onClick={()=>{setShowNewAddrForm(true);setNewAddrForm({full_name:supaUser?.name??'',phone:'',address:''})}}>
-                        + Thêm địa chỉ mới
-                      </button>
-                    </>
-                  )}
-                </div>
-
-                {/* Note + payment — only shown after address is selected */}
-                {orderAddressId && !showNewAddrForm && (
-                  <>
-                    <div style={{marginBottom:12}}>
-                      <label className="lbl">Ghi chú</label>
-                      <input className="inp" placeholder="Ghi chú thêm nếu có (màu sắc, kích thước, số lượng...)"
-                        value={orderForm.note} onChange={e=>setOrderForm(f=>({...f,note:e.target.value}))} />
-                    </div>
-                    <div style={{marginBottom:14}}>
-                      <div className="lbl" style={{marginBottom:8}}>Phương thức thanh toán</div>
-                      <div style={{display:'flex',flexDirection:'column',gap:7}}>
-                        {(['cod','bank_transfer'] as const).map(m=>(
-                          <label key={m} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',border:`1.5px solid ${orderForm.payment_method===m?'var(--accent)':'var(--border)'}`,borderRadius:8,cursor:'pointer',background:orderForm.payment_method===m?'var(--tag-bg)':'transparent',transition:'all .15s'}}>
-                            <input type="radio" name="ord_pay" value={m} checked={orderForm.payment_method===m}
-                              onChange={()=>setOrderForm(f=>({...f,payment_method:m}))} style={{accentColor:'var(--accent)',flexShrink:0}} />
-                            <div>
-                              <div style={{fontSize:13,fontWeight:500}}>{m==='cod'?'Thanh toán khi nhận hàng (COD)':'Chuyển khoản ngân hàng'}</div>
-                              <div style={{fontSize:11,color:'var(--muted)'}}>{m==='cod'?'Trả tiền mặt khi nhận được hàng':'Thanh toán trước, xác nhận thủ công'}</div>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    {orderForm.payment_method==='bank_transfer' && BANK_ACCT && (
-                      <div style={{display:'flex',alignItems:'center',gap:14,background:'var(--tag-bg)',borderRadius:10,padding:12,marginBottom:14}}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={`https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCT}-compact2.png?addInfo=${encodeURIComponent('Dat hang')}&accountName=${encodeURIComponent(BANK_NAME)}`}
-                          alt="QR thanh toán" width={88} height={88} style={{borderRadius:6,flexShrink:0}} />
-                        <div style={{fontSize:12,lineHeight:1.9}}>
-                          <div><span style={{color:'var(--muted)'}}>Ngân hàng:</span> <strong>{BANK_ID}</strong></div>
-                          <div><span style={{color:'var(--muted)'}}>STK:</span> <strong>{BANK_ACCT}</strong></div>
-                          {BANK_NAME&&<div><span style={{color:'var(--muted)'}}>Chủ TK:</span> {BANK_NAME}</div>}
-                          <div style={{fontSize:11,color:'var(--muted)'}}>Nhân viên sẽ xác nhận số tiền sau.</div>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-                <div className="modal-actions">
-                  <button className="btn-ghost" onClick={closeOrderPopup}>Hủy</button>
-                  {orderAddressId && !showNewAddrForm && (
-                    <button className="btn-green" onClick={submitOrderPopup} disabled={orderSubmitting}>
-                      {orderSubmitting?'Đang đặt hàng...':'Xác nhận đặt hàng →'}
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <OrderPopup open={orderPopupOpen} onClose={closeOrderPopup} item={currentOrderItem ?? undefined} />
 
       {/* USER AUTH MODAL */}
       {showUserAuth && (
@@ -1660,8 +1451,6 @@ textarea::placeholder{color:#c0bdb5}
 .btn-messenger:hover{opacity:.85}
 .btn-facebook{display:flex;align-items:center;justify-content:center;gap:4px;background:var(--fb);color:white;border:none;padding:5px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;transition:opacity .15s}
 .btn-facebook:hover{opacity:.85}
-.btn-chottot{display:flex;align-items:center;justify-content:center;background:var(--ct);color:white;border:none;padding:5px 9px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;text-decoration:none;transition:opacity .15s}
-.btn-chottot:hover{opacity:.85}
 .btn-copy{background:none;border:1px solid var(--border);padding:4px 9px;border-radius:6px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--muted);transition:all .15s;text-align:center}
 .btn-copy:hover{border-color:var(--accent);color:var(--text)}
 .btn-sold{background:var(--accent);color:white;border:none;padding:5px 10px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;transition:opacity .15s;text-align:center}
