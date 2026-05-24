@@ -990,7 +990,7 @@ export default function HomeClient() {
                       const imgs = getImages(g.rep)
                       const isAvail = g.available.length > 0
                       return (
-                        <div key={`sku-${g.sku}`} className={`item${!isAvail?' item-sold':''}`} style={{cursor:'default'}}>
+                        <a key={`sku-${g.sku}`} href={`/item/${(g.available[0] ?? g.rep).id}`} className={`item${!isAvail?' item-sold':''}`}>
                           {imgs.length > 0 && (
                             <div className="item-image-wrap">
                               <Carousel images={imgs} sold={!isAvail} onOpen={()=>{}} />
@@ -1035,12 +1035,12 @@ export default function HomeClient() {
                           <div className="item-footer">
                             <div className="item-price">{fmtVND(g.rep.price)}</div>
                             {isAvail ? (
-                              <button className="btn-order-quick" onClick={openOrderPopup}>Đặt hàng</button>
+                              <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup()}}>Đặt hàng</button>
                             ) : (
-                              <span className="item-cta">Hết hàng</span>
+                              <span className="item-cta">Xem chi tiết →</span>
                             )}
                           </div>
-                        </div>
+                        </a>
                       )
                     }
                     // ── Individual item card ──
