@@ -1,11 +1,12 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Item, Customer, Staff } from '@/lib/supabase'
+import type { Item, Customer, Staff, InventoryBatch } from '@/lib/supabase'
 import { supabase } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
 import DailyQuizBanner from './components/DailyQuizBanner'
 import OrderManagement from './components/OrderManagement'
-import OrderPopup from './components/OrderPopup'
+import CartDrawer from './components/CartDrawer'
+import { addToCart, getCartCount } from '@/lib/cart'
 import type { OrderItem } from './components/OrderPopup'
 
 const ADMIN_HASH = process.env.NEXT_PUBLIC_ADMIN_HASH   ?? 'admin-lvh2025'
@@ -153,6 +154,9 @@ export default function HomeClient() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [priceRange, setPriceRange]     = useState<'all'|'under1m'|'1to5m'|'5to10m'|'over10m'>('all')
   const [searchQuery, setSearchQuery]   = useState('')
+  const [binFilter, setBinFilter]       = useState('all')
+  const [batchFilter, setBatchFilter]   = useState<number|null>(null)
+  const [batches, setBatches]           = useState<InventoryBatch[]>([])
   const [loadingItems, setLoadingItems] = useState(true)
 
   const [showBuyForm, setShowBuyForm]   = useState(false)
@@ -192,8 +196,8 @@ export default function HomeClient() {
   const [msgPhone, setMsgPhone]       = useState('')
   const [msgText, setMsgText]         = useState('')
 
-  const [orderPopupOpen, setOrderPopupOpen] = useState(false)
-  const [currentOrderItem, setCurrentOrderItem] = useState<OrderItem | null>(null)
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
+  const [cartCount, setCartCount] = useState(0)
 
   const [supaUser, setSupaUser]       = useState<{email:string;name:string}|null>(null)
   const [showUserAuth, setShowUserAuth] = useState(false)
@@ -236,6 +240,14 @@ export default function HomeClient() {
     } catch { /* silent */ }
   }
 
+  async function fetchBatches() {
+    try {
+      const r = await fetch('/api/inventory', { headers: { 'x-admin-key': adminKey.current } })
+      const d = await r.json()
+      if (Array.isArray(d)) setBatches(d)
+    } catch { /* silent */ }
+  }
+
   const [lastUpdated, setLastUpdated] = useState<Date|null>(null)
   const autoReloadRef = useRef<ReturnType<typeof setInterval>>()
 
@@ -247,7 +259,9 @@ export default function HomeClient() {
     } else if (sessionStorage.getItem('cq_admin')) {
       adminKey.current = sessionStorage.getItem('cq_admin_key') ?? ''
       setIsAdmin(true)
+      fetchBatches()
     }
+    setCartCount(getCartCount())
     fetchItems()
     fetchStaff()
 
@@ -279,7 +293,7 @@ export default function HomeClient() {
     else {
       adminKey.current = authInput
       sessionStorage.setItem('cq_admin','1'); sessionStorage.setItem('cq_admin_key', authInput)
-      setIsAdmin(true); setShowAuth(false); fetchItems()
+      setIsAdmin(true); setShowAuth(false); fetchItems(); fetchBatches()
     }
   }
   function logout() {
@@ -472,13 +486,11 @@ export default function HomeClient() {
     finally { setSubmittingBuy(false) }
   }
 
-  function openOrderPopup(item?: OrderItem) {
-    setCurrentOrderItem(item ?? null)
-    setOrderPopupOpen(true)
-  }
-  function closeOrderPopup() {
-    setOrderPopupOpen(false)
-    setCurrentOrderItem(null)
+  function addToCartAndToast(item: OrderItem) {
+    const added = addToCart({ id: item.id, title: item.title, price: item.price })
+    const count = getCartCount()
+    setCartCount(count)
+    showToast(added ? `Đã thêm vào giỏ hàng 🛒` : 'Sản phẩm đã có trong giỏ')
   }
   function openUserAuth(mode: 'login'|'signup' = 'login') {
     setUserAuthMode(mode); setUserAuthForm({ name:'', email:'', password:'' }); setUserAuthError(''); setShowUserAuth(true)
@@ -526,8 +538,32 @@ export default function HomeClient() {
       : priceRange==='1to5m'   ? (p >= 1_000_000 && p <= 5_000_000)
       : priceRange==='5to10m'  ? (p >= 5_000_000 && p <= 10_000_000)
       : p > 10_000_000
-    return typeOk && condOk && statOk && catOk && searchOk && priceOk
+    const binOk   = binFilter === 'all' || i.bin_location === binFilter
+    const batchOk = batchFilter === null || i.batch_id === batchFilter
+    return typeOk && condOk && statOk && catOk && searchOk && priceOk && binOk && batchOk
   })
+
+  const uniqueBins = Array.from(new Set(
+    items.filter(i => i.type === 'ban' && i.bin_location).map(i => i.bin_location!)
+  )).sort()
+
+  const adminStats = isAdmin && typeFilter === 'ban' ? (() => {
+    const avail    = filtered.filter(i => i.status === 'available')
+    const sold     = filtered.filter(i => i.status === 'sold')
+    const incoming = filtered.filter(i => i.status === 'incoming')
+    const sum = (arr: Item[], key: 'price'|'cost_price') => arr.reduce((s, i) => s + (i[key] ?? 0), 0)
+    return {
+      total:        filtered.length,
+      availCount:   avail.length,
+      soldCount:    sold.length,
+      incomingCount: incoming.length,
+      availValue:   sum(avail, 'price'),
+      soldValue:    sum(sold, 'price'),
+      totalCost:    sum(filtered, 'cost_price'),
+      profit:       sum(sold, 'price') - sum(sold, 'cost_price'),
+      hasCost:      filtered.some(i => i.cost_price),
+    }
+  })() : null
 
   const featuredItems = items
     .filter(i => (i.status === 'available' || i.status === 'incoming') && getImages(i).length > 0)
@@ -635,6 +671,10 @@ export default function HomeClient() {
               ) : (
                 <button className="nav-login-btn" onClick={()=>openUserAuth('login')}>Đăng nhập</button>
               )}
+              <button className="nav-cart-btn" onClick={()=>setCartDrawerOpen(true)} title="Giỏ hàng">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+                {cartCount > 0 && <span className="nav-cart-badge">{cartCount}</span>}
+              </button>
             </nav>
           )}
         </div>
@@ -854,6 +894,28 @@ export default function HomeClient() {
                   <button className={`sidebar-chip${priceRange==='5to10m'?' active':''}`} onClick={()=>setPriceRange('5to10m')}>5 – 10 triệu</button>
                   <button className={`sidebar-chip${priceRange==='over10m'?' active':''}`} onClick={()=>setPriceRange('over10m')}>Trên 10 triệu</button>
                 </div>
+                {isAdmin && typeFilter==='ban' && uniqueBins.length > 0 && (
+                  <div className="sidebar-section">
+                    <div className="sidebar-section-title">Thùng</div>
+                    <select className="sidebar-select" value={binFilter} onChange={e=>setBinFilter(e.target.value)}>
+                      <option value="all">Tất cả thùng</option>
+                      {uniqueBins.map(b=><option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                )}
+                {isAdmin && typeFilter==='ban' && batches.length > 0 && (
+                  <div className="sidebar-section">
+                    <div className="sidebar-section-title">Lô hàng</div>
+                    <select className="sidebar-select" value={batchFilter ?? ''} onChange={e=>setBatchFilter(e.target.value ? Number(e.target.value) : null)}>
+                      <option value="">Tất cả lô</option>
+                      {batches.map(b=>(
+                        <option key={b.id} value={b.id}>
+                          {b.batch_code}{b.supplier ? ` · ${b.supplier}` : ''}{b.item_count ? ` (${b.item_count})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 {lastUpdated && (
                   <div className="auto-reload-indicator" style={{marginTop:4}}>
                     <span className="auto-reload-dot"/>
@@ -876,6 +938,43 @@ export default function HomeClient() {
                     </button>
                   )}
                 </div>
+
+                {adminStats && (
+                  <div className="admin-stats-bar">
+                    <div className="ast-item">
+                      <span className="ast-label">Tổng SP</span>
+                      <span className="ast-val">{adminStats.total}</span>
+                    </div>
+                    <div className="ast-item ast-avail">
+                      <span className="ast-label">Còn hàng</span>
+                      <span className="ast-val">{adminStats.availCount}</span>
+                      {adminStats.availValue > 0 && <span className="ast-sub">{fmtVND(adminStats.availValue)}</span>}
+                    </div>
+                    <div className="ast-item ast-sold">
+                      <span className="ast-label">Đã bán</span>
+                      <span className="ast-val">{adminStats.soldCount}</span>
+                      {adminStats.soldValue > 0 && <span className="ast-sub">{fmtVND(adminStats.soldValue)}</span>}
+                    </div>
+                    {adminStats.incomingCount > 0 && (
+                      <div className="ast-item ast-incoming">
+                        <span className="ast-label">Sắp về</span>
+                        <span className="ast-val">{adminStats.incomingCount}</span>
+                      </div>
+                    )}
+                    {adminStats.hasCost && (
+                      <div className="ast-item">
+                        <span className="ast-label">Tổng vốn</span>
+                        <span className="ast-val ast-cost">{fmtVND(adminStats.totalCost)}</span>
+                      </div>
+                    )}
+                    {adminStats.hasCost && adminStats.soldCount > 0 && (
+                      <div className="ast-item">
+                        <span className="ast-label">Lợi nhuận bán</span>
+                        <span className={`ast-val ${adminStats.profit >= 0 ? 'ast-profit' : 'ast-loss'}`}>{fmtVND(adminStats.profit)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {categories.length > 0 && (
                   <div className="cat-tag-bar">
@@ -941,7 +1040,7 @@ export default function HomeClient() {
                           <div className="item-footer">
                             <div className="item-price">{fmtVND(g.rep.price)}</div>
                             {isAvail ? (
-                              <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup(g.available[0]??g.rep)}}>Đặt hàng</button>
+                              <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();addToCartAndToast(g.available[0]??g.rep)}}>+ Giỏ hàng</button>
                             ) : (
                               <span className="item-cta">Xem chi tiết →</span>
                             )}
@@ -988,7 +1087,7 @@ export default function HomeClient() {
                         <div className="item-footer">
                           <div className="item-price">{fmtVND(item.price)}</div>
                           {!isAdmin && item.status==='available' ? (
-                            <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();openOrderPopup(item)}}>Đặt hàng</button>
+                            <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();addToCartAndToast(item)}}>+ Giỏ hàng</button>
                           ) : (
                             <span className="item-cta">Xem chi tiết →</span>
                           )}
@@ -1173,8 +1272,8 @@ export default function HomeClient() {
         </div>
       )}
 
-      {/* ORDER POPUP */}
-      <OrderPopup open={orderPopupOpen} onClose={closeOrderPopup} item={currentOrderItem ?? undefined} />
+      {/* CART DRAWER */}
+      <CartDrawer open={cartDrawerOpen} onClose={()=>setCartDrawerOpen(false)} onCartChange={()=>setCartCount(getCartCount())} />
 
       {/* USER AUTH MODAL */}
       {showUserAuth && (
@@ -1261,6 +1360,9 @@ nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 .nav-user-name{font-size:12px;font-weight:500;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-login-btn{background:none;border:1px solid var(--border);padding:5px 13px;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .15s;margin-left:4px}
 .nav-login-btn:hover{border-color:var(--accent);color:var(--text);background:var(--tag-bg)}
+.nav-cart-btn{position:relative;background:none;border:1px solid var(--border);padding:5px 9px;border-radius:6px;cursor:pointer;color:var(--muted);transition:all .15s;display:flex;align-items:center;margin-left:4px}
+.nav-cart-btn:hover{border-color:var(--accent);color:var(--text);background:var(--tag-bg)}
+.nav-cart-badge{position:absolute;top:-6px;right:-6px;background:var(--red,#c0392b);color:white;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center;line-height:1.5}
 .tab-btn{background:none;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--muted);transition:all .15s;display:flex;align-items:center;gap:5px}
 .tab-btn:hover,.tab-active{background:var(--tag-bg);color:var(--text)}
 .tab-active{font-weight:500}
@@ -1409,6 +1511,22 @@ textarea::placeholder{color:#c0bdb5}
 .auto-reload-indicator{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);padding:6px 10px;background:var(--tag-bg);border-radius:8px;white-space:nowrap}
 .auto-reload-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.75)}}
+.sidebar-select{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text);cursor:pointer;outline:none}
+.sidebar-select:focus{border-color:var(--accent)}
+
+/* ADMIN STATS BAR */
+.admin-stats-bar{display:flex;flex-wrap:wrap;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 4px;margin-bottom:12px}
+.ast-item{display:flex;flex-direction:column;gap:1px;padding:4px 14px;border-right:1px solid var(--border)}
+.ast-item:last-child{border-right:none}
+.ast-label{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.ast-val{font-size:17px;font-weight:700;line-height:1.25;white-space:nowrap}
+.ast-sub{font-size:11px;color:var(--muted);white-space:nowrap}
+.ast-avail .ast-val{color:var(--green)}
+.ast-sold .ast-val{color:var(--text)}
+.ast-incoming .ast-val{color:#c47a1e}
+.ast-cost{color:var(--muted)!important;font-size:14px!important}
+.ast-profit{color:var(--green)!important;font-size:14px!important}
+.ast-loss{color:var(--red)!important;font-size:14px!important}
 
 /* LISTING GRID */
 .listing{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
