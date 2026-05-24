@@ -45,6 +45,9 @@ export default function InventoryPage() {
   const [submitting, setSubmitting] = useState(false)
   const [lastImport, setLastImport] = useState<{ batch: InventoryBatch; items: Item[] } | null>(null)
   const [printItems, setPrintItems] = useState<Item[] | null>(null)
+  const [addingItems, setAddingItems] = useState(false)
+  const [addItemsResult, setAddItemsResult] = useState<Item[] | null>(null)
+  const [addSubmitting, setAddSubmitting] = useState(false)
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [toast, setToast] = useState('')
@@ -207,6 +210,73 @@ export default function InventoryPage() {
 
   function startPrint(items: Item[]) {
     setPrintItems(items)
+  }
+
+  function startAddingItems() {
+    setForm(INIT_FORM)
+    setImgFiles([])
+    setImgPreviews([])
+    setCompressInfo(null)
+    setAddItemsResult(null)
+    setAddingItems(true)
+  }
+
+  async function submitAddItems() {
+    if (!form.title.trim()) { showToast('Nhập tên sản phẩm'); return }
+    if (!selectedBatch) return
+    const qty = Math.max(1, Math.min(200, parseInt(form.quantity) || 1))
+    setAddSubmitting(true)
+    try {
+      let uploadedImages: string[] = []
+      if (imgFiles.length > 0) {
+        const fd = new FormData()
+        imgFiles.forEach(f => fd.append('files', f))
+        fd.append('adminKey', adminKey.current)
+        const ur = await fetch('/api/upload', { method: 'POST', body: fd })
+        if (ur.ok) uploadedImages = (await ur.json()).urls ?? []
+        else showToast('Upload ảnh thất bại — tiếp tục không có ảnh')
+      }
+
+      const itemPayload = {
+        title: form.title,
+        sku: form.sku || null,
+        description: form.description || null,
+        condition: form.condition,
+        category: form.category || null,
+        price: form.price ? Number(form.price) : null,
+        cost_price: form.cost_price ? Number(form.cost_price) : null,
+        bin_location: form.bin_location || null,
+        images: uploadedImages,
+      }
+
+      const r = await fetch('/api/inventory', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey.current },
+        body: JSON.stringify({
+          batch_id: selectedBatch.id,
+          items: Array.from({ length: qty }, () => ({ ...itemPayload })),
+        }),
+      })
+
+      if (!r.ok) {
+        const err = await r.json()
+        showToast(`Lỗi: ${err.error ?? r.status}`)
+        return
+      }
+
+      const data = await r.json()
+      setAddItemsResult(data.items)
+      setForm(INIT_FORM)
+      setImgFiles([]); setImgPreviews([])
+
+      const refreshed = await fetch(`/api/inventory?batch_id=${selectedBatch.id}`, { headers: { 'x-admin-key': adminKey.current } })
+      const refreshData = await refreshed.json()
+      const newItems = Array.isArray(refreshData.items) ? refreshData.items : []
+      setSelectedBatch(prev => prev ? { ...prev, items: newItems, item_count: newItems.length } : prev)
+      fetchBatches()
+      showToast(`Đã bổ sung ${qty} sản phẩm vào lô ${selectedBatch.batch_code}`)
+    } catch { showToast('Lỗi kết nối server') }
+    finally { setAddSubmitting(false) }
   }
 
   useEffect(() => {
@@ -493,9 +563,15 @@ export default function InventoryPage() {
         {view === 'batch-items' && selectedBatch && (
           <div>
             <div className="inv-batch-header">
-              <button style={S.btnGhost} onClick={() => { setView('batches'); setSelectedBatch(null) }}>← Lô hàng</button>
+              <button style={S.btnGhost} onClick={() => { setView('batches'); setSelectedBatch(null); setAddingItems(false); setAddItemsResult(null) }}>← Lô hàng</button>
               <code style={S.batchCode}>{selectedBatch.batch_code}</code>
               <span style={{ color: '#888', fontSize: 13 }}>{selectedBatch.item_count ?? selectedBatch.items?.length ?? 0} sp</span>
+              <button
+                style={{ ...S.btnGreen, padding: '8px 14px', fontSize: 13, marginLeft: 4 }}
+                onClick={() => addingItems ? setAddingItems(false) : startAddingItems()}
+              >
+                {addingItems ? '✕ Đóng form' : '+ Bổ sung'}
+              </button>
               {selectedBatch.items && selectedBatch.items.length > 0 && (
                 <button style={{ ...S.btnPrint, marginLeft: 'auto' }} onClick={() => startPrint(selectedBatch.items!)}>
                   🖨️ In tất cả
@@ -508,6 +584,142 @@ export default function InventoryPage() {
               {selectedBatch.created_by && <span>Nhập bởi: {selectedBatch.created_by}</span>}
               {selectedBatch.notes && <span style={{ fontStyle: 'italic' }}>{selectedBatch.notes}</span>}
             </div>
+
+            {/* ── Add Items Form ── */}
+            {addingItems && (
+              <div style={{ ...S.card, border: '1px solid #16a34a', marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <div style={S.cardTitle}>🏷️ Bổ sung sản phẩm vào lô này</div>
+                </div>
+
+                {/* Image upload */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <div style={S.lbl}>Ảnh ({imgPreviews.length}/8)</div>
+                    {compressing && <span className="inv-compress-badge inv-compress-loading">⏳ Đang nén...</span>}
+                    {!compressing && compressInfo && (
+                      <span className="inv-compress-badge inv-compress-done">
+                        ↓ {Math.round((1 - compressInfo.compressed / compressInfo.original) * 100)}%
+                        ({(compressInfo.original / 1024 / 1024).toFixed(1)}MB → {(compressInfo.compressed / 1024 / 1024).toFixed(1)}MB)
+                      </span>
+                    )}
+                  </div>
+                  <div className="inv-img-grid">
+                    {imgPreviews.map((src, i) => (
+                      <div key={i} className="inv-img-wrap">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={src} alt="" className="inv-img-thumb" />
+                        <button className="inv-img-remove" onClick={() => removeImg(i)}>✕</button>
+                      </div>
+                    ))}
+                    {compressing && (
+                      <div className="inv-img-add inv-img-compressing">
+                        <div className="inv-compress-spinner" />
+                      </div>
+                    )}
+                    {!compressing && imgPreviews.length < 8 && (
+                      <label className="inv-img-add">
+                        <span style={{ fontSize: 28, color: '#666' }}>📷</span>
+                        <span style={{ fontSize: 11, color: '#666', marginTop: 2 }}>Thêm ảnh</span>
+                        <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleImgChange} style={{ display: 'none' }} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div className="inv-fgrid">
+                  <div className="inv-fg-full">
+                    <div style={S.lbl}>Tên sản phẩm <span style={{ color: '#f87171' }}>*</span></div>
+                    <input className="inv-inp" placeholder="VD: Xe mô hình Tomica Honda Civic..." value={form.title} onChange={e => f('title', e.target.value)} />
+                  </div>
+                  <div style={S.fg}>
+                    <div style={S.lbl}>SKU</div>
+                    <input className="inv-inp" placeholder="VD: TOMICA-001..." value={form.sku} onChange={e => f('sku', e.target.value.toUpperCase())} />
+                  </div>
+                  <div style={S.fg}>
+                    <div style={S.lbl}>Danh mục</div>
+                    <input className="inv-inp" placeholder="VD: Đồ chơi, Điện tử..." value={form.category} onChange={e => f('category', e.target.value)} />
+                  </div>
+                  <div className="inv-fg-full">
+                    <div style={S.lbl}>Mô tả</div>
+                    <input className="inv-inp" placeholder="Mô tả chi tiết sản phẩm..." value={form.description} onChange={e => f('description', e.target.value)} />
+                  </div>
+                  <div style={S.fg}>
+                    <div style={S.lbl}>Tình trạng</div>
+                    <select className="inv-inp" value={form.condition} onChange={e => f('condition', e.target.value)}>
+                      {['Mới', 'Cũ - Như mới', 'Cũ - Còn tốt', 'Cũ - Có lỗi nhỏ'].map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div style={S.fg}>
+                    <div style={S.lbl}>Vị trí thùng</div>
+                    <input className="inv-inp" placeholder="VD: A1, Kệ B..." value={form.bin_location} onChange={e => f('bin_location', e.target.value)} />
+                  </div>
+                  <div style={S.fg}>
+                    <div style={S.lbl}>Giá nhập (VNĐ)</div>
+                    <input className="inv-inp" type="number" inputMode="numeric" min="0" step="1000" placeholder="0" value={form.cost_price} onChange={e => f('cost_price', e.target.value)} />
+                    {form.cost_price && <div style={S.pricePreview}>{fmtVND(Number(form.cost_price))}</div>}
+                  </div>
+                  <div style={S.fg}>
+                    <div style={S.lbl}>Giá bán (VNĐ)</div>
+                    <input className="inv-inp" type="number" inputMode="numeric" min="0" step="1000" placeholder="0" value={form.price} onChange={e => f('price', e.target.value)} />
+                    {form.price && <div style={S.pricePreview}>{fmtVND(Number(form.price))}</div>}
+                  </div>
+                  <div className="inv-fg-full">
+                    <div style={S.lbl}>Số lượng</div>
+                    <div className="inv-qty-row">
+                      <button className="inv-qty-btn" onClick={() => f('quantity', String(Math.max(1, (parseInt(form.quantity)||1) - 1)))}>−</button>
+                      <input className="inv-inp inv-qty-input" type="number" inputMode="numeric" min="1" max="200" value={form.quantity} onChange={e => f('quantity', e.target.value)} />
+                      <button className="inv-qty-btn" onClick={() => f('quantity', String(Math.min(200, (parseInt(form.quantity)||1) + 1)))}>+</button>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                      Tạo {Math.max(1, parseInt(form.quantity) || 1)} mã sản phẩm riêng biệt
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                  <button style={S.btnGhost} onClick={() => { setAddingItems(false); setAddItemsResult(null) }}>Hủy</button>
+                  <button
+                    style={{ flex: 1, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '14px 20px', fontSize: 15, fontWeight: 700, cursor: 'pointer', opacity: addSubmitting ? 0.5 : 1 }}
+                    onClick={submitAddItems}
+                    disabled={addSubmitting}
+                  >
+                    {addSubmitting ? 'Đang bổ sung...' : `📥 Bổ sung ${Math.max(1, parseInt(form.quantity) || 1)} sản phẩm`}
+                  </button>
+                </div>
+
+                {/* Result after add */}
+                {addItemsResult && addItemsResult.length > 0 && (
+                  <div style={{ ...S.importResult, marginTop: 16 }}>
+                    <div className="inv-result-header">
+                      <div>
+                        <span style={{ color: '#4ade80', fontWeight: 700, fontSize: 16 }}>✓ Bổ sung thành công!</span>
+                        <span style={{ color: '#9ca3af', fontSize: 13, marginLeft: 8 }}>{addItemsResult.length} sản phẩm</span>
+                      </div>
+                      <button style={S.btnPrint} onClick={() => startPrint(addItemsResult)}>
+                        🖨️ In nhãn ({addItemsResult.length})
+                      </button>
+                    </div>
+                    <div className="inv-result-list">
+                      {addItemsResult.map(item => (
+                        <div key={item.id} className="inv-result-card">
+                          <div className="inv-result-main">
+                            <code style={S.code}>{item.order_code}</code>
+                            {item.sku && <span style={{ color: '#60a5fa', fontSize: 12, fontWeight: 600 }}>{item.sku}</span>}
+                          </div>
+                          <div className="inv-result-title">{item.title}</div>
+                          <div className="inv-result-meta">
+                            {item.bin_location && <span>📦 {item.bin_location}</span>}
+                            <span style={{ color: '#4ade80' }}>{fmtVND(item.price)}</span>
+                            <button style={S.btnPrintSm} onClick={() => startPrint([item])}>🖨️</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {loading ? (
               <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>Đang tải...</div>
