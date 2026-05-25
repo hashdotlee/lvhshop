@@ -147,6 +147,14 @@ export default function HomeClient() {
 
   const [adminView, setAdminView]     = useState<'listing'|'customers'|'orders'>('listing')
 
+  function switchAdminView(view: 'listing'|'customers'|'orders') {
+    setAdminView(view)
+    const url = new URL(window.location.href)
+    if (view === 'listing') url.searchParams.delete('tab')
+    else url.searchParams.set('tab', view)
+    history.replaceState(null, '', url.toString())
+  }
+
   const [items, setItems]             = useState<Item[]>([])
   const [typeFilter, setTypeFilter]   = useState<'ban'|'mua'>('ban')
   const [condFilter, setCondFilter]   = useState<'all'|'Mới'|'Cũ'>('all')
@@ -268,6 +276,12 @@ export default function HomeClient() {
       adminKey.current = sessionStorage.getItem('cq_admin_key') ?? ''
       setIsAdmin(true)
       fetchBatches()
+      // Restore tab from URL query param
+      const tab = new URLSearchParams(window.location.search).get('tab')
+      if (tab === 'orders' || tab === 'customers') {
+        setAdminView(tab)
+        if (tab === 'customers') fetchCustomers()
+      }
     }
     setCartCount(getCartCount())
     fetchItems()
@@ -306,7 +320,10 @@ export default function HomeClient() {
   }
   function logout() {
     sessionStorage.removeItem('cq_admin'); sessionStorage.removeItem('cq_admin_key')
-    adminKey.current = ''; setIsAdmin(false); setAdminView('listing'); showToast('Đã đăng xuất')
+    adminKey.current = ''; setIsAdmin(false); setAdminView('listing')
+    const url = new URL(window.location.href); url.searchParams.delete('tab')
+    history.replaceState(null, '', url.toString())
+    showToast('Đã đăng xuất')
   }
 
   // ── images ────────────────────────────────────────────────────
@@ -708,11 +725,11 @@ export default function HomeClient() {
           </div>
           {isAdmin ? (
             <>
-              <button className={`tab-btn${adminView==='listing'?' tab-active':''}`} onClick={()=>setAdminView('listing')}>Tin đăng</button>
-              <button className={`tab-btn${adminView==='customers'?' tab-active':''}`} onClick={()=>{setAdminView('customers');if(!customers.length)fetchCustomers()}}>
+              <button className={`tab-btn${adminView==='listing'?' tab-active':''}`} onClick={()=>switchAdminView('listing')}>Tin đăng</button>
+              <button className={`tab-btn${adminView==='customers'?' tab-active':''}`} onClick={()=>{switchAdminView('customers');if(!customers.length)fetchCustomers()}}>
                 Khách hàng{customers.length>0&&<span className="badge">{customers.length}</span>}
               </button>
-              <button className={`tab-btn${adminView==='orders'?' tab-active':''}`} onClick={()=>setAdminView('orders')}>
+              <button className={`tab-btn${adminView==='orders'?' tab-active':''}`} onClick={()=>switchAdminView('orders')}>
                 Đơn hàng
               </button>
               <a href="/inventory" className="tab-btn" style={{textDecoration:'none'}}>📦 Kho hàng</a>
