@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Order } from '@/lib/supabase'
 
@@ -40,6 +40,12 @@ function fmtVND(v: number | null | undefined) {
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
+function fmtDateTime(iso: string) {
+  return new Date(iso).toLocaleString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
 
 type OrderLineItem = {
   id: number
@@ -64,6 +70,8 @@ export default function MyOrdersClient() {
   const [loadingOrders, setLoadingOrders] = useState(false)
   const [fetchError, setFetchError] = useState('')
   const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [printOrder, setPrintOrder] = useState<OrderWithItem | null>(null)
+  const printRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -93,6 +101,12 @@ export default function MyOrdersClient() {
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    function onAfterPrint() { setPrintOrder(null) }
+    window.addEventListener('afterprint', onAfterPrint)
+    return () => window.removeEventListener('afterprint', onAfterPrint)
   }, [])
 
   async function fetchOrders(p: string) {
@@ -128,6 +142,11 @@ export default function MyOrdersClient() {
     setOrders([])
     setFetchError('')
     try { localStorage.removeItem(STORAGE_PHONE) } catch {}
+  }
+
+  function handlePrint(order: OrderWithItem) {
+    setPrintOrder(order)
+    setTimeout(() => window.print(), 80)
   }
 
   return (
@@ -186,28 +205,159 @@ export default function MyOrdersClient() {
                   setExpandedId={setExpandedId}
                   phone={savedPhone}
                   onChangePhone={handleChangePhone}
+                  onPrint={handlePrint}
                 />
               )}
             </>
           )}
         </main>
       </div>
+
+      {/* ── Printable invoice — hidden on screen, visible only when printing ── */}
+      {printOrder && (
+        <div ref={printRef} className="inv-print-wrap">
+          <InvoiceDocument order={printOrder} />
+        </div>
+      )}
     </>
   )
 }
 
+// ─── Invoice document ─────────────────────────────────────────────
+function InvoiceDocument({ order }: { order: OrderWithItem }) {
+  const lineItems: OrderLineItem[] =
+    order.order_items && order.order_items.length > 0
+      ? order.order_items
+      : order.item_title
+        ? [{ id: 0, item_title: order.item_title, item_price: order.item_price, quantity: 1, order_code: order.items?.order_code ?? null }]
+        : []
+
+  const subtotal = lineItems.reduce((s, i) => s + (i.item_price ?? 0) * i.quantity, 0)
+  const total = order.total_amount ?? subtotal || null
+
+  return (
+    <>
+      {/* ── Shop header ── */}
+      <div className="inv-header">
+        <div className="inv-shop-name">leviethoang<span>.shop</span></div>
+        <div className="inv-doc-title">PHIẾU XÁC NHẬN ĐƠN HÀNG</div>
+      </div>
+
+      <div className="inv-meta-row">
+        <div className="inv-meta-left">
+          <div className="inv-meta-line"><span>Mã đơn:</span> <strong>{order.order_number}</strong></div>
+          <div className="inv-meta-line"><span>Ngày đặt:</span> {fmtDateTime(order.created_at)}</div>
+          <div className="inv-meta-line">
+            <span>Trạng thái:</span>{' '}
+            <strong>{STATUS_LABEL[order.order_status] ?? order.order_status}</strong>
+          </div>
+        </div>
+        <div className="inv-meta-right">
+          <div className="inv-meta-line"><span>Thanh toán:</span> <strong>{order.payment_method === 'cod' ? 'COD' : 'Chuyển khoản'}</strong></div>
+          <div className="inv-meta-line">
+            <span>TT Thanh toán:</span>{' '}
+            <strong>{PAY_LABEL[order.payment_status] ?? order.payment_status}</strong>
+          </div>
+          {order.shipping_carrier && (
+            <div className="inv-meta-line"><span>Vận chuyển:</span> {CARRIER_LABEL[order.shipping_carrier] ?? order.shipping_carrier}</div>
+          )}
+          {order.tracking_number && (
+            <div className="inv-meta-line"><span>Mã vận đơn:</span> <strong>{order.tracking_number}</strong></div>
+          )}
+        </div>
+      </div>
+
+      <div className="inv-divider" />
+
+      {/* ── Customer info ── */}
+      <div className="inv-section-title">THÔNG TIN NGƯỜI NHẬN</div>
+      <div className="inv-customer-grid">
+        <div className="inv-cust-row"><span>Họ tên:</span> <strong>{order.customer_name}</strong></div>
+        <div className="inv-cust-row"><span>Số điện thoại:</span> <strong>{order.customer_phone}</strong></div>
+        <div className="inv-cust-row inv-cust-full"><span>Địa chỉ giao hàng:</span> <strong>{order.customer_address}</strong></div>
+        {order.customer_note && (
+          <div className="inv-cust-row inv-cust-full"><span>Ghi chú:</span> {order.customer_note}</div>
+        )}
+      </div>
+
+      <div className="inv-divider" />
+
+      {/* ── Items table ── */}
+      <div className="inv-section-title">CHI TIẾT SẢN PHẨM</div>
+      <table className="inv-table">
+        <thead>
+          <tr>
+            <th className="inv-th-stt">STT</th>
+            <th className="inv-th-name">Tên sản phẩm</th>
+            <th className="inv-th-code">Mã SP</th>
+            <th className="inv-th-qty">SL</th>
+            <th className="inv-th-price">Đơn giá</th>
+            <th className="inv-th-total">Thành tiền</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lineItems.map((oi, idx) => (
+            <tr key={oi.id || idx}>
+              <td className="inv-td-center">{idx + 1}</td>
+              <td>{oi.item_title}</td>
+              <td className="inv-td-code">{oi.order_code ?? '—'}</td>
+              <td className="inv-td-center">{oi.quantity}</td>
+              <td className="inv-td-right">{fmtVND(oi.item_price)}</td>
+              <td className="inv-td-right inv-td-bold">{fmtVND(oi.item_price ? oi.item_price * oi.quantity : null)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* ── Total ── */}
+      <div className="inv-total-wrap">
+        {subtotal > 0 && lineItems.length > 1 && total !== subtotal && (
+          <div className="inv-total-row">
+            <span>Tạm tính</span>
+            <span>{fmtVND(subtotal)}</span>
+          </div>
+        )}
+        <div className="inv-total-row inv-grand-total">
+          <span>TỔNG CỘNG</span>
+          <span>{fmtVND(total)}</span>
+        </div>
+        <div className="inv-pay-method">
+          {order.payment_method === 'cod'
+            ? 'Thanh toán khi nhận hàng (COD)'
+            : 'Chuyển khoản ngân hàng'}
+          {order.payment_status === 'verified' && ' · Đã thanh toán'}
+        </div>
+      </div>
+
+      <div className="inv-divider" />
+
+      {/* ── Footer ── */}
+      <div className="inv-footer">
+        <div className="inv-footer-note">
+          Cảm ơn bạn đã tin tưởng mua hàng tại <strong>leviethoang.shop</strong>!<br />
+          Mọi thắc mắc vui lòng liên hệ qua trang web hoặc số điện thoại ghi trên sản phẩm.
+        </div>
+        <div className="inv-footer-url">leviethoang.shop</div>
+      </div>
+    </>
+  )
+}
+
+// ─── Order list component ─────────────────────────────────────────
 function OrderList({
   orders,
   expandedId,
   setExpandedId,
   phone,
   onChangePhone,
+  onPrint,
 }: {
   orders: OrderWithItem[]
   expandedId: number | null
   setExpandedId: (id: number | null) => void
   phone: string
   onChangePhone: () => void
+  onPrint: (order: OrderWithItem) => void
 }) {
   if (orders.length === 0) {
     return (
@@ -277,6 +427,7 @@ function OrderList({
                       ))}
                     </div>
                   )}
+
                   <div className="mo-detail-grid">
                     <div className="mo-detail-item">
                       <div className="mo-detail-label">Trạng thái đơn</div>
@@ -334,6 +485,18 @@ function OrderList({
                       Đơn hàng đang được giao — mã vận đơn <strong>{order.tracking_number}</strong> qua {CARRIER_LABEL[order.shipping_carrier] ?? order.shipping_carrier}.
                     </div>
                   )}
+
+                  {/* Print invoice button */}
+                  <div className="mo-invoice-bar">
+                    <button className="mo-print-btn" onClick={e => { e.stopPropagation(); onPrint(order) }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
+                        <rect x="6" y="14" width="12" height="8"/>
+                      </svg>
+                      In / Lưu hóa đơn
+                    </button>
+                    <span className="mo-invoice-hint">Hóa đơn dạng A4 để đối chiếu</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -404,13 +567,6 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .mo-copy-btn{font-size:11px;padding:2px 8px;border:1px solid #e8e6e1;border-radius:4px;background:#fff;cursor:pointer;font-family:inherit;color:#8c8982;transition:all .15s}
 .mo-copy-btn:hover{border-color:#1a1916;color:#1a1916}
 .mo-track-hint{margin-top:14px;padding:10px 14px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;font-size:13px;color:#1e40af;line-height:1.5}
-/* Empty state */
-.mo-empty-wrap{text-align:center;padding:48px 20px}
-.mo-empty-icon{font-size:48px;margin-bottom:14px}
-.mo-empty-title{font-size:18px;font-weight:700;margin-bottom:8px}
-.mo-empty-desc{font-size:14px;color:#8c8982;margin-bottom:20px;line-height:1.6}
-.mo-change-phone-btn{background:#fff;border:1px solid #e8e6e1;color:#1a1916;padding:9px 20px;border-radius:8px;font-family:inherit;font-size:14px;cursor:pointer;transition:all .15s}
-.mo-change-phone-btn:hover{border-color:#1a1916;background:#f9f8f6}
 /* items list */
 .mo-items-list{margin-bottom:14px;border:1px solid #e8e6e1;border-radius:8px;overflow:hidden}
 .mo-item-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px dashed #e8e6e1;background:#fff}
@@ -419,11 +575,99 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .mo-item-title{font-size:13px;font-weight:500;color:#1a1916}
 .mo-item-code{font-size:10px;font-family:monospace;color:#8c8982;background:#f0efe9;padding:1px 6px;border-radius:3px;width:fit-content}
 .mo-item-price{font-size:13px;font-weight:700;color:#2a7a4b;white-space:nowrap;flex-shrink:0}
+/* Invoice action bar */
+.mo-invoice-bar{display:flex;align-items:center;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #e8e6e1}
+.mo-print-btn{display:inline-flex;align-items:center;gap:7px;background:#1a1916;color:#fff;border:none;padding:8px 16px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.mo-print-btn:hover{opacity:.85}
+.mo-invoice-hint{font-size:12px;color:#8c8982}
+/* Empty state */
+.mo-empty-wrap{text-align:center;padding:48px 20px}
+.mo-empty-icon{font-size:48px;margin-bottom:14px}
+.mo-empty-title{font-size:18px;font-weight:700;margin-bottom:8px}
+.mo-empty-desc{font-size:14px;color:#8c8982;margin-bottom:20px;line-height:1.6}
+.mo-change-phone-btn{background:#fff;border:1px solid #e8e6e1;color:#1a1916;padding:9px 20px;border-radius:8px;font-family:inherit;font-size:14px;cursor:pointer;transition:all .15s}
+.mo-change-phone-btn:hover{border-color:#1a1916;background:#f9f8f6}
+
+/* ═══════════════════════════════════════════
+   INVOICE PRINT — A4, screen preview hidden
+   ═══════════════════════════════════════════ */
+.inv-print-wrap{display:none}
+
+@page{size:A4;margin:16mm 16mm 14mm}
+@media print{
+  body *{visibility:hidden}
+  .inv-print-wrap{
+    display:block!important;visibility:visible;
+    position:fixed;inset:0;z-index:9999;
+    background:white;padding:0;
+    font-family:'Be Vietnam Pro',Arial,sans-serif;font-size:10pt;color:#111;
+    line-height:1.5;
+  }
+  .inv-print-wrap *{visibility:visible}
+}
+
+/* Header */
+.inv-header{text-align:center;margin-bottom:14pt;padding-bottom:10pt;border-bottom:2px solid #1a1916}
+.inv-shop-name{font-size:22pt;font-weight:800;letter-spacing:-.5px;color:#1a1916}
+.inv-shop-name span{font-weight:300;color:#666}
+.inv-doc-title{font-size:13pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#444;margin-top:4pt}
+
+/* Meta row */
+.inv-meta-row{display:flex;gap:24pt;margin-bottom:12pt}
+.inv-meta-left,.inv-meta-right{flex:1}
+.inv-meta-line{font-size:9.5pt;margin-bottom:3pt;display:flex;gap:6pt}
+.inv-meta-line span{color:#666;min-width:90pt;flex-shrink:0}
+.inv-meta-line strong{color:#111}
+
+/* Divider */
+.inv-divider{border:none;border-top:1px solid #ddd;margin:10pt 0}
+
+/* Section title */
+.inv-section-title{font-size:8pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:7pt}
+
+/* Customer */
+.inv-customer-grid{display:grid;grid-template-columns:1fr 1fr;gap:5pt 20pt;margin-bottom:4pt}
+.inv-cust-row{font-size:9.5pt;display:flex;gap:6pt}
+.inv-cust-row span{color:#666;min-width:80pt;flex-shrink:0}
+.inv-cust-row strong{color:#111}
+.inv-cust-full{grid-column:1/-1}
+
+/* Items table */
+.inv-table{width:100%;border-collapse:collapse;margin-bottom:0;font-size:9.5pt}
+.inv-table thead tr{background:#f0efe9;border-bottom:1.5px solid #ccc}
+.inv-table th{padding:6pt 8pt;text-align:left;font-size:8pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#666}
+.inv-th-stt{width:28pt;text-align:center}
+.inv-th-name{min-width:160pt}
+.inv-th-code{width:90pt}
+.inv-th-qty{width:24pt;text-align:center}
+.inv-th-price{width:72pt;text-align:right}
+.inv-th-total{width:80pt;text-align:right}
+.inv-table tbody tr{border-bottom:1px dashed #e0e0e0}
+.inv-table tbody tr:last-child{border-bottom:none}
+.inv-table td{padding:7pt 8pt;vertical-align:top}
+.inv-td-center{text-align:center;color:#666}
+.inv-td-code{font-family:monospace;font-size:8.5pt;color:#555}
+.inv-td-right{text-align:right}
+.inv-td-bold{font-weight:700;color:#1a1916}
+
+/* Total */
+.inv-total-wrap{border-top:1.5px solid #1a1916;margin-top:0;padding-top:8pt}
+.inv-total-row{display:flex;justify-content:space-between;align-items:center;font-size:9.5pt;color:#666;padding:2pt 8pt}
+.inv-grand-total{font-size:13pt;font-weight:800;color:#1a1916;padding:6pt 8pt;border-top:1px solid #e0e0e0;margin-top:2pt}
+.inv-pay-method{font-size:9pt;color:#555;text-align:right;padding:2pt 8pt 6pt}
+
+/* Footer */
+.inv-footer{margin-top:12pt;text-align:center;padding-top:8pt;border-top:1px dashed #ccc}
+.inv-footer-note{font-size:9pt;color:#666;line-height:1.6;margin-bottom:4pt}
+.inv-footer-note strong{color:#1a1916}
+.inv-footer-url{font-size:10pt;font-weight:700;color:#1a1916;letter-spacing:-.3px}
+
 @media(max-width:600px){
   .mo-header{padding:12px 16px}
   .mo-main{padding:24px 14px}
   .mo-lookup-box{padding:24px 16px}
   .mo-detail-grid{grid-template-columns:1fr}
   .mo-order-thumb,.mo-order-thumb-placeholder{width:48px;height:48px}
+  .mo-invoice-bar{flex-direction:column;align-items:flex-start;gap:6px}
 }
 `
