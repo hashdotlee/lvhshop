@@ -112,6 +112,14 @@ export default function InventoryPage() {
   const [addItemsResult, setAddItemsResult] = useState<Item[] | null>(null)
   const [addSubmitting, setAddSubmitting] = useState(false)
 
+  const [editingBatch, setEditingBatch] = useState<InventoryBatch | null>(null)
+  const [editBatchForm, setEditBatchForm] = useState({ notes: '', supplier: '', staff_id: '' })
+  const [editBatchSubmitting, setEditBatchSubmitting] = useState(false)
+
+  const [editingItem, setEditingItem] = useState<Item | null>(null)
+  const [editItemForm, setEditItemForm] = useState({ title: '', sku: '', description: '', condition: 'Mới', category: '', price: '', cost_price: '', bin_location: '' })
+  const [editItemSubmitting, setEditItemSubmitting] = useState(false)
+
   const fileRef = useRef<HTMLInputElement>(null)
   const [toast, setToast] = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -376,6 +384,88 @@ export default function InventoryPage() {
     finally { setAddSubmitting(false) }
   }
 
+  function openEditBatch(batch: InventoryBatch) {
+    setEditingBatch(batch)
+    setEditBatchForm({
+      notes: batch.notes ?? '',
+      supplier: batch.supplier ?? '',
+      staff_id: batch.staff_id ? String(batch.staff_id) : '',
+    })
+  }
+
+  async function submitEditBatch() {
+    if (!editingBatch) return
+    setEditBatchSubmitting(true)
+    try {
+      const staff = staffList.find(s => s.id === Number(editBatchForm.staff_id))
+      const r = await fetch('/api/inventory', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey.current },
+        body: JSON.stringify({
+          id: editingBatch.id,
+          notes: editBatchForm.notes || null,
+          supplier: editBatchForm.supplier || null,
+          staff_id: editBatchForm.staff_id ? Number(editBatchForm.staff_id) : null,
+          created_by: staff?.name ?? editingBatch.created_by ?? null,
+        }),
+      })
+      if (!r.ok) { const err = await r.json(); showToast(`Lỗi: ${err.error ?? r.status}`); return }
+      const updated = await r.json()
+      setBatches(prev => prev.map(b => b.id === updated.id ? { ...b, ...updated } : b))
+      if (selectedBatch?.id === updated.id) setSelectedBatch(prev => prev ? { ...prev, ...updated } : prev)
+      setEditingBatch(null)
+      showToast('Đã cập nhật thông tin lô')
+    } catch { showToast('Lỗi kết nối server') }
+    finally { setEditBatchSubmitting(false) }
+  }
+
+  function openEditItem(item: Item) {
+    setEditingItem(item)
+    setEditItemForm({
+      title: item.title,
+      sku: item.sku ?? '',
+      description: item.description ?? '',
+      condition: item.condition ?? 'Mới',
+      category: item.category ?? '',
+      price: item.price ? String(item.price) : '',
+      cost_price: item.cost_price ? String(item.cost_price) : '',
+      bin_location: item.bin_location ?? '',
+    })
+  }
+
+  async function submitEditItem() {
+    if (!editingItem) return
+    if (!editItemForm.title.trim()) { showToast('Nhập tên sản phẩm'); return }
+    setEditItemSubmitting(true)
+    try {
+      const r = await fetch('/api/items', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey.current },
+        body: JSON.stringify({
+          id: editingItem.id,
+          title: editItemForm.title,
+          description: editItemForm.description || null,
+          price: editItemForm.price ? Number(editItemForm.price) : null,
+          cost_price: editItemForm.cost_price ? Number(editItemForm.cost_price) : null,
+          condition: editItemForm.condition,
+          category: editItemForm.category || null,
+          type: editingItem.type,
+          phone: editingItem.phone ?? '',
+          location: editingItem.location ?? '',
+          images: editingItem.images ?? [],
+          sku: editItemForm.sku || null,
+          bin_location: editItemForm.bin_location || null,
+        }),
+      })
+      if (!r.ok) { const err = await r.json(); showToast(`Lỗi: ${err.error ?? r.status}`); return }
+      const updated = await r.json()
+      setSelectedBatch(prev => prev ? { ...prev, items: (prev.items ?? []).map(i => i.id === updated.id ? updated : i) } : prev)
+      setEditingItem(null)
+      showToast('Đã cập nhật sản phẩm')
+    } catch { showToast('Lỗi kết nối server') }
+    finally { setEditItemSubmitting(false) }
+  }
+
   useEffect(() => {
     if (!printItems) return
     const timer = setTimeout(() => { window.print() }, 300)
@@ -487,6 +577,9 @@ export default function InventoryPage() {
                     <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                       <button style={S.btnPrimary} onClick={() => openBatch(b)}>
                         Xem sản phẩm →
+                      </button>
+                      <button style={S.btnGhost} onClick={() => openEditBatch(b)} title="Sửa thông tin lô">
+                        ✎ Sửa
                       </button>
                     </div>
                   </div>
@@ -669,6 +762,9 @@ export default function InventoryPage() {
                 onClick={() => addingItems ? setAddingItems(false) : startAddingItems()}
               >
                 {addingItems ? '✕ Đóng form' : '+ Bổ sung'}
+              </button>
+              <button style={{ ...S.btnGhost, padding: '8px 14px', fontSize: 13 }} onClick={() => openEditBatch(selectedBatch)}>
+                ✎ Sửa lô
               </button>
               {selectedBatch.items && selectedBatch.items.length > 0 && (
                 <button style={{ ...S.btnPrint, marginLeft: 'auto' }} onClick={() => startPrint(selectedBatch.items!)}>
@@ -895,6 +991,7 @@ export default function InventoryPage() {
                               <div style={{ display: 'flex', gap: 6 }}>
                                 <button style={S.btnPrintSm} onClick={() => startPrint([item])} title="In nhãn">🖨️</button>
                                 <a href={`/item/${item.id}`} style={{ ...S.btnPrintSm, textDecoration: 'none' }} target="_blank">👁️</a>
+                                <button style={{ ...S.btnPrintSm, background: '#374151' }} onClick={() => openEditItem(item)} title="Sửa">✎</button>
                               </div>
                             </td>
                           </tr>
@@ -934,6 +1031,7 @@ export default function InventoryPage() {
                         <div className="inv-item-card-actions">
                           <button style={S.btnPrintSm} onClick={() => startPrint([item])}>🖨️</button>
                           <a href={`/item/${item.id}`} style={{ ...S.btnPrintSm, textDecoration: 'none' }} target="_blank">👁️</a>
+                          <button style={{ ...S.btnPrintSm, background: '#374151' }} onClick={() => openEditItem(item)}>✎</button>
                         </div>
                       </div>
                     )
@@ -944,6 +1042,97 @@ export default function InventoryPage() {
           </div>
         )}
       </main>
+
+      {/* ── Edit Batch Modal ── */}
+      {editingBatch && (
+        <div className="inv-modal-overlay" onClick={() => setEditingBatch(null)}>
+          <div className="inv-modal" onClick={e => e.stopPropagation()}>
+            <div className="inv-modal-title">Sửa thông tin lô <code style={S.batchCode}>{editingBatch.batch_code}</code></div>
+            <div style={S.fg}>
+              <div style={S.lbl}>Nguồn hàng</div>
+              <input className="inv-inp" value={editBatchForm.supplier} onChange={e => setEditBatchForm(p => ({ ...p, supplier: e.target.value }))} placeholder="VD: Nguồn Nhật..." />
+            </div>
+            <div style={{ ...S.fg, marginTop: 12 }}>
+              <div style={S.lbl}>Người nhập</div>
+              <select className="inv-inp" value={editBatchForm.staff_id} onChange={e => setEditBatchForm(p => ({ ...p, staff_id: e.target.value }))}>
+                <option value="">— Chọn —</option>
+                {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div style={{ ...S.fg, marginTop: 12 }}>
+              <div style={S.lbl}>Ghi chú lô</div>
+              <input className="inv-inp" value={editBatchForm.notes} onChange={e => setEditBatchForm(p => ({ ...p, notes: e.target.value }))} placeholder="Ghi chú nội bộ..." />
+            </div>
+            <div className="inv-modal-actions">
+              <button style={S.btnGhost} onClick={() => setEditingBatch(null)}>Hủy</button>
+              <button
+                style={{ ...S.btnGreen, opacity: editBatchSubmitting ? 0.5 : 1 }}
+                onClick={submitEditBatch}
+                disabled={editBatchSubmitting}
+              >
+                {editBatchSubmitting ? 'Đang lưu...' : '✓ Lưu thay đổi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Item Modal ── */}
+      {editingItem && (
+        <div className="inv-modal-overlay" onClick={() => setEditingItem(null)}>
+          <div className="inv-modal inv-modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="inv-modal-title">Sửa sản phẩm <code style={S.code}>{editingItem.order_code}</code></div>
+            <div className="inv-fgrid" style={{ gap: 12 }}>
+              <div className="inv-fg-full">
+                <div style={S.lbl}>Tên sản phẩm <span style={{ color: '#f87171' }}>*</span></div>
+                <input className="inv-inp" value={editItemForm.title} onChange={e => setEditItemForm(p => ({ ...p, title: e.target.value }))} />
+              </div>
+              <div style={S.fg}>
+                <div style={S.lbl}>SKU</div>
+                <input className="inv-inp" value={editItemForm.sku} onChange={e => setEditItemForm(p => ({ ...p, sku: e.target.value.toUpperCase() }))} />
+              </div>
+              <div style={S.fg}>
+                <div style={S.lbl}>Danh mục</div>
+                <input className="inv-inp" value={editItemForm.category} onChange={e => setEditItemForm(p => ({ ...p, category: e.target.value }))} />
+              </div>
+              <div className="inv-fg-full">
+                <div style={S.lbl}>Mô tả</div>
+                <input className="inv-inp" value={editItemForm.description} onChange={e => setEditItemForm(p => ({ ...p, description: e.target.value }))} />
+              </div>
+              <div style={S.fg}>
+                <div style={S.lbl}>Tình trạng</div>
+                <select className="inv-inp" value={editItemForm.condition} onChange={e => setEditItemForm(p => ({ ...p, condition: e.target.value }))}>
+                  {['Mới', 'Cũ - Như mới', 'Cũ - Còn tốt', 'Cũ - Có lỗi nhỏ'].map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div style={S.fg}>
+                <div style={S.lbl}>Vị trí thùng</div>
+                <input className="inv-inp" value={editItemForm.bin_location} onChange={e => setEditItemForm(p => ({ ...p, bin_location: e.target.value }))} />
+              </div>
+              <div style={S.fg}>
+                <div style={S.lbl}>Giá nhập (VNĐ)</div>
+                <input className="inv-inp" type="number" inputMode="numeric" min="0" step="1000" value={editItemForm.cost_price} onChange={e => setEditItemForm(p => ({ ...p, cost_price: e.target.value }))} />
+                {editItemForm.cost_price && <div style={S.pricePreview}>{fmtVND(Number(editItemForm.cost_price))}</div>}
+              </div>
+              <div style={S.fg}>
+                <div style={S.lbl}>Giá bán (VNĐ)</div>
+                <input className="inv-inp" type="number" inputMode="numeric" min="0" step="1000" value={editItemForm.price} onChange={e => setEditItemForm(p => ({ ...p, price: e.target.value }))} />
+                {editItemForm.price && <div style={S.pricePreview}>{fmtVND(Number(editItemForm.price))}</div>}
+              </div>
+            </div>
+            <div className="inv-modal-actions" style={{ marginTop: 16 }}>
+              <button style={S.btnGhost} onClick={() => setEditingItem(null)}>Hủy</button>
+              <button
+                style={{ ...S.btnGreen, opacity: editItemSubmitting ? 0.5 : 1 }}
+                onClick={submitEditItem}
+                disabled={editItemSubmitting}
+              >
+                {editItemSubmitting ? 'Đang lưu...' : '✓ Lưu thay đổi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
@@ -1316,6 +1505,26 @@ const pageCSS = `
     animation: inv-spin 0.7s linear infinite;
   }
   @keyframes inv-spin { to { transform: rotate(360deg); } }
+
+  /* ── Edit modals ── */
+  .inv-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 16px;
+  }
+  .inv-modal {
+    background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 14px;
+    padding: 24px; width: 100%; max-width: 420px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .inv-modal-lg { max-width: 600px; }
+  .inv-modal-title {
+    font-size: 15px; font-weight: 700; color: #e5e7eb;
+    margin-bottom: 20px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .inv-modal-actions {
+    display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;
+  }
 
   /* ── Mobile breakpoint ── */
   @media (max-width: 640px) {

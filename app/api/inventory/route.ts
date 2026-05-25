@@ -165,6 +165,28 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ batch, items: createdItems }, { status: 200 })
 }
 
+// PUT /api/inventory → cập nhật thông tin lô hàng
+export async function PUT(req: NextRequest) {
+  if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const body = await req.json()
+  const { id, notes, supplier, staff_id, created_by } = body
+  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+  const db = adminClient()
+  const { data, error } = await db
+    .from('inventory_batches')
+    .update({
+      notes: notes || null,
+      supplier: supplier || null,
+      staff_id: staff_id ? Number(staff_id) : null,
+      created_by: created_by || null,
+    })
+    .eq('id', Number(id))
+    .select()
+    .single()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}
+
 // DELETE /api/inventory?batch_id=N → xóa lô hàng
 export async function DELETE(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
