@@ -18,9 +18,15 @@ export async function POST(req: NextRequest) {
   const { order_id, item_id, item_title, item_price, quantity } = await req.json()
   if (!order_id || !item_title) return NextResponse.json({ error: 'missing order_id or item_title' }, { status: 400 })
   const db = adminClient()
+  // Look up order_code from items table if item_id provided
+  let order_code: string | null = null
+  if (item_id) {
+    const { data: itemRow } = await db.from('items').select('order_code').eq('id', item_id).single()
+    order_code = (itemRow as { order_code: string } | null)?.order_code ?? null
+  }
   const { data, error } = await db
     .from('order_items')
-    .insert({ order_id, item_id: item_id || null, item_title, item_price: item_price || null, quantity: quantity || 1 })
+    .insert({ order_id, item_id: item_id || null, item_title, item_price: item_price || null, quantity: quantity || 1, order_code })
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -41,8 +41,17 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+type OrderLineItem = {
+  id: number
+  item_title: string
+  item_price: number | null
+  quantity: number
+  order_code: string | null
+}
+
 type OrderWithItem = Order & {
   items?: { title: string; price: number | null; order_code: string; images: string[] } | null
+  order_items?: OrderLineItem[]
 }
 
 const STORAGE_PHONE = 'ord_customer_phone'
@@ -253,6 +262,21 @@ function OrderList({
 
               {isExpanded && (
                 <div className="mo-order-detail">
+                  {/* Order items list */}
+                  {order.order_items && order.order_items.length > 0 && (
+                    <div className="mo-items-list">
+                      <div className="mo-detail-label" style={{ marginBottom: 6 }}>Sản phẩm đặt hàng</div>
+                      {order.order_items.map(oi => (
+                        <div key={oi.id} className="mo-item-row">
+                          <div className="mo-item-row-left">
+                            <span className="mo-item-title">{oi.item_title}{oi.quantity > 1 ? ` ×${oi.quantity}` : ''}</span>
+                            {oi.order_code && <code className="mo-item-code">{oi.order_code}</code>}
+                          </div>
+                          <span className="mo-item-price">{fmtVND(oi.item_price ? oi.item_price * oi.quantity : null)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="mo-detail-grid">
                     <div className="mo-detail-item">
                       <div className="mo-detail-label">Trạng thái đơn</div>
@@ -387,6 +411,14 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .mo-empty-desc{font-size:14px;color:#8c8982;margin-bottom:20px;line-height:1.6}
 .mo-change-phone-btn{background:#fff;border:1px solid #e8e6e1;color:#1a1916;padding:9px 20px;border-radius:8px;font-family:inherit;font-size:14px;cursor:pointer;transition:all .15s}
 .mo-change-phone-btn:hover{border-color:#1a1916;background:#f9f8f6}
+/* items list */
+.mo-items-list{margin-bottom:14px;border:1px solid #e8e6e1;border-radius:8px;overflow:hidden}
+.mo-item-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-bottom:1px dashed #e8e6e1;background:#fff}
+.mo-item-row:last-child{border-bottom:none}
+.mo-item-row-left{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mo-item-title{font-size:13px;font-weight:500;color:#1a1916}
+.mo-item-code{font-size:10px;font-family:monospace;color:#8c8982;background:#f0efe9;padding:1px 6px;border-radius:3px;width:fit-content}
+.mo-item-price{font-size:13px;font-weight:700;color:#2a7a4b;white-space:nowrap;flex-shrink:0}
 @media(max-width:600px){
   .mo-header{padding:12px 16px}
   .mo-main{padding:24px 14px}

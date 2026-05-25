@@ -53,6 +53,14 @@ export async function POST(req: NextRequest) {
     ? (cartItems.reduce((s, i) => s + (i.price ?? 0), 0) || null)
     : (total_amount ?? null)
 
+  // All items that should become order_items: prefer cart_items, fall back to single item
+  const allOrderItems: Array<{ id?: number; title: string; price: number | null }> =
+    cartItems.length > 0
+      ? cartItems
+      : (item_id || item_title)
+        ? [{ id: item_id || undefined, title: item_title ?? '', price: item_price ?? null }]
+        : []
+
   const baseRow = {
     item_id: cartItems.length > 0 ? null : (item_id || null),
     item_title: cartItems.length > 0 ? null : (item_title ?? null),
@@ -71,15 +79,27 @@ export async function POST(req: NextRequest) {
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Create order_items for cart orders (service role, no admin auth needed)
-  if (cartItems.length > 0 && data) {
+  // Create order_items for all orders (cart and single-item)
+  if (allOrderItems.length > 0 && data) {
+    // Look up order_code for items that have an item_id
+    const idsToLookup = allOrderItems.filter(i => i.id).map(i => i.id as number)
+    const orderCodeMap: Record<number, string> = {}
+    if (idsToLookup.length > 0) {
+      const { data: itemRows } = await db.from('items').select('id, order_code').in('id', idsToLookup)
+      if (itemRows) {
+        for (const row of itemRows as { id: number; order_code: string }[]) {
+          orderCodeMap[row.id] = row.order_code
+        }
+      }
+    }
     await db.from('order_items').insert(
-      cartItems.map(ci => ({
+      allOrderItems.map(ci => ({
         order_id: (data as { id: number }).id,
         item_id: ci.id ?? null,
         item_title: ci.title,
         item_price: ci.price ?? null,
         quantity: 1,
+        order_code: ci.id ? (orderCodeMap[ci.id] ?? null) : null,
       }))
     )
   }

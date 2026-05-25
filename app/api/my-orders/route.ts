@@ -23,7 +23,8 @@ export async function GET(req: NextRequest) {
       shipping_carrier, tracking_number,
       payment_method, payment_status, order_status,
       total_amount, created_at, updated_at,
-      items(title, price, order_code, images)
+      items(title, price, order_code, images),
+      order_items(id, item_title, item_price, quantity, order_code)
     `)
     .eq('customer_phone', phone)
     .order('created_at', { ascending: false })
