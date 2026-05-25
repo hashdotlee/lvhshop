@@ -24,7 +24,7 @@ export type Item = {
   location: string
   image_url: string        // legacy single (keep for compat)
   images: string[]         // new: array of URLs
-  status: 'available' | 'sold' | 'incoming'
+  status: 'available' | 'sold' | 'incoming' | 'reserved'
   expected_date: string | null
   posted_by: string | null
   staff_id: number | null

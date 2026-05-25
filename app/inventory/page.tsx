@@ -889,6 +889,7 @@ export default function InventoryPage() {
                               {item.status === 'available' && <span style={S.badgeAvail}>Còn hàng</span>}
                               {item.status === 'sold' && <span style={S.badgeSold}>Đã bán</span>}
                               {item.status === 'incoming' && <span style={S.badgeIncoming}>Sắp về</span>}
+                              {item.status === 'reserved' && <span style={S.badgeReserved}>Đang giữ</span>}
                             </td>
                             <td style={S.td}>
                               <div style={{ display: 'flex', gap: 6 }}>
@@ -927,6 +928,7 @@ export default function InventoryPage() {
                             {item.status === 'available' && <span style={S.badgeAvail}>Còn</span>}
                             {item.status === 'sold' && <span style={S.badgeSold}>Đã bán</span>}
                             {item.status === 'incoming' && <span style={S.badgeIncoming}>Sắp về</span>}
+                            {item.status === 'reserved' && <span style={S.badgeReserved}>Đang giữ</span>}
                           </div>
                         </div>
                         <div className="inv-item-card-actions">
@@ -999,6 +1001,7 @@ const S: Record<string, React.CSSProperties> = {
   badgeAvail:   { background: '#14532d', color: '#4ade80', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 },
   badgeSold:    { background: '#450a0a', color: '#f87171', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 },
   badgeIncoming:{ background: '#1e3a5f', color: '#60a5fa', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 },
+  badgeReserved:{ background: '#2e1065', color: '#c4b5fd', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 },
   skuSummary:   { background: '#1a1d27', border: '1px solid #2a2d3a', borderRadius: 8, padding: 12, marginBottom: 16 },
   skuChip:      { background: '#0f1117', border: '1px solid #2a2d3a', borderRadius: 8, padding: '4px 12px', fontSize: 13 },
 }

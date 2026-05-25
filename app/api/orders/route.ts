@@ -102,6 +102,10 @@ export async function POST(req: NextRequest) {
         order_code: ci.id ? (orderCodeMap[ci.id] ?? null) : null,
       }))
     )
+    // Reserve all linked inventory items so they disappear from public listing
+    if (idsToLookup.length > 0) {
+      await db.from('items').update({ status: 'reserved' }).in('id', idsToLookup)
+    }
   }
 
   return NextResponse.json(data, { status: 201 })
@@ -119,6 +123,20 @@ export async function PATCH(req: NextRequest) {
     ;({ data, error } = await db.from('orders').update(safeFields).eq('id', id).select(SELECT_BASE).single())
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Sync inventory item status when order status changes
+  const newOrderStatus = fields.order_status as string | undefined
+  if (newOrderStatus === 'cancelled' || newOrderStatus === 'delivered') {
+    const { data: orderItems } = await db.from('order_items').select('item_id').eq('order_id', id)
+    const linkedItemIds = (orderItems ?? [])
+      .map((i: { item_id: number | null }) => i.item_id)
+      .filter(Boolean) as number[]
+    if (linkedItemIds.length > 0) {
+      const newItemStatus = newOrderStatus === 'cancelled' ? 'available' : 'sold'
+      await db.from('items').update({ status: newItemStatus }).in('id', linkedItemIds)
+    }
+  }
+
   return NextResponse.json(data)
 }
 
