@@ -233,7 +233,7 @@ function InvoiceDocument({ order }: { order: OrderWithItem }) {
         : []
 
   const subtotal = lineItems.reduce((s, i) => s + (i.item_price ?? 0) * i.quantity, 0)
-  const total = order.total_amount ?? subtotal || null
+  const total = (order.total_amount ?? subtotal) || null
 
   return (
     <>

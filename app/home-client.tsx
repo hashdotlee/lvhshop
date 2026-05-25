@@ -497,7 +497,7 @@ export default function HomeClient() {
           phone: editItemForm.phone || null,
           location: editItemForm.location || null,
           images: editItem.images ?? [],
-          posted_by: editItemForm.staff_id ? (staff?.name ?? editItemForm.posted_by || null) : (editItemForm.posted_by || null),
+          posted_by: editItemForm.staff_id ? ((staff?.name ?? editItemForm.posted_by) || null) : (editItemForm.posted_by || null),
           staff_id: editItemForm.staff_id ? Number(editItemForm.staff_id) : null,
           expected_date: editItemForm.expected_date || null,
           sku: editItemForm.sku || null,

@@ -527,7 +527,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
 
     // ── Customer stats ──
     const activeOrders = rangeOrders.filter(o => o.order_status !== 'cancelled')
-    const rangePhones = [...new Set(activeOrders.map(o => o.customer_phone))]
+    const rangePhones = Array.from(new Set(activeOrders.map(o => o.customer_phone)))
     const totalCustomers = rangePhones.length
     const newCustomers = statsRange === 'all' ? totalCustomers
       : rangePhones.filter(phone =>
@@ -546,7 +546,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
       cur.spend += o.total_amount ?? 0
       custMap.set(o.customer_phone, cur)
     }
-    const topCustomers = [...custMap.values()].sort((a, b) => b.count - a.count || b.spend - a.spend).slice(0, 5)
+    const topCustomers = Array.from(custMap.values()).sort((a, b) => b.count - a.count || b.spend - a.spend).slice(0, 5)
 
     return {
       total: rangeOrders.length,

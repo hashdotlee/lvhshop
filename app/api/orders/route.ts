@@ -16,10 +16,8 @@ const SELECT_BASE = '*, items(title, price, order_code, images)'
 
 // Attach order_items to an order (or list of orders) via a separate query — more reliable
 // than PostgREST nested select which depends on FK schema-cache being up to date.
-async function attachOrderItems(
-  db: ReturnType<typeof import('@supabase/supabase-js').createClient>,
-  orders: Record<string, unknown>[],
-): Promise<Record<string, unknown>[]> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function attachOrderItems(db: any, orders: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
   if (!orders.length) return orders
   const ids = orders.map(o => o.id as number)
   const { data: ois } = await db
