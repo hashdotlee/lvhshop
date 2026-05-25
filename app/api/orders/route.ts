@@ -185,7 +185,24 @@ export async function DELETE(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const { id } = await req.json()
   const db = adminClient()
+
+  // Fetch order status and linked item IDs before deleting (cascade removes order_items)
+  const { data: order } = await db.from('orders').select('order_status').eq('id', id).single()
+  const { data: orderItems } = await db.from('order_items').select('item_id').eq('order_id', id)
+
   const { error } = await db.from('orders').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Release inventory items if the order was still active
+  const orderStatus = (order as { order_status: string } | null)?.order_status ?? ''
+  if (!['delivered', 'cancelled'].includes(orderStatus)) {
+    const linkedItemIds = (orderItems ?? [])
+      .map((i: { item_id: number | null }) => i.item_id)
+      .filter(Boolean) as number[]
+    if (linkedItemIds.length > 0) {
+      await db.from('items').update({ status: 'available' }).in('id', linkedItemIds)
+    }
+  }
+
   return NextResponse.json({ ok: true })
 }

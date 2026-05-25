@@ -38,6 +38,15 @@ export async function POST(req: NextRequest) {
     if (total > 0) await db.from('orders').update({ total_amount: total }).eq('id', order_id)
   }
 
+  // Reserve the inventory item if the order is still active
+  if (item_id) {
+    const { data: order } = await db.from('orders').select('order_status').eq('id', order_id).single()
+    const active = !['delivered', 'cancelled'].includes((order as { order_status: string } | null)?.order_status ?? '')
+    if (active) {
+      await db.from('items').update({ status: 'reserved' }).eq('id', item_id)
+    }
+  }
+
   return NextResponse.json(data, { status: 201 })
 }
 
@@ -47,15 +56,30 @@ export async function DELETE(req: NextRequest) {
   const { id, order_id } = await req.json()
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
   const db = adminClient()
+
+  // Fetch item_id and order_id before deleting (order_id may not be in request body)
+  const { data: orderItem } = await db.from('order_items').select('item_id, order_id').eq('id', id).single()
+  const itemId = (orderItem as { item_id: number | null } | null)?.item_id
+  const effectiveOrderId = order_id ?? (orderItem as { order_id: number } | null)?.order_id
+
   const { error } = await db.from('order_items').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   // Recalculate order total
-  if (order_id) {
-    const { data: allItems } = await db.from('order_items').select('item_price, quantity').eq('order_id', order_id)
+  if (effectiveOrderId) {
+    const { data: allItems } = await db.from('order_items').select('item_price, quantity').eq('order_id', effectiveOrderId)
     if (allItems) {
       const total = allItems.reduce((sum, i) => sum + (i.item_price ?? 0) * (i.quantity ?? 1), 0)
-      await db.from('orders').update({ total_amount: total > 0 ? total : null }).eq('id', order_id)
+      await db.from('orders').update({ total_amount: total > 0 ? total : null }).eq('id', effectiveOrderId)
+    }
+  }
+
+  // Release the inventory item if the order is still active
+  if (itemId && effectiveOrderId) {
+    const { data: order } = await db.from('orders').select('order_status').eq('id', effectiveOrderId).single()
+    const active = !['delivered', 'cancelled'].includes((order as { order_status: string } | null)?.order_status ?? '')
+    if (active) {
+      await db.from('items').update({ status: 'available' }).eq('id', itemId)
     }
   }
 
