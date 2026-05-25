@@ -28,9 +28,45 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { item_id, order_code, name, phone, address, note } = body
   const db = adminClient()
+  const normalizedPhone = phone?.trim() || null
+
+  if (normalizedPhone) {
+    // Check if a customer with this phone already exists → update instead of insert
+    const { data: existing } = await db
+      .from('customers')
+      .select('id')
+      .eq('phone', normalizedPhone)
+      .maybeSingle()
+
+    if (existing) {
+      const { data, error } = await db
+        .from('customers')
+        .update({
+          name: name || undefined,
+          address: address ?? undefined,
+          note: note ?? undefined,
+          item_id: item_id || null,
+          order_code: order_code || undefined,
+        })
+        .eq('id', existing.id)
+        .select('*, items(title, price, order_code)')
+        .single()
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json(data)
+    }
+  }
+
+  // No phone or phone not found → insert new customer
   const { data, error } = await db
     .from('customers')
-    .insert({ item_id: item_id || null, order_code, name, phone, address, note })
+    .insert({
+      item_id: item_id || null,
+      order_code: order_code || null,
+      name,
+      phone: normalizedPhone,
+      address: address || null,
+      note: note || null,
+    })
     .select('*, items(title, price, order_code)')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
