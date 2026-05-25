@@ -108,6 +108,31 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Upsert customer record by phone so order history is linked to one customer identity
+  const phone = customer_phone?.trim()
+  if (phone) {
+    const { data: existingCust } = await db
+      .from('customers')
+      .select('id')
+      .eq('phone', phone)
+      .maybeSingle()
+
+    if (existingCust) {
+      await db.from('customers').update({
+        name: customer_name,
+        address: customer_address,
+        note: customer_note || null,
+      }).eq('id', existingCust.id)
+    } else {
+      await db.from('customers').insert({
+        phone,
+        name: customer_name,
+        address: customer_address,
+        note: customer_note || null,
+      })
+    }
+  }
+
   return NextResponse.json(data, { status: 201 })
 }
 
