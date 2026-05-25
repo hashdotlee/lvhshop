@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, notified: false, reason: 'PAGE_TOKEN not configured' })
   }
 
-  // Try to get PSID via Facebook's ids_for_pages endpoint using user's token
+  // Convert user access token to page-scoped PSID
   let psid: string | null = null
   if (PAGE_ID) {
     try {
@@ -24,12 +24,11 @@ export async function POST(req: NextRequest) {
         `https://graph.facebook.com/me/ids_for_pages?page_ids=${PAGE_ID}&access_token=${user_access_token}`
       )
       const data = await res.json()
-      // data.data is array of {id, page: {id, category, name}}
       if (Array.isArray(data?.data) && data.data.length > 0) {
         psid = data.data[0].id as string
       }
     } catch {
-      // PSID lookup failed, continue without notification
+      // PSID lookup failed
     }
   }
 
@@ -37,18 +36,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, notified: false, reason: 'could not resolve PSID' })
   }
 
+  const db = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
+  )
+
   // Save PSID to order record
   try {
-    const db = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
-    )
     await db.from('orders').update({ fb_psid: psid }).eq('id', order_id)
   } catch {
-    // Non-critical, continue to send message
+    // Non-critical
   }
 
-  // Build Messenger message
+  // Save PSID to customer record if Supabase JWT provided (links FB to app account)
+  const authHeader = req.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const jwt = authHeader.slice(7)
+    try {
+      const { data: { user } } = await db.auth.getUser(jwt)
+      if (user?.id) {
+        await db.from('customers').update({ fb_psid: psid }).eq('user_id', user.id)
+      }
+    } catch {
+      // Non-critical
+    }
+  }
+
   const payLabel = payment_method === 'bank_transfer' ? 'Chuyển khoản ngân hàng' : 'Thanh toán khi nhận hàng (COD)'
   const itemLine = item_title ? `\n📦 Sản phẩm: ${item_title}` : ''
   const message =
