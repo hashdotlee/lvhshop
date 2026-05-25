@@ -199,6 +199,14 @@ export default function HomeClient() {
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
   const [cartCount, setCartCount] = useState(0)
 
+  const [editItem, setEditItem]       = useState<Item|null>(null)
+  const [editItemForm, setEditItemForm] = useState({
+    title:'', description:'', price:'', condition:'Mới', category:'',
+    type:'ban' as 'ban'|'mua', phone:'', location:'', posted_by:'', staff_id:'',
+    expected_date:'', sku:'', bin_location:'',
+  })
+  const [savingEdit, setSavingEdit]   = useState(false)
+
   const [supaUser, setSupaUser]       = useState<{email:string;name:string}|null>(null)
   const [showUserAuth, setShowUserAuth] = useState(false)
   const [userAuthMode, setUserAuthMode] = useState<'login'|'signup'>('login')
@@ -433,6 +441,59 @@ export default function HomeClient() {
     if (!confirm('Xoá tin này?')) return
     await fetch('/api/items', { method:'DELETE', headers:{'Content-Type':'application/json','x-admin-key':adminKey.current}, body: JSON.stringify({ id }) })
     setItems(prev => prev.filter(i => i.id!==id)); showToast('Đã xoá tin')
+  }
+  function openEditItem(item: Item) {
+    setEditItem(item)
+    setEditItemForm({
+      title: item.title ?? '',
+      description: item.description ?? '',
+      price: item.price ? String(item.price) : '',
+      condition: item.condition ?? 'Mới',
+      category: item.category ?? '',
+      type: item.type ?? 'ban',
+      phone: item.phone ?? '',
+      location: item.location ?? '',
+      posted_by: item.posted_by ?? '',
+      staff_id: item.staff_id ? String(item.staff_id) : '',
+      expected_date: item.expected_date ?? '',
+      sku: item.sku ?? '',
+      bin_location: item.bin_location ?? '',
+    })
+  }
+  async function saveEditItem() {
+    if (!editItem) return
+    if (!editItemForm.title.trim()) { showToast('Nhập tên sản phẩm'); return }
+    setSavingEdit(true)
+    try {
+      const staff = staffList.find(s => s.id === Number(editItemForm.staff_id))
+      const r = await fetch('/api/items', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey.current },
+        body: JSON.stringify({
+          id: editItem.id,
+          title: editItemForm.title,
+          description: editItemForm.description || null,
+          price: editItemForm.price ? Number(editItemForm.price) : null,
+          condition: editItemForm.condition,
+          category: editItemForm.category || null,
+          type: editItemForm.type,
+          phone: editItemForm.phone || null,
+          location: editItemForm.location || null,
+          images: editItem.images ?? [],
+          posted_by: editItemForm.staff_id ? (staff?.name ?? editItemForm.posted_by || null) : (editItemForm.posted_by || null),
+          staff_id: editItemForm.staff_id ? Number(editItemForm.staff_id) : null,
+          expected_date: editItemForm.expected_date || null,
+          sku: editItemForm.sku || null,
+          bin_location: editItemForm.bin_location || null,
+        }),
+      })
+      if (!r.ok) { const err = await r.json(); showToast(`Lỗi: ${err.error ?? r.status}`); return }
+      const updated = await r.json()
+      setItems(prev => prev.map(i => i.id === updated.id ? updated : i))
+      setEditItem(null)
+      showToast(`Đã cập nhật · ${updated.order_code}`)
+    } catch { showToast('Lỗi kết nối server') }
+    finally { setSavingEdit(false) }
   }
 
   // ── customers ─────────────────────────────────────────────────
@@ -1090,6 +1151,17 @@ export default function HomeClient() {
                             <span className="item-time"><span className="status-dot"/>{reltime(item.created_at)}</span>
                           </div>
                         </div>
+                        {isAdmin && (
+                          <div className="item-admin-bar" onClick={e=>e.preventDefault()}>
+                            <button className="btn-edit-item" onClick={e=>{e.preventDefault();e.stopPropagation();openEditItem(item)}}>✎ Sửa</button>
+                            <button className="btn-sell-item"
+                              onClick={e=>{e.preventDefault();e.stopPropagation();item.status==='sold'?markAvailable(item):setSoldItem(item)}}
+                              style={{color: item.status==='sold'?'#60a5fa':'#4ade80'}}>
+                              {item.status==='sold'?'↩ Mở lại':'💰 Bán'}
+                            </button>
+                            <button className="btn-del-item" onClick={e=>{e.preventDefault();e.stopPropagation();deleteItem(item.id)}}>🗑</button>
+                          </div>
+                        )}
                         <div className="item-footer">
                           <div className="item-price">{fmtVND(item.price)}</div>
                           {!isAdmin && item.status==='available' ? (
@@ -1108,6 +1180,92 @@ export default function HomeClient() {
           </>
         )}
       </main>
+
+      {/* EDIT ITEM MODAL */}
+      {editItem && (
+        <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setEditItem(null)}>
+          <div className="modal" style={{maxWidth:560,maxHeight:'90vh',overflowY:'auto'}}>
+            <h3 style={{marginBottom:4}}>Chỉnh sửa sản phẩm</h3>
+            <p style={{color:'var(--muted)',fontSize:13,marginBottom:16}}>
+              <code className="order-code">{editItem.order_code}</code>
+            </p>
+            <div className="preview-grid">
+              <div className="fg full"><div className="lbl">Tên sản phẩm <span style={{color:'#f87171'}}>*</span></div>
+                <input className="inp" value={editItemForm.title} onChange={e=>setEditItemForm(p=>({...p,title:e.target.value}))}/>
+              </div>
+              <div className="fg full"><div className="lbl">Mô tả</div>
+                <input className="inp" value={editItemForm.description} onChange={e=>setEditItemForm(p=>({...p,description:e.target.value}))}/>
+              </div>
+              <div className="fg"><div className="lbl">Giá (VNĐ)</div>
+                <input className="inp" type="number" min="0" step="1000" placeholder="0"
+                  value={editItemForm.price} onChange={e=>setEditItemForm(p=>({...p,price:e.target.value}))}/>
+              </div>
+              <div className="fg"><div className="lbl">Tình trạng</div>
+                <select className="inp" value={editItemForm.condition} onChange={e=>setEditItemForm(p=>({...p,condition:e.target.value}))}>
+                  {['Mới','Cũ - Như mới','Cũ - Còn tốt','Cũ - Có lỗi nhỏ'].map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="fg"><div className="lbl">Danh mục</div>
+                <input className="inp" value={editItemForm.category} onChange={e=>setEditItemForm(p=>({...p,category:e.target.value}))}/>
+              </div>
+              <div className="fg"><div className="lbl">Loại</div>
+                <select className="inp" value={editItemForm.type} onChange={e=>setEditItemForm(p=>({...p,type:e.target.value as 'ban'|'mua'}))}>
+                  <option value="ban">Bán</option><option value="mua">Tìm mua</option>
+                </select>
+              </div>
+              <div className="fg"><div className="lbl">SĐT liên hệ</div>
+                <input className="inp" value={editItemForm.phone} onChange={e=>setEditItemForm(p=>({...p,phone:e.target.value}))}/>
+              </div>
+              <div className="fg"><div className="lbl">Địa điểm</div>
+                <input className="inp" value={editItemForm.location} onChange={e=>setEditItemForm(p=>({...p,location:e.target.value}))}/>
+              </div>
+              <div className="fg"><div className="lbl">Người đăng</div>
+                <select className="inp"
+                  value={editItemForm.staff_id}
+                  onChange={e=>{
+                    const id=e.target.value; const staff=staffList.find(s=>s.id===Number(id))
+                    setEditItemForm(p=>({...p,staff_id:id,posted_by:staff?.name??p.posted_by}))
+                  }}>
+                  <option value="">— Chọn —</option>
+                  {staffList.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div className="fg"><div className="lbl">SKU</div>
+                <input className="inp" value={editItemForm.sku} onChange={e=>setEditItemForm(p=>({...p,sku:e.target.value.toUpperCase()}))}/>
+              </div>
+              <div className="fg"><div className="lbl">Vị trí thùng</div>
+                <input className="inp" value={editItemForm.bin_location} onChange={e=>setEditItemForm(p=>({...p,bin_location:e.target.value}))}/>
+              </div>
+              <div className="fg full">
+                <label className="incoming-toggle">
+                  <input type="checkbox"
+                    checked={!!editItemForm.expected_date}
+                    onChange={e=>setEditItemForm(p=>({...p,expected_date:e.target.checked?new Date(Date.now()+7*24*60*60*1000).toISOString().split('T')[0]:''}))}
+                  />
+                  <span className="incoming-toggle-label">
+                    <span className="badge-incoming" style={{fontSize:11}}>Sắp về</span>
+                    Hàng chưa có, sắp nhập về
+                  </span>
+                </label>
+                {editItemForm.expected_date && (
+                  <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
+                    <label className="lbl" style={{margin:0,whiteSpace:'nowrap'}}>Ngày dự kiến</label>
+                    <input className="inp" type="date" style={{flex:1}} value={editItemForm.expected_date}
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={e=>setEditItemForm(p=>({...p,expected_date:e.target.value||''}))}/>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="preview-actions" style={{marginTop:16}}>
+              <button className="btn-ghost" onClick={()=>setEditItem(null)}>Hủy</button>
+              <button className="btn-green" onClick={saveEditItem} disabled={savingEdit}>
+                {savingEdit?'Đang lưu...':'✓ Lưu thay đổi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SOLD MODAL */}
       {soldItem && (
@@ -1587,6 +1745,13 @@ textarea::placeholder{color:#c0bdb5}
 .btn-incoming:hover{opacity:.8}
 .btn-delete{background:none;border:1px solid #fcd0cc;padding:4px 9px;border-radius:6px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--red);transition:background .15s;text-align:center}
 .btn-delete:hover{background:#fff0ee}
+.item-admin-bar{display:flex;gap:6px;padding:8px 16px;border-top:1px solid var(--border);background:rgba(0,0,0,.03)}
+.btn-edit-item{background:none;border:1px solid var(--border);padding:4px 10px;border-radius:6px;font-family:inherit;font-size:12px;cursor:pointer;color:var(--text);font-weight:500;transition:all .15s}
+.btn-edit-item:hover{border-color:#4ade80;color:#4ade80}
+.btn-sell-item{background:none;border:1px solid var(--border);padding:4px 10px;border-radius:6px;font-family:inherit;font-size:12px;cursor:pointer;font-weight:500;transition:all .15s}
+.btn-sell-item:hover{opacity:.7}
+.btn-del-item{background:none;border:1px solid #fcd0cc;padding:4px 8px;border-radius:6px;font-family:inherit;font-size:12px;cursor:pointer;color:var(--red);transition:background .15s;margin-left:auto}
+.btn-del-item:hover{background:#fff0ee}
 .btn-blue{background:#0084ff;color:white;border:none;padding:8px 18px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer}
 .btn-order-quick{display:inline-flex;align-items:center;background:var(--green);color:white;border:none;padding:4px 10px;border-radius:6px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;text-decoration:none;transition:opacity .15s;white-space:nowrap}
 .btn-order-quick:hover{opacity:.85}
