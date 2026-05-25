@@ -97,6 +97,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'shipping' | 'delivered' | 'cancelled'>('all')
+  const [statsRange, setStatsRange] = useState<'today' | 'week' | 'month' | 'all'>('month')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editOrder, setEditOrder] = useState<Order | null>(null)
   const [printOrder, setPrintOrder] = useState<Order | null>(null)
@@ -473,6 +474,43 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
     return statusOk && searchOk
   })
 
+  // ── Stats ──────────────────────────────────────────────────────
+  const stats = (() => {
+    const now = new Date()
+    const rangeOrders = orders.filter(o => {
+      if (statsRange === 'all') return true
+      const created = new Date(o.created_at)
+      if (statsRange === 'today') {
+        return created.toDateString() === now.toDateString()
+      }
+      if (statsRange === 'week') {
+        const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7)
+        return created >= weekAgo
+      }
+      // month
+      return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
+    })
+    const byStatus = (s: string) => rangeOrders.filter(o => o.order_status === s)
+    const revenue = rangeOrders
+      .filter(o => o.order_status === 'delivered')
+      .reduce((s, o) => s + (o.total_amount ?? 0), 0)
+    const pendingRevenue = rangeOrders
+      .filter(o => ['confirmed', 'shipping', 'delivered'].includes(o.order_status) && o.payment_status === 'pending')
+      .reduce((s, o) => s + (o.total_amount ?? 0), 0)
+    const needsAction = byStatus('pending').length
+    return {
+      total: rangeOrders.length,
+      pending: byStatus('pending').length,
+      confirmed: byStatus('confirmed').length,
+      shipping: byStatus('shipping').length,
+      delivered: byStatus('delivered').length,
+      cancelled: byStatus('cancelled').length,
+      needsAction,
+      revenue,
+      pendingRevenue,
+    }
+  })()
+
   // ── VietQR URL ─────────────────────────────────────────────────
   function vietQRUrl(amount: string | number) {
     const bankId = process.env.NEXT_PUBLIC_BANK_ID ?? ''
@@ -518,6 +556,60 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
           <button className="om-btn-primary" onClick={() => { setForm({ ...EMPTY_FORM }); setItemSearch(''); setSearchedItems([]); setShowCreateModal(true) }}>
             + Tạo đơn hàng
           </button>
+        </div>
+      </div>
+
+      {/* ── Stats ── */}
+      <div className="om-stats-wrap">
+        <div className="om-stats-header">
+          <span className="om-stats-title">Thống kê</span>
+          <div className="om-range-tabs">
+            {(['today', 'week', 'month', 'all'] as const).map(r => (
+              <button
+                key={r}
+                className={`om-range-tab${statsRange === r ? ' active' : ''}`}
+                onClick={() => setStatsRange(r)}
+              >
+                {r === 'today' ? 'Hôm nay' : r === 'week' ? '7 ngày' : r === 'month' ? 'Tháng này' : 'Tất cả'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="om-stats-grid">
+          <div className="om-stat-card">
+            <div className="om-stat-label">Tổng đơn</div>
+            <div className="om-stat-value">{stats.total}</div>
+          </div>
+          <div className={`om-stat-card${stats.needsAction > 0 ? ' om-stat-alert' : ''}`}>
+            <div className="om-stat-label">Chờ xác nhận</div>
+            <div className="om-stat-value">{stats.pending}</div>
+          </div>
+          <div className="om-stat-card">
+            <div className="om-stat-label">Đã xác nhận</div>
+            <div className="om-stat-value">{stats.confirmed}</div>
+          </div>
+          <div className="om-stat-card">
+            <div className="om-stat-label">Đang giao</div>
+            <div className="om-stat-value om-stat-shipping">{stats.shipping}</div>
+          </div>
+          <div className="om-stat-card">
+            <div className="om-stat-label">Hoàn thành</div>
+            <div className="om-stat-value om-stat-done">{stats.delivered}</div>
+          </div>
+          <div className="om-stat-card">
+            <div className="om-stat-label">Đã hủy</div>
+            <div className="om-stat-value om-stat-cancel">{stats.cancelled}</div>
+          </div>
+          <div className="om-stat-card om-stat-card-wide">
+            <div className="om-stat-label">Doanh thu (đã giao)</div>
+            <div className="om-stat-value om-stat-revenue">{fmtVND(stats.revenue || null)}</div>
+          </div>
+          {stats.pendingRevenue > 0 && (
+            <div className="om-stat-card om-stat-card-wide om-stat-unpaid">
+              <div className="om-stat-label">Chưa thu tiền</div>
+              <div className="om-stat-value om-stat-warn">{fmtVND(stats.pendingRevenue)}</div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1124,6 +1216,26 @@ const omStyles = `
 .inv-qr-img{display:block;width:44mm;height:44mm;margin:1.5mm auto 0;border:1px solid #ddd}
 .inv-footer{text-align:center;margin-top:2mm;padding-top:1.5mm;border-top:1px dashed #bbb;font-size:9pt;font-weight:700}
 
+/* ── Stats ── */
+.om-stats-wrap{border:1px solid var(--border,#e8e6e1);border-radius:10px;padding:14px 16px;margin-bottom:14px;background:var(--tag-bg,#f9f8f6)}
+.om-stats-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap}
+.om-stats-title{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted,#8c8982)}
+.om-range-tabs{display:flex;gap:2px;background:var(--border,#e8e6e1);border-radius:6px;padding:2px}
+.om-range-tab{background:none;border:none;padding:4px 10px;border-radius:4px;font-family:inherit;font-size:11px;cursor:pointer;color:var(--muted,#8c8982);transition:all .15s;white-space:nowrap}
+.om-range-tab.active{background:white;color:var(--text,#1a1916);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.om-stats-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.om-stat-card{background:white;border:1px solid var(--border,#e8e6e1);border-radius:8px;padding:10px 12px;min-width:0}
+.om-stat-card-wide{grid-column:span 2}
+.om-stat-card.om-stat-alert{border-color:#fbbf24;background:#fffbeb}
+.om-stat-card.om-stat-unpaid{border-color:#fca5a5;background:#fef2f2}
+.om-stat-label{font-size:10px;color:var(--muted,#8c8982);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px}
+.om-stat-value{font-size:20px;font-weight:700;color:var(--text,#1a1916);line-height:1}
+.om-stat-shipping{color:#7c3aed}
+.om-stat-done{color:#2a7a4b}
+.om-stat-cancel{color:#dc2626}
+.om-stat-revenue{font-size:15px;color:#2a7a4b}
+.om-stat-warn{font-size:15px;color:#dc2626}
+
 /* ── Order management layout ── */
 .om-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 .om-title{font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted,#8c8982);display:flex;align-items:center;gap:8px}
@@ -1283,5 +1395,8 @@ const omStyles = `
   .om-qr-wrap{align-items:flex-start}
   .om-table{font-size:12px}
   .om-table th,.om-table td{padding:8px 9px}
+  .om-stats-grid{grid-template-columns:repeat(3,1fr)}
+  .om-stat-card-wide{grid-column:span 3}
+  .om-stat-value{font-size:16px}
 }
 `
