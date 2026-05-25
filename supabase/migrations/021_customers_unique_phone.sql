@@ -1,12 +1,12 @@
 -- 1. Normalize: convert empty phone strings to NULL
 UPDATE customers SET phone = NULL WHERE trim(phone) = '';
 
--- 2. Deduplicate: for each phone, keep the record that has user_id (or oldest), delete duplicates
+-- 2. Deduplicate: for each phone, keep the oldest record, delete the rest
 WITH ranked AS (
   SELECT id,
     ROW_NUMBER() OVER (
       PARTITION BY phone
-      ORDER BY (user_id IS NOT NULL) DESC, created_at ASC
+      ORDER BY created_at ASC
     ) AS rn
   FROM customers
   WHERE phone IS NOT NULL

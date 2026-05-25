@@ -12,8 +12,28 @@ function checkAdmin(req: NextRequest) {
   return req.headers.get('x-admin-key') === process.env.ADMIN_PASSWORD
 }
 
-const SELECT_FULL = '*, items(title, price, order_code, images), order_items(*)'
 const SELECT_BASE = '*, items(title, price, order_code, images)'
+
+// Attach order_items to an order (or list of orders) via a separate query — more reliable
+// than PostgREST nested select which depends on FK schema-cache being up to date.
+async function attachOrderItems(
+  db: ReturnType<typeof import('@supabase/supabase-js').createClient>,
+  orders: Record<string, unknown>[],
+): Promise<Record<string, unknown>[]> {
+  if (!orders.length) return orders
+  const ids = orders.map(o => o.id as number)
+  const { data: ois } = await db
+    .from('order_items')
+    .select('*')
+    .in('order_id', ids)
+    .order('created_at', { ascending: true })
+  const byOrder: Record<number, unknown[]> = {}
+  for (const oi of (ois ?? []) as { order_id: number }[]) {
+    if (!byOrder[oi.order_id]) byOrder[oi.order_id] = []
+    byOrder[oi.order_id].push(oi)
+  }
+  return orders.map(o => ({ ...o, order_items: byOrder[o.id as number] ?? [] }))
+}
 
 export async function GET(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -22,20 +42,16 @@ export async function GET(req: NextRequest) {
   const id = url.searchParams.get('id')
 
   if (id) {
-    let { data, error } = await db.from('orders').select(SELECT_FULL).eq('id', id).single()
-    if (error?.message?.includes('order_items')) {
-      ;({ data, error } = await db.from('orders').select(SELECT_BASE).eq('id', id).single())
-    }
+    const { data, error } = await db.from('orders').select(SELECT_BASE).eq('id', id).single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json(data)
+    const [withItems] = await attachOrderItems(db, [data as Record<string, unknown>])
+    return NextResponse.json(withItems)
   }
 
-  let { data, error } = await db.from('orders').select(SELECT_FULL).order('created_at', { ascending: false })
-  if (error?.message?.includes('order_items')) {
-    ;({ data, error } = await db.from('orders').select(SELECT_BASE).order('created_at', { ascending: false }))
-  }
+  const { data, error } = await db.from('orders').select(SELECT_BASE).order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+  const result = await attachOrderItems(db, (data ?? []) as Record<string, unknown>[])
+  return NextResponse.json(result)
 }
 
 export async function POST(req: NextRequest) {
@@ -162,7 +178,9 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  return NextResponse.json(data)
+  // Return order with fresh order_items so client doesn't need to merge from local state
+  const [withItems] = await attachOrderItems(db, [data as Record<string, unknown>])
+  return NextResponse.json(withItems)
 }
 
 export async function DELETE(req: NextRequest) {
