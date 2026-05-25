@@ -402,10 +402,12 @@ export default function ItemDetailClient({ item }: { item: Item }) {
           <div className="info-col">
             {/* Code + status */}
             <div className="meta-row">
-              <div className="item-code">
-                <span className="code-lbl">MÃ</span>
-                <span className="code-val">{item.order_code}</span>
-              </div>
+              {(isAdmin ? item.order_code : item.sku) && (
+                <div className="item-code">
+                  <span className="code-lbl">{isAdmin ? 'MÃ' : 'SKU'}</span>
+                  <span className="code-val">{isAdmin ? item.order_code : item.sku}</span>
+                </div>
+              )}
               {isSold     && <span className="badge badge-sold">Đã bán</span>}
               {isIncoming && (
                 <span className="badge badge-incoming">

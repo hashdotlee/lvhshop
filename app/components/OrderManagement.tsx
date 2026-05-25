@@ -443,6 +443,11 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
       if (!r.ok) { onToast('Lỗi thêm sản phẩm'); return }
       const newItem: OrderItem = await r.json()
       setEditOrderItems(prev => [...prev, newItem])
+      // Keep orders state in sync so table shows the new item immediately
+      setOrders(prev => prev.map(o => {
+        if (o.id !== orderId) return o
+        return { ...o, order_items: [...(o.order_items ?? []), newItem] }
+      }))
       // Reserve linked inventory item so it's hidden from public listing
       if (itemId) {
         await fetch('/api/items', {
