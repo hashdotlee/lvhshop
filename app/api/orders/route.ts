@@ -155,6 +155,15 @@ export async function PATCH(req: NextRequest) {
   const { id, ...fields } = await req.json()
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
   const db = adminClient()
+
+  // Fetch current order status before update so we can detect the transition direction
+  const newOrderStatus = fields.order_status as string | undefined
+  let oldOrderStatus = ''
+  if (newOrderStatus) {
+    const { data: current } = await db.from('orders').select('order_status').eq('id', id).single()
+    oldOrderStatus = (current as { order_status: string } | null)?.order_status ?? ''
+  }
+
   let { data, error } = await db.from('orders').update(fields).eq('id', id).select(SELECT_BASE).single()
   // Retry without unknown columns if schema cache is stale
   if (error?.message?.includes('schema cache')) {
@@ -163,16 +172,25 @@ export async function PATCH(req: NextRequest) {
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Sync inventory item status when order status changes
-  const newOrderStatus = fields.order_status as string | undefined
-  if (newOrderStatus === 'cancelled' || newOrderStatus === 'delivered') {
-    const { data: orderItems } = await db.from('order_items').select('item_id').eq('order_id', id)
-    const linkedItemIds = (orderItems ?? [])
-      .map((i: { item_id: number | null }) => i.item_id)
-      .filter(Boolean) as number[]
-    if (linkedItemIds.length > 0) {
-      const newItemStatus = newOrderStatus === 'cancelled' ? 'available' : 'sold'
-      await db.from('items').update({ status: newItemStatus }).in('id', linkedItemIds)
+  // Sync inventory based on order status transition
+  if (newOrderStatus && newOrderStatus !== oldOrderStatus) {
+    const isActive = (s: string) => !['cancelled', 'delivered'].includes(s)
+    let newItemStatus: string | null = null
+    if (newOrderStatus === 'delivered') {
+      newItemStatus = 'sold'                                   // any → delivered
+    } else if (newOrderStatus === 'cancelled' && isActive(oldOrderStatus)) {
+      newItemStatus = 'available'                              // active → cancelled
+    } else if (isActive(newOrderStatus) && !isActive(oldOrderStatus)) {
+      newItemStatus = 'reserved'                               // cancelled/delivered → reactivated
+    }
+    if (newItemStatus) {
+      const { data: orderItems } = await db.from('order_items').select('item_id').eq('order_id', id)
+      const linkedItemIds = (orderItems ?? [])
+        .map((i: { item_id: number | null }) => i.item_id)
+        .filter(Boolean) as number[]
+      if (linkedItemIds.length > 0) {
+        await db.from('items').update({ status: newItemStatus }).in('id', linkedItemIds)
+      }
     }
   }
 
