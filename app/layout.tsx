@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import GoogleAnalytics from './components/GoogleAnalytics'
 import GoogleAdSense from './components/GoogleAdSense'
 import FacebookPixel from './components/FacebookPixel'
+import FacebookSDK from './components/FacebookSDK'
 import CatChaser from './components/CatChaser'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
@@ -58,6 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <GoogleAnalytics />
         <GoogleAdSense />
         <FacebookPixel />
+        <FacebookSDK />
         <CatChaser />
         {children}
       </body>

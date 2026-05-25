@@ -6,6 +6,7 @@ import type { CustomerAddress } from '@/lib/supabase'
 const BANK_ID   = process.env.NEXT_PUBLIC_BANK_ID ?? ''
 const BANK_ACCT = process.env.NEXT_PUBLIC_BANK_ACCOUNT ?? ''
 const BANK_NAME = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME ?? ''
+const FB_APP_ID = process.env.NEXT_PUBLIC_FB_APP_ID ?? ''
 
 function fmtVND(v: number | null | undefined) {
   if (!v) return 'Thương lượng'
@@ -40,6 +41,10 @@ export default function OrderPopup({ open, onClose, item, items, onSuccess }: Pr
   const [orderForm, setOrderForm] = useState({ note: '', payment_method: 'cod' as 'cod' | 'bank_transfer' })
   const [orderSubmitting, setOrderSubmitting] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState<string | null>(null)
+  const [orderId, setOrderId] = useState<number | null>(null)
+  const [orderNotifyData, setOrderNotifyData] = useState<{ order_number: string; customer_name: string; item_title: string | null; payment_method: string } | null>(null)
+  const [fbConnected, setFbConnected] = useState(false)
+  const [fbConnecting, setFbConnecting] = useState(false)
 
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' })
@@ -71,6 +76,10 @@ export default function OrderPopup({ open, onClose, item, items, onSuccess }: Pr
   useEffect(() => {
     if (!open) {
       setOrderSuccess(null)
+      setOrderId(null)
+      setOrderNotifyData(null)
+      setFbConnected(false)
+      setFbConnecting(false)
       setOrderAddressId(null)
       setShowNewAddrForm(false)
       setNewAddrForm({ full_name: '', phone: '', address: '' })
@@ -150,6 +159,13 @@ export default function OrderPopup({ open, onClose, item, items, onSuccess }: Pr
       if (!r.ok) { showToast('Đặt hàng thất bại, vui lòng thử lại'); return }
       const d = await r.json()
       setOrderSuccess(d.order_number)
+      setOrderId(d.id)
+      setOrderNotifyData({
+        order_number: d.order_number,
+        customer_name: addr.full_name,
+        item_title: effectiveItems.length === 1 ? effectiveItems[0].title : (effectiveItems.length > 1 ? effectiveItems.map(i => i.title).join(', ') : null),
+        payment_method: orderForm.payment_method,
+      })
     } catch { showToast('Không thể kết nối server') }
     finally { setOrderSubmitting(false) }
   }
@@ -175,6 +191,42 @@ export default function OrderPopup({ open, onClose, item, items, onSuccess }: Pr
     if (error) setAuthError(error.message)
   }
 
+  function connectFacebook() {
+    if (!orderId || !orderNotifyData) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const FB = typeof window !== 'undefined' ? (window as any).FB : null
+    if (!FB) { showToast('Facebook chưa sẵn sàng, thử lại sau'); return }
+    setFbConnecting(true)
+    FB.login(async (response: { authResponse?: { accessToken: string } | null }) => {
+      if (!response.authResponse?.accessToken) {
+        setFbConnecting(false)
+        return
+      }
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const r = await fetch('/api/orders/customer-notify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({ ...orderNotifyData, order_id: orderId, user_access_token: response.authResponse.accessToken }),
+        })
+        const d = await r.json()
+        if (d.ok && d.notified) {
+          setFbConnected(true)
+          showToast('Kết nối thành công! Bạn sẽ nhận thông báo qua Messenger.')
+        } else {
+          showToast('Không thể kết nối Messenger, bỏ qua.')
+        }
+      } catch {
+        showToast('Lỗi kết nối, thử lại sau.')
+      } finally {
+        setFbConnecting(false)
+      }
+    }, { scope: 'public_profile' })
+  }
+
   if (!open) return null
 
   return (
@@ -191,6 +243,8 @@ export default function OrderPopup({ open, onClose, item, items, onSuccess }: Pr
         .btn-op-ghost-sm:hover{border-color:var(--accent);color:var(--text)}
         .btn-op-green{background:var(--green);color:white;border:none;padding:9px 20px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s}
         .btn-op-green:hover{opacity:.85}.btn-op-green:disabled{opacity:.6;cursor:not-allowed}
+        .btn-op-fb{background:#1877F2;color:white;border:none;padding:9px 16px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;width:100%;transition:opacity .15s}
+        .btn-op-fb:hover{opacity:.9}.btn-op-fb:disabled{opacity:.6;cursor:not-allowed}
       `}</style>
       <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
         <div className="modal" style={{ maxWidth: 500 }}>
@@ -210,10 +264,26 @@ export default function OrderPopup({ open, onClose, item, items, onSuccess }: Pr
                   ))}
                 </div>
               )}
-              <div style={{ background: 'var(--tag-bg)', borderRadius: 8, padding: '12px 16px', marginBottom: 20 }}>
+              <div style={{ background: 'var(--tag-bg)', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
                 <div className="lbl" style={{ marginBottom: 4 }}>Mã đơn hàng</div>
                 <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>{orderSuccess}</div>
               </div>
+              {supaUser && FB_APP_ID && (
+                <div style={{ marginBottom: 16 }}>
+                  {fbConnected ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--green)', fontSize: 13, padding: '8px 0' }}>
+                      <span>✓</span> Đã kết nối — bạn sẽ nhận thông báo qua Messenger
+                    </div>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Kết nối Facebook để nhận thông báo đơn hàng qua Messenger.</p>
+                      <button className="btn-op-fb" onClick={connectFacebook} disabled={fbConnecting}>
+                        {fbConnecting ? 'Đang kết nối...' : 'f  Kết nối Facebook Messenger'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
               <button className="btn-ghost" onClick={() => { onSuccess?.(); onClose() }}>Đóng</button>
             </div>
 
