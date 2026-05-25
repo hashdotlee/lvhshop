@@ -32,6 +32,7 @@ export type Order = {
   total_amount: number | null
   fb_psid: string | null
   fb_url: string | null
+  share_token: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -385,6 +386,15 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
     const withItems = { ...order, order_items: editOrder?.id === order.id ? editOrderItems : order.order_items }
     setPrintOrder(withItems)
     setTimeout(() => window.print(), 100)
+  }
+
+  // ── Share invoice link ─────────────────────────────────────────
+  function shareInvoice(order: Order) {
+    if (!order.share_token) { onToast('Đơn này chưa có link chia sẻ'); return }
+    const url = `${window.location.origin}/invoice/${order.share_token}`
+    navigator.clipboard.writeText(url)
+      .then(() => onToast('Đã sao chép link hóa đơn!'))
+      .catch(() => onToast('Không thể sao chép: ' + url))
   }
 
   // ── Open edit modal ────────────────────────────────────────────
@@ -835,6 +845,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
                     <div className="om-actions">
                       <button className="om-btn-edit" onClick={() => openEdit(order)}>Sửa</button>
                       <button className="om-btn-print" onClick={() => printInvoice(order)}>In</button>
+                      <button className="om-btn-share" onClick={() => shareInvoice(order)} title="Sao chép link hóa đơn">⎘</button>
                       <button className="om-btn-delete" onClick={() => deleteOrder(order.id)}>Xoá</button>
                     </div>
                   </td>
@@ -1208,6 +1219,10 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
                   onClick={() => printInvoice(editOrder)}>
                   In hóa đơn
                 </button>
+                <button className="om-btn-share-sm"
+                  onClick={() => shareInvoice(editOrder)}>
+                  Chia sẻ link
+                </button>
               </div>
             </div>
 
@@ -1530,6 +1545,10 @@ const omStyles = `
 .om-btn-messenger:hover{opacity:.85}
 .om-btn-print-sm{display:inline-flex;align-items:center;gap:5px;background:#8b5cf6;color:white;border:none;padding:6px 12px;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s}
 .om-btn-print-sm:hover{opacity:.85}
+.om-btn-share-sm{display:inline-flex;align-items:center;gap:5px;background:#0ea5e9;color:white;border:none;padding:6px 12px;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.om-btn-share-sm:hover{opacity:.85}
+.om-btn-share{background:none;border:1px solid var(--border,#e8e6e1);padding:3px 8px;border-radius:5px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted,#8c8982);transition:all .15s;line-height:1}
+.om-btn-share:hover{border-color:#0ea5e9;color:#0ea5e9}
 
 /* buttons */
 .om-btn-primary{background:var(--accent,#1a1916);color:white;border:none;padding:8px 16px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s;white-space:nowrap}
