@@ -24,7 +24,7 @@ export type Item = {
   location: string
   image_url: string        // legacy single (keep for compat)
   images: string[]         // new: array of URLs
-  status: 'available' | 'sold' | 'incoming'
+  status: 'available' | 'sold' | 'incoming' | 'reserved'
   expected_date: string | null
   posted_by: string | null
   staff_id: number | null
@@ -71,6 +71,17 @@ export type CustomerAddress = {
   created_at: string
 }
 
+export type OrderLineItem = {
+  id: number
+  order_id: number
+  item_id: number | null
+  item_title: string
+  item_price: number | null
+  quantity: number
+  order_code: string | null
+  created_at: string
+}
+
 export type Order = {
   id: number
   order_number: string
@@ -92,4 +103,5 @@ export type Order = {
   created_at: string
   updated_at: string
   items?: { title: string; price: number | null; order_code: string; images: string[] } | null
+  order_items?: OrderLineItem[]
 }

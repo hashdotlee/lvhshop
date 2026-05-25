@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const { id, status } = await req.json()
-  if (!id || !['available','sold','incoming'].includes(status))
+  if (!id || !['available','sold','incoming','reserved'].includes(status))
     return NextResponse.json({ error: 'invalid' }, { status: 400 })
   const db = adminClient()
   const { data, error } = await db.from('items').update({ status }).eq('id', id).select().single()

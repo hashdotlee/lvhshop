@@ -10,6 +10,7 @@ export type OrderItem = {
   item_title: string
   item_price: number | null
   quantity: number
+  order_code: string | null
   created_at: string
 }
 
@@ -565,7 +566,16 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
                     <code className="om-order-code">{order.order_number}</code>
                   </td>
                   <td className="om-td-product">
-                    <div className="om-product-title">{order.items?.title || order.item_title || '—'}</div>
+                    {order.order_items && order.order_items.length > 0 ? (
+                      <>
+                        <div className="om-product-title">{order.order_items[0].item_title}</div>
+                        {order.order_items.length > 1 && (
+                          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>+{order.order_items.length - 1} sản phẩm khác</div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="om-product-title">{order.items?.title || order.item_title || '—'}</div>
+                    )}
                     {(order.total_amount != null) && (
                       <div className="om-product-price">{fmtVND(order.total_amount)}</div>
                     )}
@@ -851,8 +861,11 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
               )}
               {editOrderItems.map(oi => (
                 <div key={oi.id} className="om-edit-item-row">
-                  <span style={{ flex: 1, fontSize: 13 }}>{oi.item_title}{oi.quantity > 1 ? ` ×${oi.quantity}` : ''}</span>
-                  <span style={{ color: 'var(--green)', fontWeight: 600, fontSize: 12, marginRight: 8 }}>{fmtVND(oi.item_price)}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{oi.item_title}{oi.quantity > 1 ? ` ×${oi.quantity}` : ''}</div>
+                    {oi.order_code && <code className="om-order-code" style={{ fontSize: 10, marginTop: 2, display: 'inline-block' }}>{oi.order_code}</code>}
+                  </div>
+                  <span style={{ color: 'var(--green)', fontWeight: 600, fontSize: 12, marginRight: 8, whiteSpace: 'nowrap' }}>{fmtVND(oi.item_price)}</span>
                   <button className="om-remove-item-btn" onClick={() => removeItemFromOrder(oi.id, editOrder.id)}>✕</button>
                 </div>
               ))}

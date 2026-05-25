@@ -150,7 +150,7 @@ export default function HomeClient() {
   const [items, setItems]             = useState<Item[]>([])
   const [typeFilter, setTypeFilter]   = useState<'ban'|'mua'>('ban')
   const [condFilter, setCondFilter]   = useState<'all'|'Mới'|'Cũ'>('all')
-  const [statusFilter, setStatusFilter] = useState<'available'|'sold'|'incoming'|'all'>('available')
+  const [statusFilter, setStatusFilter] = useState<'available'|'sold'|'incoming'|'reserved'|'all'>('available')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [priceRange, setPriceRange]     = useState<'all'|'under1m'|'1to5m'|'5to10m'|'over10m'>('all')
   const [searchQuery, setSearchQuery]   = useState('')
@@ -551,12 +551,14 @@ export default function HomeClient() {
     const avail    = filtered.filter(i => i.status === 'available')
     const sold     = filtered.filter(i => i.status === 'sold')
     const incoming = filtered.filter(i => i.status === 'incoming')
+    const reserved = filtered.filter(i => i.status === 'reserved')
     const sum = (arr: Item[], key: 'price'|'cost_price') => arr.reduce((s, i) => s + (i[key] ?? 0), 0)
     return {
       total:        filtered.length,
       availCount:   avail.length,
       soldCount:    sold.length,
       incomingCount: incoming.length,
+      reservedCount: reserved.length,
       availValue:   sum(avail, 'price'),
       soldValue:    sum(sold, 'price'),
       totalCost:    sum(filtered, 'cost_price'),
@@ -884,6 +886,7 @@ export default function HomeClient() {
                   <button className={`sidebar-chip avail-chip${statusFilter==='available'?' active':''}`} onClick={()=>setStatusFilter('available')}>✅ Còn hàng</button>
                   <button className={`sidebar-chip incoming-chip${statusFilter==='incoming'?' active':''}`} onClick={()=>setStatusFilter('incoming')}>📦 Sắp về</button>
                   <button className={`sidebar-chip sold-chip${statusFilter==='sold'?' active':''}`} onClick={()=>setStatusFilter('sold')}>🏷 Đã bán</button>
+                  {isAdmin&&<button className={`sidebar-chip reserved-chip${statusFilter==='reserved'?' active':''}`} onClick={()=>setStatusFilter('reserved')}>🔒 Đang giữ</button>}
                   {isAdmin&&<button className={`sidebar-chip${statusFilter==='all'?' active':''}`} onClick={()=>setStatusFilter('all')}>📋 Tất cả</button>}
                 </div>
                 <div className="sidebar-section">
@@ -1029,6 +1032,8 @@ export default function HomeClient() {
                                     {u.bin_location && <span className="sku-unit-bin">📦 {u.bin_location}</span>}
                                     {u.status==='sold'
                                       ? <span className="sku-unit-badge sku-unit-badge-sold">Đã bán</span>
+                                      : u.status==='reserved'
+                                        ? <span className="sku-unit-badge sku-unit-badge-reserved">Đang giữ</span>
                                       : u.status==='incoming'
                                         ? <span className="sku-unit-badge sku-unit-badge-incoming">Sắp về</span>
                                         : <span className="sku-unit-badge sku-unit-badge-avail">Còn</span>}
@@ -1065,6 +1070,7 @@ export default function HomeClient() {
                               <span className="item-code-value">{isAdmin ? item.order_code : (item.sku ?? item.order_code)}</span>
                             </div>
                             {item.status==='sold' ? <span className="badge-sold">Đã bán</span>
+                            : item.status==='reserved' ? <span className="badge-reserved">🔒 Đang giữ</span>
                             : item.status==='incoming' ? (
                               <span className="badge-incoming">
                                 📦 Sắp về{item.expected_date ? ` · ${new Date(item.expected_date).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'})}` : ''}
@@ -1382,6 +1388,7 @@ nav button.active,nav button:hover{background:var(--tag-bg);color:var(--text)}
 .sku-unit-badge-avail{background:#d1fae5;color:#065f46}
 .sku-unit-badge-sold{background:#fee2e2;color:#991b1b}
 .sku-unit-badge-incoming{background:#fef3c7;color:#92400e}
+.sku-unit-badge-reserved{background:#ede9fe;color:#6d28d9}
 .badge-app{background:#d1fae5;color:#065f46;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:5px;vertical-align:middle}
 :root.dark .badge-bin{background:#1e293b;color:#93c5fd}
 .sku-select-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;text-align:left;width:100%;transition:all .15s;font-family:inherit;color:var(--text)}
@@ -1418,6 +1425,7 @@ main{width:100%;padding:24px 28px}
 .sidebar-chip:hover{background:var(--tag-bg);color:var(--text)}
 .sidebar-chip.active{background:var(--accent);color:white;font-weight:500}
 .sidebar-chip.sold-chip.active{background:#c44f00}
+.sidebar-chip.reserved-chip.active{background:#6d28d9}
 .sidebar-chip.incoming-chip.active{background:#2563eb}
 .sidebar-chip.avail-chip.active{background:var(--green)}
 
@@ -1549,6 +1557,7 @@ textarea::placeholder{color:#c0bdb5}
 .badge-sold{font-size:10px;font-weight:600;background:#fef0e6;color:#c44f00;padding:2px 7px;border-radius:10px}
 .badge-avail{font-size:10px;font-weight:600;background:var(--green-bg);color:var(--green);padding:2px 7px;border-radius:10px}
 .badge-incoming{font-size:10px;font-weight:600;background:#eef4ff;color:#2563eb;padding:2px 7px;border-radius:10px}
+.badge-reserved{font-size:10px;font-weight:600;background:#ede9fe;color:#6d28d9;padding:2px 7px;border-radius:10px}
 .badge-imgs{font-size:10px;font-weight:500;background:var(--tag-bg);color:var(--muted);padding:2px 7px;border-radius:10px}
 .item-footer{padding:10px 13px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
 .item-price{font-size:15px;font-weight:700;white-space:nowrap;color:var(--text)}
