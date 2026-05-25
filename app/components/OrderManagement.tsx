@@ -98,6 +98,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'shipping' | 'delivered' | 'cancelled'>('all')
   const [statsRange, setStatsRange] = useState<'today' | 'week' | 'month' | 'all'>('month')
+  const [showTopCustomers, setShowTopCustomers] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editOrder, setEditOrder] = useState<Order | null>(null)
   const [printOrder, setPrintOrder] = useState<Order | null>(null)
@@ -477,37 +478,67 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
   // ── Stats ──────────────────────────────────────────────────────
   const stats = (() => {
     const now = new Date()
+    const rangeStart = (() => {
+      if (statsRange === 'all') return new Date(0)
+      if (statsRange === 'today') { const d = new Date(now); d.setHours(0, 0, 0, 0); return d }
+      if (statsRange === 'week') { const d = new Date(now); d.setDate(d.getDate() - 7); return d }
+      const d = new Date(now); d.setDate(1); d.setHours(0, 0, 0, 0); return d // month
+    })()
     const rangeOrders = orders.filter(o => {
       if (statsRange === 'all') return true
       const created = new Date(o.created_at)
-      if (statsRange === 'today') {
-        return created.toDateString() === now.toDateString()
-      }
-      if (statsRange === 'week') {
-        const weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7)
-        return created >= weekAgo
-      }
-      // month
-      return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
+      if (statsRange === 'today') return created.toDateString() === now.toDateString()
+      return created >= rangeStart
     })
+
+    // ── Order stats ──
     const byStatus = (s: string) => rangeOrders.filter(o => o.order_status === s)
-    const revenue = rangeOrders
-      .filter(o => o.order_status === 'delivered')
-      .reduce((s, o) => s + (o.total_amount ?? 0), 0)
+    const deliveredOrders = byStatus('delivered')
+    const revenue = deliveredOrders.reduce((s, o) => s + (o.total_amount ?? 0), 0)
     const pendingRevenue = rangeOrders
       .filter(o => ['confirmed', 'shipping', 'delivered'].includes(o.order_status) && o.payment_status === 'pending')
       .reduce((s, o) => s + (o.total_amount ?? 0), 0)
-    const needsAction = byStatus('pending').length
+    const nonCancelled = rangeOrders.filter(o => o.order_status !== 'cancelled').length
+    const completionRate = nonCancelled > 0 ? Math.round(deliveredOrders.length / nonCancelled * 100) : 0
+    const avgOrderValue = deliveredOrders.filter(o => o.total_amount).length > 0
+      ? Math.round(revenue / deliveredOrders.filter(o => o.total_amount).length)
+      : 0
+    const codCount = rangeOrders.filter(o => o.payment_method === 'cod' && o.order_status !== 'cancelled').length
+    const bankCount = rangeOrders.filter(o => o.payment_method === 'bank_transfer' && o.order_status !== 'cancelled').length
+
+    // ── Customer stats ──
+    const activeOrders = rangeOrders.filter(o => o.order_status !== 'cancelled')
+    const rangePhones = [...new Set(activeOrders.map(o => o.customer_phone))]
+    const totalCustomers = rangePhones.length
+    const newCustomers = statsRange === 'all' ? totalCustomers
+      : rangePhones.filter(phone =>
+          !orders.some(o => o.customer_phone === phone && new Date(o.created_at) < rangeStart)
+        ).length
+    const returningCustomers = totalCustomers - newCustomers
+    const avgOrdersPerCustomer = totalCustomers > 0
+      ? Math.round((activeOrders.length / totalCustomers) * 10) / 10
+      : 0
+
+    // Top 5 customers by order count (non-cancelled)
+    const custMap = new Map<string, { name: string; phone: string; count: number; spend: number }>()
+    for (const o of activeOrders) {
+      const cur = custMap.get(o.customer_phone) ?? { name: o.customer_name, phone: o.customer_phone, count: 0, spend: 0 }
+      cur.count++
+      cur.spend += o.total_amount ?? 0
+      custMap.set(o.customer_phone, cur)
+    }
+    const topCustomers = [...custMap.values()].sort((a, b) => b.count - a.count || b.spend - a.spend).slice(0, 5)
+
     return {
       total: rangeOrders.length,
       pending: byStatus('pending').length,
       confirmed: byStatus('confirmed').length,
       shipping: byStatus('shipping').length,
-      delivered: byStatus('delivered').length,
+      delivered: deliveredOrders.length,
       cancelled: byStatus('cancelled').length,
-      needsAction,
-      revenue,
-      pendingRevenue,
+      needsAction: byStatus('pending').length,
+      revenue, pendingRevenue, completionRate, avgOrderValue, codCount, bankCount,
+      totalCustomers, newCustomers, returningCustomers, avgOrdersPerCustomer, topCustomers,
     }
   })()
 
@@ -610,6 +641,96 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
               <div className="om-stat-value om-stat-warn">{fmtVND(stats.pendingRevenue)}</div>
             </div>
           )}
+          <div className="om-stat-card">
+            <div className="om-stat-label">Tỷ lệ XN</div>
+            <div className="om-stat-value om-stat-done">{stats.completionRate}%</div>
+          </div>
+          <div className="om-stat-card">
+            <div className="om-stat-label">TB giá trị đơn</div>
+            <div className="om-stat-value om-stat-revenue" style={{ fontSize: 13 }}>{fmtVND(stats.avgOrderValue || null)}</div>
+          </div>
+          <div className="om-stat-card">
+            <div className="om-stat-label">COD</div>
+            <div className="om-stat-value">{stats.codCount}</div>
+          </div>
+          <div className="om-stat-card">
+            <div className="om-stat-label">Chuyển khoản</div>
+            <div className="om-stat-value">{stats.bankCount}</div>
+          </div>
+        </div>
+
+        {/* ── Customer section ── */}
+        <div className="om-stats-divider">
+          <span>Khách hàng</span>
+        </div>
+        <div className="om-stats-grid">
+          <div className="om-stat-card">
+            <div className="om-stat-label">Tổng khách</div>
+            <div className="om-stat-value">{stats.totalCustomers}</div>
+          </div>
+          {statsRange !== 'all' && (
+            <>
+              <div className="om-stat-card om-stat-new">
+                <div className="om-stat-label">Khách mới</div>
+                <div className="om-stat-value om-stat-blue">{stats.newCustomers}</div>
+              </div>
+              <div className="om-stat-card">
+                <div className="om-stat-label">Quay lại</div>
+                <div className="om-stat-value om-stat-done">{stats.returningCustomers}</div>
+              </div>
+            </>
+          )}
+          <div className="om-stat-card">
+            <div className="om-stat-label">TB đơn / khách</div>
+            <div className="om-stat-value">{stats.avgOrdersPerCustomer}</div>
+          </div>
+          <div className="om-stat-card om-stat-card-wide" style={{ gridColumn: statsRange === 'all' ? 'span 4' : 'span 2' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="om-stat-label">Top khách hàng</div>
+              {stats.topCustomers.length > 0 && (
+                <button className="om-toggle-top" onClick={() => setShowTopCustomers(v => !v)}>
+                  {showTopCustomers ? 'Thu gọn ▲' : 'Xem ▼'}
+                </button>
+              )}
+            </div>
+            {stats.topCustomers.length === 0 && (
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Chưa có dữ liệu</div>
+            )}
+            {showTopCustomers && stats.topCustomers.length > 0 && (
+              <table className="om-top-cust-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Khách hàng</th>
+                    <th>SĐT</th>
+                    <th>Đơn</th>
+                    <th>Tổng chi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.topCustomers.map((c, i) => (
+                    <tr key={c.phone}>
+                      <td>{i + 1}</td>
+                      <td style={{ fontWeight: 500 }}>{c.name}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: 11 }}>{c.phone}</td>
+                      <td style={{ textAlign: 'center', fontWeight: 700 }}>{c.count}</td>
+                      <td style={{ textAlign: 'right', color: 'var(--green)', fontWeight: 600 }}>{fmtVND(c.spend || null)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {!showTopCustomers && stats.topCustomers.length > 0 && (
+              <div className="om-top-cust-preview">
+                {stats.topCustomers.slice(0, 3).map((c, i) => (
+                  <span key={c.phone} className="om-top-cust-chip">
+                    {i + 1}. {c.name.split(' ').pop()} <strong>{c.count} đơn</strong>
+                  </span>
+                ))}
+                {stats.topCustomers.length > 3 && <span style={{ color: 'var(--muted)', fontSize: 11 }}>+{stats.topCustomers.length - 3} khác</span>}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1235,6 +1356,19 @@ const omStyles = `
 .om-stat-cancel{color:#dc2626}
 .om-stat-revenue{font-size:15px;color:#2a7a4b}
 .om-stat-warn{font-size:15px;color:#dc2626}
+.om-stat-blue{color:#2563eb}
+.om-stat-new{border-color:#bfdbfe;background:#eff6ff}
+.om-stats-divider{display:flex;align-items:center;gap:8px;margin:10px 0 8px;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted,#8c8982)}
+.om-stats-divider::before,.om-stats-divider::after{content:'';flex:1;height:1px;background:var(--border,#e8e6e1)}
+.om-toggle-top{background:none;border:none;font-family:inherit;font-size:11px;color:var(--muted,#8c8982);cursor:pointer;padding:0;transition:color .15s}
+.om-toggle-top:hover{color:var(--text,#1a1916)}
+.om-top-cust-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+.om-top-cust-table th{font-size:10px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted,#8c8982);padding:4px 6px;border-bottom:1px solid var(--border,#e8e6e1);text-align:left}
+.om-top-cust-table td{padding:6px 6px;border-bottom:1px dashed var(--border,#e8e6e1);color:var(--text,#1a1916)}
+.om-top-cust-table tr:last-child td{border-bottom:none}
+.om-top-cust-preview{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.om-top-cust-chip{font-size:11px;background:var(--tag-bg,#f0efe9);border-radius:20px;padding:3px 9px;color:var(--text,#1a1916)}
+.om-top-cust-chip strong{color:var(--accent,#1a1916)}
 
 /* ── Order management layout ── */
 .om-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
@@ -1396,7 +1530,8 @@ const omStyles = `
   .om-table{font-size:12px}
   .om-table th,.om-table td{padding:8px 9px}
   .om-stats-grid{grid-template-columns:repeat(3,1fr)}
-  .om-stat-card-wide{grid-column:span 3}
+  .om-stat-card-wide{grid-column:span 3!important}
+  .om-top-cust-table td:nth-child(5),.om-top-cust-table th:nth-child(5){display:none}
   .om-stat-value{font-size:16px}
 }
 `
