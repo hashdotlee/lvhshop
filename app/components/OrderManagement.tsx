@@ -262,14 +262,22 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
     setSaving(true)
     try {
       const prevOrder = orders.find(o => o.id === id)
+
+      // If there's a pending selected item not yet added, commit it first
+      if (selectedAddItem || addItemSearch.trim()) {
+        await addItemToOrder(id)
+      }
+
       const r = await fetch('/api/orders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
         body: JSON.stringify({ id, ...fields }),
       })
       if (!r.ok) { onToast('Lỗi cập nhật đơn hàng'); return }
+      // PATCH now returns order with fresh order_items from DB
       const updated: Order = await r.json()
-      setOrders(prev => prev.map(o => o.id === id ? { ...updated, order_items: editOrderItems } : o))
+      setOrders(prev => prev.map(o => o.id === id ? updated : o))
+      setEditOrderItems(updated.order_items ?? [])
       onToast('Đã cập nhật đơn hàng')
       setEditOrder(null)
 
@@ -279,7 +287,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
         const psid = (fields.fb_psid as string | null) ?? prevOrder.fb_psid
         if (psid) {
           const notifType = newStatus === 'shipping' ? 'shipping' : 'created'
-          await sendNotification({ ...updated, order_items: editOrderItems }, notifType, psid)
+          await sendNotification(updated, notifType, psid)
         }
       }
     } catch {
@@ -423,20 +431,26 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
   // ── Add item to existing order ─────────────────────────────────
   async function addItemToOrder(orderId: number) {
     if (!selectedAddItem && !addItemSearch.trim()) return
+    const itemId = selectedAddItem?.id ?? null
     const title = selectedAddItem?.title ?? addItemSearch.trim()
     const price = addItemPrice ? Number(addItemPrice) : (selectedAddItem?.price ?? null)
     try {
       const r = await fetch('/api/order-items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
-        body: JSON.stringify({ order_id: orderId, item_id: selectedAddItem?.id ?? null, item_title: title, item_price: price, quantity: 1 }),
+        body: JSON.stringify({ order_id: orderId, item_id: itemId, item_title: title, item_price: price, quantity: 1 }),
       })
       if (!r.ok) { onToast('Lỗi thêm sản phẩm'); return }
       const newItem: OrderItem = await r.json()
       setEditOrderItems(prev => [...prev, newItem])
-      // Recalculate total in local state
-      const newTotal = [...editOrderItems, newItem].reduce((s, i) => s + (i.item_price ?? 0) * i.quantity, 0)
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, order_items: [...(o.order_items ?? []), newItem], total_amount: newTotal || o.total_amount } : o))
+      // Reserve linked inventory item so it's hidden from public listing
+      if (itemId) {
+        await fetch('/api/items', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+          body: JSON.stringify({ id: itemId, status: 'reserved' }),
+        })
+      }
       setAddItemSearch('')
       setAddItemResults([])
       setSelectedAddItem(null)
