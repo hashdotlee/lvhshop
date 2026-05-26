@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
+import { unstable_noStore as noStore } from 'next/cache'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 type OrderItem = { id: number; item_title: string; item_price: number | null; quantity: number }
 type Order = {
@@ -25,6 +27,7 @@ type Order = {
 }
 
 async function getOrder(token: string): Promise<Order | null> {
+  noStore()
   const db = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
@@ -94,8 +97,10 @@ export default async function InvoicePage({ params }: { params: { token: string 
   const BANK_ID   = process.env.NEXT_PUBLIC_BANK_ID ?? ''
   const BANK_ACCT = process.env.NEXT_PUBLIC_BANK_ACCOUNT ?? ''
   const BANK_NAME = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME ?? ''
-  const qrUrl = order.payment_method === 'bank_transfer' && BANK_ID && BANK_ACCT && total
-    ? `https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCT}-compact2.png?amount=${total}&addInfo=${encodeURIComponent(order.order_number)}&accountName=${encodeURIComponent(BANK_NAME)}`
+  const isBankTransfer = order.payment_method === 'bank_transfer'
+  const qrUrl = isBankTransfer && BANK_ID && BANK_ACCT
+    ? `https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCT}-compact2.png` +
+      `?${total ? `amount=${total}&` : ''}addInfo=${encodeURIComponent(order.order_number)}&accountName=${encodeURIComponent(BANK_NAME)}`
     : null
 
   const st = STATUS_STYLE[order.order_status] ?? { bg: '#f4f3f0', color: '#555' }
@@ -171,17 +176,55 @@ export default async function InvoicePage({ params }: { params: { token: string 
           <div style={{ fontSize: 22, fontWeight: 800, color: '#2a7a4b' }}>{fmtVND(total)}</div>
         </div>
 
-        {/* Payment */}
-        <div style={{ fontSize: 13, color: '#555', marginBottom: 12 }}>
-          <span style={{ color: '#aaa' }}>Thanh toán: </span>
-          <span style={{ fontWeight: 600, color: '#1a1916' }}>
-            {order.payment_method === 'cod' ? 'COD — Trả khi nhận hàng' : 'Chuyển khoản ngân hàng'}
-          </span>
-        </div>
+        {/* Payment method */}
+        {isBankTransfer && qrUrl ? (
+          <>
+            {divider}
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '20px 20px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 16 }}>
+                Chuyển khoản ngân hàng
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={qrUrl} alt="QR thanh toán" style={{ width: 200, height: 200, borderRadius: 12, border: '1px solid #dbeafe', display: 'block', margin: '0 auto 16px' }} />
+              <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 6, textAlign: 'left', background: 'white', borderRadius: 10, padding: '12px 18px', fontSize: 13 }}>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <span style={{ color: '#888', minWidth: 80 }}>Ngân hàng</span>
+                  <strong>{BANK_ID.toUpperCase()}</strong>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <span style={{ color: '#888', minWidth: 80 }}>Số tài khoản</span>
+                  <strong style={{ fontFamily: 'monospace', letterSpacing: '1px' }}>{BANK_ACCT}</strong>
+                </div>
+                {BANK_NAME && (
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <span style={{ color: '#888', minWidth: 80 }}>Chủ TK</span>
+                    <strong>{BANK_NAME}</strong>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <span style={{ color: '#888', minWidth: 80 }}>Nội dung</span>
+                  <strong style={{ color: '#1d4ed8' }}>{order.order_number}</strong>
+                </div>
+                {total && (
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <span style={{ color: '#888', minWidth: 80 }}>Số tiền</span>
+                    <strong style={{ color: '#15803d', fontSize: 15 }}>{fmtVND(total)}</strong>
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: '#93c5fd', marginTop: 12 }}>Quét mã hoặc chuyển khoản thủ công theo thông tin trên</div>
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>
+            <span style={{ color: '#aaa' }}>Thanh toán: </span>
+            <span style={{ fontWeight: 600, color: '#1a1916' }}>COD — Trả tiền khi nhận hàng</span>
+          </div>
+        )}
 
         {/* Tracking */}
         {order.tracking_number && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '12px 16px', marginTop: 16, marginBottom: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '.6px', marginBottom: 4 }}>
               {CARRIER_LABEL[order.shipping_carrier] ?? order.shipping_carrier}
             </div>
@@ -189,22 +232,6 @@ export default async function InvoicePage({ params }: { params: { token: string 
               Mã vận đơn: <code style={{ fontWeight: 700, color: '#1a1916', background: '#dcfce7', padding: '1px 6px', borderRadius: 4 }}>{order.tracking_number}</code>
             </div>
           </div>
-        )}
-
-        {/* QR for bank transfer */}
-        {qrUrl && (
-          <>
-            {divider}
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: '#aaa', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.8px' }}>QR thanh toán nhanh</div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qrUrl} alt="QR thanh toán" style={{ width: 180, height: 180, borderRadius: 10, border: '1px solid #eee', display: 'block', margin: '0 auto' }} />
-              <div style={{ fontSize: 12, color: '#666', marginTop: 10 }}>
-                {BANK_ID.toUpperCase()} · <strong>{BANK_ACCT}</strong> · {BANK_NAME}
-              </div>
-              <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>Nội dung CK: <strong style={{ color: '#555' }}>{order.order_number}</strong></div>
-            </div>
-          </>
         )}
 
         {divider}
