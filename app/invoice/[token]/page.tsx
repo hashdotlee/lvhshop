@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+
 type OrderItem = { id: number; item_title: string; item_price: number | null; quantity: number }
 type Order = {
   id: number

@@ -102,7 +102,7 @@ export default function InventoryPage() {
   const [editBatchSubmitting, setEditBatchSubmitting] = useState(false)
 
   const [editingItem, setEditingItem] = useState<Item | null>(null)
-  const [editItemForm, setEditItemForm] = useState({ title: '', sku: '', description: '', condition: 'Mới', category: '', price: '', cost_price: '', bin_location: '' })
+  const [editItemForm, setEditItemForm] = useState({ title: '', sku: '', description: '', condition: 'Mới', category: '', price: '', cost_price: '', bin_location: '', status: 'available' })
   const [editItemSubmitting, setEditItemSubmitting] = useState(false)
 
   const fileRef = useRef<HTMLInputElement>(null)
@@ -415,6 +415,7 @@ export default function InventoryPage() {
       price: item.price ? String(item.price) : '',
       cost_price: item.cost_price ? String(item.cost_price) : '',
       bin_location: item.bin_location ?? '',
+      status: item.status ?? 'available',
     })
   }
 
@@ -440,6 +441,7 @@ export default function InventoryPage() {
           images: editingItem.images ?? [],
           sku: editItemForm.sku || null,
           bin_location: editItemForm.bin_location || null,
+          status: editItemForm.status,
         }),
       })
       if (!r.ok) { const err = await r.json(); showToast(`Lỗi: ${err.error ?? r.status}`); return }
@@ -1093,6 +1095,32 @@ export default function InventoryPage() {
               <div style={S.fg}>
                 <div style={S.lbl}>Vị trí thùng</div>
                 <input className="inv-inp" value={editItemForm.bin_location} onChange={e => setEditItemForm(p => ({ ...p, bin_location: e.target.value }))} />
+              </div>
+              <div className="inv-fg-full">
+                <div style={S.lbl}>Trạng thái kho</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {([
+                    { value: 'available', label: 'Còn hàng',  style: S.badgeAvail },
+                    { value: 'reserved',  label: 'Đang giữ',  style: S.badgeReserved },
+                    { value: 'incoming',  label: 'Sắp về',    style: S.badgeIncoming },
+                    { value: 'sold',      label: 'Đã bán',    style: S.badgeSold },
+                  ] as const).map(opt => (
+                    <label key={opt.value} style={{
+                      display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                      padding: '8px 14px', borderRadius: 8,
+                      border: editItemForm.status === opt.value ? '2px solid #4ade80' : '2px solid #2a2d3a',
+                      background: editItemForm.status === opt.value ? '#0f1117' : 'transparent',
+                      transition: 'border-color .15s',
+                    }}>
+                      <input type="radio" name="edit_status" value={opt.value}
+                        checked={editItemForm.status === opt.value}
+                        onChange={() => setEditItemForm(p => ({ ...p, status: opt.value }))}
+                        style={{ accentColor: '#4ade80', cursor: 'pointer' }}
+                      />
+                      <span style={opt.style}>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
               <div style={S.fg}>
                 <div style={S.lbl}>Giá nhập (VNĐ)</div>
