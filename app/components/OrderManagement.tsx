@@ -266,11 +266,6 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
     try {
       const prevOrder = orders.find(o => o.id === id)
 
-      // If there's a pending selected item not yet added, commit it first
-      if (selectedAddItem || addItemSearch.trim()) {
-        await addItemToOrder(id)
-      }
-
       const r = await fetch('/api/orders', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
