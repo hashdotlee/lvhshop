@@ -177,7 +177,7 @@ export default async function InvoicePage({ params }: { params: { token: string 
         </div>
 
         {/* Payment method */}
-        {isBankTransfer && qrUrl ? (
+        {isBankTransfer && qrUrl && order.payment_status !== 'verified' ? (
           <>
             {divider}
             <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '20px 20px 24px', textAlign: 'center' }}>
@@ -218,7 +218,12 @@ export default async function InvoicePage({ params }: { params: { token: string 
         ) : (
           <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>
             <span style={{ color: '#aaa' }}>Thanh toán: </span>
-            <span style={{ fontWeight: 600, color: '#1a1916' }}>COD — Trả tiền khi nhận hàng</span>
+            <span style={{ fontWeight: 600, color: '#1a1916' }}>
+              {isBankTransfer ? 'Chuyển khoản ngân hàng' : 'COD — Trả tiền khi nhận hàng'}
+            </span>
+            {order.payment_status === 'verified' && (
+              <span style={{ marginLeft: 8, background: '#f0fdf4', color: '#15803d', fontWeight: 700, fontSize: 11, padding: '2px 8px', borderRadius: 20 }}>✓ Đã thanh toán</span>
+            )}
           </div>
         )}
 
