@@ -57,8 +57,13 @@ export type Customer = {
   phone: string
   address: string
   note: string
+  fb_psid: string | null
   created_at: string
   items?: { title: string; price: number | null; order_code: string }
+  // Aggregated from orders table
+  order_count?: number
+  total_spend?: number
+  last_order_at?: string | null
 }
 
 export type CustomerAddress = {

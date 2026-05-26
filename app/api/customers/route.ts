@@ -20,7 +20,33 @@ export async function GET(req: NextRequest) {
     .select('*, items(title, price, order_code)')
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+
+  const customers = (data ?? []) as Record<string, unknown>[]
+  const phones = customers.map(c => c.phone as string).filter(Boolean)
+
+  let aggs: Record<string, { count: number; spend: number; lastAt: string | null }> = {}
+  if (phones.length > 0) {
+    const { data: orders } = await db
+      .from('orders')
+      .select('customer_phone, total_amount, order_status, created_at')
+      .in('customer_phone', phones)
+    for (const o of (orders ?? []) as { customer_phone: string; total_amount: number | null; order_status: string; created_at: string }[]) {
+      if (o.order_status === 'cancelled') continue
+      if (!aggs[o.customer_phone]) aggs[o.customer_phone] = { count: 0, spend: 0, lastAt: null }
+      aggs[o.customer_phone].count++
+      aggs[o.customer_phone].spend += o.total_amount ?? 0
+      if (!aggs[o.customer_phone].lastAt || o.created_at > (aggs[o.customer_phone].lastAt as string)) {
+        aggs[o.customer_phone].lastAt = o.created_at
+      }
+    }
+  }
+
+  return NextResponse.json(customers.map(c => ({
+    ...c,
+    order_count: aggs[c.phone as string]?.count ?? 0,
+    total_spend: aggs[c.phone as string]?.spend ?? 0,
+    last_order_at: aggs[c.phone as string]?.lastAt ?? null,
+  })))
 }
 
 export async function POST(req: NextRequest) {
