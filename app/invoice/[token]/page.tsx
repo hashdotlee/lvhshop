@@ -215,15 +215,23 @@ export default async function InvoicePage({ params }: { params: { token: string 
               <div style={{ fontSize: 11, color: '#93c5fd', marginTop: 12 }}>Quét mã hoặc chuyển khoản thủ công theo thông tin trên</div>
             </div>
           </>
+        ) : order.payment_status === 'verified' ? (
+          <>
+            {divider}
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '20px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#15803d', marginBottom: 6 }}>Đã thanh toán</div>
+              <div style={{ fontSize: 13, color: '#4ade80' }}>
+                {isBankTransfer ? 'Chuyển khoản ngân hàng đã được xác nhận' : 'Thanh toán COD đã được xác nhận'}
+              </div>
+            </div>
+          </>
         ) : (
           <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>
             <span style={{ color: '#aaa' }}>Thanh toán: </span>
             <span style={{ fontWeight: 600, color: '#1a1916' }}>
               {isBankTransfer ? 'Chuyển khoản ngân hàng' : 'COD — Trả tiền khi nhận hàng'}
             </span>
-            {order.payment_status === 'verified' && (
-              <span style={{ marginLeft: 8, background: '#f0fdf4', color: '#15803d', fontWeight: 700, fontSize: 11, padding: '2px 8px', borderRadius: 20 }}>✓ Đã thanh toán</span>
-            )}
           </div>
         )}
 
