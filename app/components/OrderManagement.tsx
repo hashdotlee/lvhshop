@@ -138,6 +138,11 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
   const addItemTimer = useRef<ReturnType<typeof setTimeout>>()
   const [editOrderItems, setEditOrderItems] = useState<OrderItem[]>([])
 
+  // Create-order cart state
+  const [createCartItems, setCreateCartItems] = useState<Array<{id?: number, title: string, price: number | null}>>([])
+  const [createStagedItem, setCreateStagedItem] = useState<Item | null>(null)
+  const [createStagedPrice, setCreateStagedPrice] = useState('')
+
   // ── Fetch orders ───────────────────────────────────────────────
   async function fetchOrders() {
     setLoading(true)
@@ -184,14 +189,42 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
   }
 
   function selectItem(item: Item) {
-    setForm(f => ({
-      ...f,
-      item_id: item.id,
-      item_title: item.title,
-      item_price: String(item.price ?? ''),
-      total_amount: String(item.price ?? ''),
-    }))
+    setCreateStagedItem(item)
+    setCreateStagedPrice(item.price ? String(item.price) : '')
     setItemSearch(item.title)
+    setSearchedItems([])
+  }
+
+  function addToCreateCart() {
+    const title = createStagedItem?.title ?? itemSearch.trim()
+    if (!title) return
+    const price = createStagedPrice ? Number(createStagedPrice) : (createStagedItem?.price ?? null)
+    const newItem = { id: createStagedItem?.id, title, price }
+    setCreateCartItems(prev => {
+      const updated = [...prev, newItem]
+      const total = updated.reduce((s, i) => s + (i.price ?? 0), 0)
+      setForm(f => ({ ...f, total_amount: total ? String(total) : '' }))
+      return updated
+    })
+    setCreateStagedItem(null)
+    setCreateStagedPrice('')
+    setItemSearch('')
+  }
+
+  function removeFromCreateCart(idx: number) {
+    setCreateCartItems(prev => {
+      const updated = prev.filter((_, i) => i !== idx)
+      const total = updated.reduce((s, i) => s + (i.price ?? 0), 0)
+      setForm(f => ({ ...f, total_amount: total ? String(total) : '' }))
+      return updated
+    })
+  }
+
+  function clearCreateCart() {
+    setCreateCartItems([])
+    setCreateStagedItem(null)
+    setCreateStagedPrice('')
+    setItemSearch('')
     setSearchedItems([])
   }
 
@@ -203,9 +236,9 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
     }
     setSaving(true)
     try {
-      let itemId: number | null = form.item_id ? Number(form.item_id) : null
+      const cartItems = [...createCartItems]
 
-      // If creating new product inline
+      // If creating new product inline, create it first then add to cart
       if (form.showNewProduct && form.newProductTitle) {
         const pr = await fetch('/api/items', {
           method: 'POST',
@@ -225,16 +258,14 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
         })
         if (!pr.ok) { onToast('Lỗi tạo sản phẩm'); return }
         const pd = await pr.json()
-        itemId = pd.id ?? null
+        cartItems.push({ id: pd.id, title: form.newProductTitle, price: form.newProductPrice ? Number(form.newProductPrice) : null })
       }
 
       const r = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
         body: JSON.stringify({
-          item_id: itemId,
-          item_title: form.showNewProduct ? form.newProductTitle : form.item_title || null,
-          item_price: form.item_price ? Number(form.item_price) : null,
+          cart_items: cartItems.length > 0 ? cartItems : undefined,
           customer_name: form.customer_name,
           customer_phone: form.customer_phone,
           customer_address: form.customer_address,
@@ -250,8 +281,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
       onToast('Đã tạo đơn hàng!')
       setShowCreateModal(false)
       setForm({ ...EMPTY_FORM })
-      setItemSearch('')
-      setSearchedItems([])
+      clearCreateCart()
       fetchOrders()
     } catch {
       onToast('Không thể kết nối server')
@@ -611,7 +641,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
             Xuất CSV
           </button>
-          <button className="om-btn-primary" onClick={() => { setForm({ ...EMPTY_FORM }); setItemSearch(''); setSearchedItems([]); setShowCreateModal(true) }}>
+          <button className="om-btn-primary" onClick={() => { setForm({ ...EMPTY_FORM }); clearCreateCart(); setShowCreateModal(true) }}>
             + Tạo đơn hàng
           </button>
         </div>
@@ -865,14 +895,35 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
 
             {/* Product section */}
             <div className="om-section">
-              <div className="om-section-title">Sản phẩm</div>
+              <div className="om-section-title">
+                Sản phẩm
+                {createCartItems.length > 0 && <span style={{ fontWeight: 400, color: 'var(--muted)', fontSize: 11, marginLeft: 6 }}>{createCartItems.length} sản phẩm</span>}
+              </div>
+
+              {/* Cart items */}
+              {createCartItems.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  {createCartItems.map((item, idx) => (
+                    <div key={idx} className="om-edit-item-row">
+                      <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, lineHeight: 1.4 }}>{item.title}</div>
+                      <span style={{ color: 'var(--green)', fontWeight: 600, fontSize: 12, marginRight: 8, whiteSpace: 'nowrap' }}>{fmtVND(item.price)}</span>
+                      <button className="om-remove-item-btn" onClick={() => removeFromCreateCart(idx)}>✕</button>
+                    </div>
+                  ))}
+                  {createCartItems.length > 1 && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: 12, fontWeight: 700, color: 'var(--green)', paddingTop: 6, marginTop: 4, borderTop: '1px solid var(--border, #e8e6e1)' }}>
+                      Tổng: {fmtVND(createCartItems.reduce((s, i) => s + (i.price ?? 0), 0) || null)}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {!form.showNewProduct ? (
                 <>
                   <div className="om-item-search-wrap">
                     <input
                       className="om-inp"
-                      placeholder="Tìm sản phẩm theo tên hoặc mã..."
+                      placeholder={createCartItems.length > 0 ? 'Thêm sản phẩm khác...' : 'Tìm sản phẩm theo tên hoặc mã...'}
                       value={itemSearch}
                       onChange={e => onItemSearchChange(e.target.value)}
                     />
@@ -891,18 +942,24 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
                       ))}
                     </div>
                   )}
-                  {form.item_id && (
-                    <div className="om-selected-item">
-                      <span>✓ Đã chọn: <strong>{form.item_title}</strong></span>
-                      <button className="om-clear-item" onClick={() => {
-                        setForm(f => ({ ...f, item_id: '', item_title: '', item_price: '' }))
-                        setItemSearch('')
-                      }}>✕</button>
+                  {createStagedItem && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap', background: 'var(--tag-bg, #f0efe9)', borderRadius: 8, padding: '8px 10px' }}>
+                      <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{createStagedItem.title}</div>
+                      <input
+                        className="om-inp"
+                        type="number"
+                        placeholder="Giá (VNĐ)"
+                        value={createStagedPrice}
+                        onChange={e => setCreateStagedPrice(e.target.value)}
+                        style={{ width: 120, flexShrink: 0 }}
+                      />
+                      <button className="om-btn-primary" style={{ fontSize: 12, padding: '6px 12px' }} onClick={addToCreateCart}>+ Thêm</button>
+                      <button className="om-close-btn" onClick={() => { setCreateStagedItem(null); setCreateStagedPrice(''); setItemSearch('') }}>✕</button>
                     </div>
                   )}
                   <button
                     className="om-link-btn"
-                    onClick={() => setForm(f => ({ ...f, showNewProduct: true, item_id: '', item_title: '' }))}
+                    onClick={() => setForm(f => ({ ...f, showNewProduct: true }))}
                   >
                     + Tạo sản phẩm mới nếu chưa có
                   </button>
@@ -910,7 +967,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
               ) : (
                 <div className="om-new-product-form">
                   <div className="om-new-product-header">
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>Thêm sản phẩm mới</span>
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>Thêm sản phẩm mới vào đơn</span>
                     <button className="om-link-btn" onClick={() => setForm(f => ({ ...f, showNewProduct: false }))}>← Chọn có sẵn</button>
                   </div>
                   <div className="om-form-grid">
@@ -922,7 +979,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
                     <div className="om-fg">
                       <label className="om-lbl">Giá (VNĐ)</label>
                       <input className="om-inp" type="number" placeholder="0" value={form.newProductPrice}
-                        onChange={e => setForm(f => ({ ...f, newProductPrice: e.target.value, total_amount: e.target.value }))} />
+                        onChange={e => setForm(f => ({ ...f, newProductPrice: e.target.value }))} />
                     </div>
                     <div className="om-fg">
                       <label className="om-lbl">Danh mục</label>
