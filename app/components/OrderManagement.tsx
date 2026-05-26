@@ -116,12 +116,14 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
   const [editForm, setEditForm] = useState<{
     order_status: Order['order_status']
     payment_status: Order['payment_status']
+    payment_method: Order['payment_method']
     tracking_number: string
     shipping_carrier: string
     fb_psid: string
   }>({
     order_status: 'pending',
     payment_status: 'pending',
+    payment_method: 'cod',
     tracking_number: '',
     shipping_carrier: 'spx',
     fb_psid: '',
@@ -403,6 +405,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
     setEditForm({
       order_status: order.order_status,
       payment_status: order.payment_status,
+      payment_method: order.payment_method,
       tracking_number: order.tracking_number ?? '',
       shipping_carrier: order.shipping_carrier,
       fb_psid: order.fb_psid ?? '',
@@ -1197,6 +1200,35 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
                   onChange={e => setEditForm(f => ({ ...f, tracking_number: e.target.value }))} />
               </div>
               <div className="om-fg om-fg-full">
+                <label className="om-lbl">Phương thức thanh toán</label>
+                <div className="om-radio-group">
+                  {(['cod', 'bank_transfer'] as const).map(m => (
+                    <label key={m} className="om-radio-label">
+                      <input type="radio" name="edit_pay_method" value={m}
+                        checked={editForm.payment_method === m}
+                        onChange={() => setEditForm(f => ({ ...f, payment_method: m }))} />
+                      {m === 'cod' ? 'COD' : 'Chuyển khoản'}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {editForm.payment_method === 'bank_transfer' && editOrder.total_amount && process.env.NEXT_PUBLIC_BANK_ID && (
+                <div className="om-fg om-fg-full">
+                  <div className="om-bank-info" style={{ marginTop: 0 }}>
+                    <div className="om-bank-details">
+                      <div className="om-bank-row"><span className="om-bank-key">Ngân hàng</span><span className="om-bank-val">{process.env.NEXT_PUBLIC_BANK_ID?.toUpperCase()}</span></div>
+                      <div className="om-bank-row"><span className="om-bank-key">Số TK</span><span className="om-bank-val">{process.env.NEXT_PUBLIC_BANK_ACCOUNT}</span></div>
+                      <div className="om-bank-row"><span className="om-bank-key">Số tiền</span><span className="om-bank-val" style={{ color: 'var(--green)', fontWeight: 700 }}>{fmtVND(editOrder.total_amount)}</span></div>
+                      <div className="om-bank-row"><span className="om-bank-key">Nội dung</span><span className="om-bank-val">{editOrder.order_number}</span></div>
+                    </div>
+                    <div className="om-qr-wrap">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={vietQRUrlForOrder({ ...editOrder, payment_method: 'bank_transfer' })} alt="QR" className="om-qr-img" />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="om-fg om-fg-full">
                 <label className="om-lbl">FB PSID</label>
                 <input className="om-inp" placeholder="Facebook Page Scoped ID để gửi thông báo" value={editForm.fb_psid}
                   onChange={e => setEditForm(f => ({ ...f, fb_psid: e.target.value }))} />
@@ -1231,6 +1263,7 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
               <button className="om-btn-primary" onClick={() => updateOrder(editOrder.id, {
                 order_status: editForm.order_status,
                 payment_status: editForm.payment_status,
+                payment_method: editForm.payment_method,
                 tracking_number: editForm.tracking_number || null,
                 shipping_carrier: editForm.shipping_carrier,
                 fb_psid: editForm.fb_psid || null,
