@@ -515,7 +515,7 @@ export default function HomeClient() {
 
   // ── customers ─────────────────────────────────────────────────
   async function saveCust(c: Customer) {
-    const { items: _, created_at: __, ...fields } = c
+    const { items: _, created_at: __, order_count: _oc, total_spend: _ts, last_order_at: _la, ...fields } = c
     await fetch('/api/customers', { method:'PATCH', headers:{'Content-Type':'application/json','x-admin-key':adminKey.current}, body: JSON.stringify(fields) })
     setCustomers(prev => prev.map(x => x.id===c.id ? c : x)); setEditCust(null); showToast('Đã cập nhật')
   }
@@ -680,8 +680,23 @@ export default function HomeClient() {
   })()
 
   const filteredCust = customers.filter(c =>
-    !custSearch || [c.name,c.phone,c.order_code,c.address,c.email].some(v=>v?.toLowerCase().includes(custSearch.toLowerCase()))
+    !custSearch || [c.name,c.phone,c.address,c.email,c.note].some(v=>v?.toLowerCase().includes(custSearch.toLowerCase()))
   )
+
+  const custStats = (() => {
+    const total = customers.length
+    const withOrders = customers.filter(c => (c.order_count ?? 0) > 0).length
+    const appUsers = customers.filter(c => c.user_id).length
+    const totalRevenue = customers.reduce((s, c) => s + (c.total_spend ?? 0), 0)
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const newThisMonth = customers.filter(c => new Date(c.created_at) >= monthStart).length
+    const topBySpend = [...customers]
+      .filter(c => (c.total_spend ?? 0) > 0)
+      .sort((a, b) => (b.total_spend ?? 0) - (a.total_spend ?? 0))
+      .slice(0, 5)
+    return { total, withOrders, appUsers, totalRevenue, newThisMonth, topBySpend }
+  })()
 
   // ─────────────────────────────────────────────────────────────
   return (
@@ -765,31 +780,97 @@ export default function HomeClient() {
         {/* CUSTOMER VIEW */}
         {isAdmin && adminView==='customers' && (
           <div>
-            <div className="section-title">Quản lý khách hàng</div>
-            <div className="filter-bar" style={{marginBottom:20}}>
-              <input className="inp" style={{flex:1,maxWidth:320}} placeholder="Tìm tên, SĐT, email, mã đơn..."
-                value={custSearch} onChange={e=>setCustSearch(e.target.value)} />
-              <button className="btn-ghost" onClick={fetchCustomers}>↻</button>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,gap:8,flexWrap:'wrap'}}>
+              <div className="section-title" style={{margin:0}}>Quản lý khách hàng</div>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <input className="inp" style={{width:260}} placeholder="Tìm tên, SĐT, email, địa chỉ..."
+                  value={custSearch} onChange={e=>setCustSearch(e.target.value)} />
+                <button className="btn-ghost" onClick={fetchCustomers}>↻</button>
+              </div>
             </div>
+
+            {/* Stats */}
+            {!loadingCust && customers.length > 0 && (
+              <div className="cust-stats-wrap">
+                <div className="cust-stat-card">
+                  <div className="cust-stat-label">Tổng khách</div>
+                  <div className="cust-stat-val">{custStats.total}</div>
+                </div>
+                <div className="cust-stat-card">
+                  <div className="cust-stat-label">Đã mua hàng</div>
+                  <div className="cust-stat-val" style={{color:'var(--green)'}}>{custStats.withOrders}</div>
+                </div>
+                <div className="cust-stat-card">
+                  <div className="cust-stat-label">Có tài khoản</div>
+                  <div className="cust-stat-val" style={{color:'#2563eb'}}>{custStats.appUsers}</div>
+                </div>
+                <div className="cust-stat-card">
+                  <div className="cust-stat-label">Mới tháng này</div>
+                  <div className="cust-stat-val">{custStats.newThisMonth}</div>
+                </div>
+                <div className="cust-stat-card cust-stat-wide">
+                  <div className="cust-stat-label">Tổng doanh thu (từ đơn hoàn thành / đang xử lý)</div>
+                  <div className="cust-stat-val" style={{fontSize:18,color:'var(--green)'}}>{fmtVND(custStats.totalRevenue||null)}</div>
+                </div>
+                {custStats.topBySpend.length > 0 && (
+                  <div className="cust-stat-card cust-stat-full">
+                    <div className="cust-stat-label" style={{marginBottom:8}}>Top khách theo chi tiêu</div>
+                    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                      {custStats.topBySpend.map((c,i) => (
+                        <div key={c.id} className="cust-top-chip">
+                          <span className="cust-top-rank">{i+1}</span>
+                          <span className="cust-top-name">{c.name.split(' ').pop()}</span>
+                          <span className="cust-top-spend">{fmtVND(c.total_spend??null)}</span>
+                          <span className="cust-top-orders">{c.order_count} đơn</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {loadingCust ? <div className="empty"><div className="spinner" style={{margin:'0 auto'}}/></div>
             : filteredCust.length===0 ? <div className="empty"><div className="empty-icon">👥</div><p>Chưa có khách hàng nào.</p></div>
             : (
               <div className="cust-table-wrap">
                 <table className="cust-table">
-                  <thead><tr><th>Mã đơn</th><th>Sản phẩm</th><th>Khách hàng</th><th>Email</th><th>SĐT</th><th>Địa chỉ</th><th>Ghi chú</th><th>Ngày</th><th></th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Khách hàng</th>
+                      <th>SĐT</th>
+                      <th>Email</th>
+                      <th>Địa chỉ</th>
+                      <th>Đơn hàng</th>
+                      <th>Tổng chi</th>
+                      <th>Đơn gần nhất</th>
+                      <th>Ngày đăng ký</th>
+                      <th></th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {filteredCust.map(c=>(
                       <tr key={c.id}>
-                        <td><code className="order-code">{c.order_code||'—'}</code></td>
-                        <td style={{maxWidth:160}}>{c.items?.title||'—'}<br/><span style={{color:'var(--green)',fontSize:12}}>{fmtVND(c.items?.price??null)}</span></td>
-                        <td style={{fontWeight:500}}>
+                        <td style={{fontWeight:500,whiteSpace:'nowrap'}}>
                           {c.name||'—'}
                           {c.user_id && <span className="badge-app" title="Đã đăng ký tài khoản">App</span>}
+                          {c.fb_psid && <span className="badge-fb" title="Đã kết nối Facebook">FB</span>}
                         </td>
-                        <td style={{fontSize:12,color:'var(--muted)'}}>{c.email||'—'}</td>
-                        <td>{c.phone||'—'}</td>
-                        <td style={{maxWidth:160,wordBreak:'break-word'}}>{c.address||'—'}</td>
-                        <td style={{maxWidth:140,color:'var(--muted)',fontSize:12}}>{c.note||'—'}</td>
+                        <td style={{whiteSpace:'nowrap'}}>{c.phone||'—'}</td>
+                        <td style={{fontSize:12,color:'var(--muted)',maxWidth:140,wordBreak:'break-word'}}>{c.email||'—'}</td>
+                        <td style={{maxWidth:180,wordBreak:'break-word',fontSize:12,color:'var(--muted)'}}>{c.address||'—'}</td>
+                        <td style={{textAlign:'center'}}>
+                          {(c.order_count ?? 0) > 0
+                            ? <span className="cust-order-badge">{c.order_count}</span>
+                            : <span style={{color:'var(--muted)',fontSize:12}}>—</span>
+                          }
+                        </td>
+                        <td style={{whiteSpace:'nowrap',fontWeight:600,color:'var(--green)',fontSize:13}}>
+                          {(c.total_spend ?? 0) > 0 ? fmtVND(c.total_spend??null) : <span style={{color:'var(--muted)',fontWeight:400}}>—</span>}
+                        </td>
+                        <td style={{whiteSpace:'nowrap',color:'var(--muted)',fontSize:12}}>
+                          {c.last_order_at ? fmtDate(c.last_order_at) : '—'}
+                        </td>
                         <td style={{whiteSpace:'nowrap',color:'var(--muted)',fontSize:12}}>{fmtDate(c.created_at)}</td>
                         <td><div style={{display:'flex',gap:4}}>
                           <button className="btn-copy" onClick={()=>setEditCust({...c})}>Sửa</button>
@@ -1379,7 +1460,7 @@ export default function HomeClient() {
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setEditCust(null)}>
           <div className="modal">
             <h3>Chỉnh sửa khách hàng</h3>
-            <p><code className="order-code">{editCust.order_code}</code> · {editCust.items?.title}</p>
+            <p style={{fontSize:13,color:'var(--muted)',marginTop:2}}>{editCust.phone}{editCust.order_count ? ` · ${editCust.order_count} đơn` : ''}</p>
             <div className="modal-grid" style={{marginTop:16}}>
               <div><label className="lbl">Tên</label><input className="inp" value={editCust.name??''} onChange={e=>setEditCust(c=>c?{...c,name:e.target.value}:c)}/></div>
               <div><label className="lbl">SĐT</label><input className="inp" value={editCust.phone??''} onChange={e=>setEditCust(c=>c?{...c,phone:e.target.value}:c)}/></div>
@@ -1774,6 +1855,21 @@ textarea::placeholder{color:#c0bdb5}
 .btn-order-quick:hover{opacity:.85}
 
 /* CUSTOMER TABLE */
+/* Customer stats */
+.cust-stats-wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.cust-stat-card{background:white;border:1px solid var(--border);border-radius:9px;padding:12px 14px}
+.cust-stat-wide{grid-column:span 2}
+.cust-stat-full{grid-column:1/-1}
+.cust-stat-label{font-size:10px;color:var(--muted);font-weight:500;letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px}
+.cust-stat-val{font-size:22px;font-weight:700;color:var(--text);line-height:1}
+.cust-top-chip{display:inline-flex;align-items:center;gap:5px;background:var(--tag-bg);border-radius:20px;padding:4px 10px;font-size:12px}
+.cust-top-rank{font-weight:700;color:var(--muted);min-width:12px}
+.cust-top-name{font-weight:500;color:var(--text)}
+.cust-top-spend{color:var(--green);font-weight:600}
+.cust-top-orders{color:var(--muted);font-size:11px}
+.cust-order-badge{display:inline-block;background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;border-radius:20px;padding:1px 8px;font-size:11px;font-weight:700}
+.badge-fb{background:#1877f2;color:white;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:5px;vertical-align:middle}
+/* Customer table */
 .cust-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
 .cust-table{width:100%;border-collapse:collapse;font-size:13px}
 .cust-table th{background:var(--tag-bg);padding:10px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
@@ -1835,5 +1931,8 @@ textarea::placeholder{color:#c0bdb5}
   .lb-next{right:8px}
   .modal-grid{grid-template-columns:1fr}
   .cust-table{font-size:12px}
+  .cust-stats-wrap{grid-template-columns:repeat(2,1fr)}
+  .cust-stat-wide{grid-column:span 2}
+  .cust-stat-full{grid-column:1/-1}
 }
 `
