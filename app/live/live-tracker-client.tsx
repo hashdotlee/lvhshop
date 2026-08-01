@@ -29,7 +29,12 @@ const DEFAULT_STREAMS: StreamItem[] = [
   },
 ]
 
-function getEmbedUrl(rawUrl: string, showComments: boolean = true, embedType: 'video' | 'page' = 'video'): string {
+function getEmbedUrl(
+  rawUrl: string, 
+  showComments: boolean = true, 
+  embedType: 'video' | 'page' = 'video',
+  autoPlay: boolean = false
+): string {
   if (!rawUrl) return ''
   let trimmed = rawUrl.trim()
   
@@ -40,6 +45,7 @@ function getEmbedUrl(rawUrl: string, showComments: boolean = true, embedType: 'v
 
   const showTextParam = showComments ? 'true' : 'false'
   const pageHeight = showComments ? '1200' : '800'
+  const autoPlayParam = autoPlay ? 'true' : 'false'
 
   // Handle Facebook URLs
   if (trimmed.includes('facebook.com') || trimmed.includes('fb.watch')) {
@@ -62,7 +68,7 @@ function getEmbedUrl(rawUrl: string, showComments: boolean = true, embedType: 'v
       if (!videoTargetUrl.startsWith('http')) videoTargetUrl = 'https://www.facebook.com/' + videoTargetUrl
 
       const encoded = encodeURIComponent(videoTargetUrl)
-      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=${showTextParam}&width=auto&autoplay=true`
+      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=${showTextParam}&width=auto&autoplay=${autoPlayParam}`
     } else {
       let cleanPageUrl = trimmed.replace(/\/live\/?$/, '').replace(/\/+$/, '')
       if (!cleanPageUrl.startsWith('http')) cleanPageUrl = 'https://www.facebook.com/' + cleanPageUrl
@@ -77,7 +83,7 @@ function getEmbedUrl(rawUrl: string, showComments: boolean = true, embedType: 'v
     if (embedType === 'video') {
       const videoTargetUrl = `https://www.facebook.com/${trimmed}/live`
       const encoded = encodeURIComponent(videoTargetUrl)
-      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=${showTextParam}&width=auto&autoplay=true`
+      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=${showTextParam}&width=auto&autoplay=${autoPlayParam}`
     } else {
       const cleanPageUrl = `https://www.facebook.com/${trimmed}`
       const encodedPage = encodeURIComponent(cleanPageUrl)
@@ -109,6 +115,7 @@ export default function LiveTrackerClient() {
   const [columns, setColumns] = useState<number>(3) // 1, 2, 3, 4
   const [aspectRatio, setAspectRatio] = useState<'16-9' | '9-16' | 'fit' | 'auto'>('9-16')
   const [showComments, setShowComments] = useState<boolean>(true)
+  const [autoPlay, setAutoPlay] = useState<boolean>(false)
   const [embedType, setEmbedType] = useState<'video' | 'page'>('video')
   const [viewMode, setViewMode] = useState<'grid' | 'focus'>('grid')
   const [focusedId, setFocusedId] = useState<string | null>(null)
@@ -564,6 +571,26 @@ export default function LiveTrackerClient() {
           </div>
         </div>
 
+        <div className="control-group">
+          <span className="control-label">Âm thanh:</span>
+          <div className="btn-segmented">
+            <button
+              className={`seg-btn ${!autoPlay ? 'active' : ''}`}
+              onClick={() => setAutoPlay(false)}
+              title="Khung video cho phép phát âm thanh chuẩn HD"
+            >
+              🔊 Phát Có Tiếng
+            </button>
+            <button
+              className={`seg-btn ${autoPlay ? 'active' : ''}`}
+              onClick={() => setAutoPlay(true)}
+              title="Tự động phát video (Trình duyệt tự mute tiếng)"
+            >
+              🔇 Tắt Tiếng
+            </button>
+          </div>
+        </div>
+
         <div className="control-actions">
           {isAdmin && (
             <>
@@ -636,10 +663,10 @@ export default function LiveTrackerClient() {
               <div className="stream-video-wrap focus-video">
                 <iframe
                   id={`iframe-${activeFocusStream.id}`}
-                  src={getEmbedUrl(activeFocusStream.url, showComments, embedType)}
+                  src={getEmbedUrl(activeFocusStream.url, showComments, embedType, autoPlay)}
                   className="stream-iframe"
                   allowFullScreen
-                  allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                  allow="autoplay *; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen *"
                 />
               </div>
               {showComments && (
@@ -729,10 +756,10 @@ export default function LiveTrackerClient() {
                 <div className="stream-video-wrap">
                   <iframe
                     id={`iframe-${stream.id}`}
-                    src={getEmbedUrl(stream.url, showComments, embedType)}
+                    src={getEmbedUrl(stream.url, showComments, embedType, autoPlay)}
                     className="stream-iframe"
                     allowFullScreen
-                    allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                    allow="autoplay *; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen *"
                   />
                 </div>
 
