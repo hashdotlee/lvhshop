@@ -105,8 +105,8 @@ function getEmbedUrl(rawUrl: string, showComments: boolean = true, embedType: 'v
 
 export default function LiveTrackerClient() {
   const [streams, setStreams] = useState<StreamItem[]>(DEFAULT_STREAMS)
-  const [columns, setColumns] = useState<number>(2) // 1, 2, 3, 4
-  const [aspectRatio, setAspectRatio] = useState<'16-9' | '9-16' | 'fit' | 'auto'>('fit')
+  const [columns, setColumns] = useState<number>(3) // 1, 2, 3, 4
+  const [aspectRatio, setAspectRatio] = useState<'16-9' | '9-16' | 'fit' | 'auto'>('9-16')
   const [showComments, setShowComments] = useState<boolean>(true)
   const [embedType, setEmbedType] = useState<'video' | 'page'>('video')
   const [viewMode, setViewMode] = useState<'grid' | 'focus'>('grid')
@@ -479,9 +479,16 @@ export default function LiveTrackerClient() {
           <span className="control-label">Tỉ lệ khung:</span>
           <div className="btn-segmented">
             <button
+              className={`seg-btn ${aspectRatio === '9-16' ? 'active' : ''}`}
+              onClick={() => changeAspect('9-16')}
+              title="Khung Dọc TikTok / Facebook Mobile Live (9:16)"
+            >
+              📱 9:16 TikTok Dọc
+            </button>
+            <button
               className={`seg-btn ${aspectRatio === 'fit' ? 'active' : ''}`}
               onClick={() => changeAspect('fit')}
-              title="Vừa vặn khung Live (Không bị cắt)"
+              title="Vừa vặn chiều cao"
             >
               ↕️ Fit Chuẩn
             </button>
@@ -490,14 +497,7 @@ export default function LiveTrackerClient() {
               onClick={() => changeAspect('16-9')}
               title="Ngang chuẩn (16:9)"
             >
-              16:9
-            </button>
-            <button
-              className={`seg-btn ${aspectRatio === '9-16' ? 'active' : ''}`}
-              onClick={() => changeAspect('9-16')}
-              title="Dọc Mobile Live (9:16)"
-            >
-              📱 9:16
+              💻 16:9 Ngang
             </button>
             <button
               className={`seg-btn ${aspectRatio === 'auto' ? 'active' : ''}`}
@@ -1197,7 +1197,7 @@ body {
   padding-top: 56.25%; /* 16:9 */
 }
 .aspect-9-16 .stream-video-wrap {
-  padding-top: 130%; /* taller for mobile vertical live */
+  padding-top: 160%; /* Perfect ratio for TikTok & Facebook Mobile Vertical Live */
 }
 .aspect-auto .stream-video-wrap {
   height: 420px;
