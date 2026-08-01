@@ -99,6 +99,17 @@ export default function LiveTrackerClient() {
   const [viewMode, setViewMode] = useState<'grid' | 'focus'>('grid')
   const [focusedId, setFocusedId] = useState<string | null>(null)
   
+  // Admin & Toast state
+  const [isAdmin, setIsAdmin] = useState(false)
+  const adminKey = useRef('')
+  const [savingServer, setSavingServer] = useState(false)
+  const [toast, setToast] = useState('')
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 3000)
+  }
+
   // Single Add Stream Modal State
   const [showAddModal, setShowAddModal] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -117,8 +128,14 @@ export default function LiveTrackerClient() {
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  // Restore saved state from localStorage
+  // Restore saved state from localStorage & fetch Admin official list
   useEffect(() => {
+    // Check Admin status
+    if (typeof window !== 'undefined' && sessionStorage.getItem('cq_admin')) {
+      setIsAdmin(true)
+      adminKey.current = sessionStorage.getItem('cq_admin_key') ?? ''
+    }
+
     try {
       const savedStreams = localStorage.getItem('lvh_live_streams')
       if (savedStreams) {
@@ -138,7 +155,46 @@ export default function LiveTrackerClient() {
     } catch {
       /* ignore storage errors */
     }
+
+    // Fetch official Admin list from server
+    fetch('/api/live-streams')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const hasLocalCustom = localStorage.getItem('lvh_live_streams')
+          if (!hasLocalCustom) {
+            setStreams(data)
+          }
+        }
+      })
+      .catch(() => {})
   }, [])
+
+  // Admin function: Save current streams to server for ALL users
+  const saveOfficialStreamsToServer = async (streamsToSave?: StreamItem[]) => {
+    const list = streamsToSave || streams
+    setSavingServer(true)
+    try {
+      const res = await fetch('/api/live-streams', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-key': adminKey.current,
+        },
+        body: JSON.stringify({ streams: list }),
+      })
+      if (res.ok) {
+        showToast('✅ Đã lưu danh sách Fanpage chính thức cho tất cả khách hàng!')
+      } else {
+        const err = await res.json()
+        showToast(`❌ Lỗi lưu Server: ${err.error || res.status}`)
+      }
+    } catch {
+      showToast('❌ Không thể kết nối tới Server')
+    } finally {
+      setSavingServer(false)
+    }
+  }
 
   // Save changes to localStorage
   const saveStreams = (newStreams: StreamItem[]) => {
@@ -430,6 +486,17 @@ export default function LiveTrackerClient() {
         </div>
 
         <div className="control-actions">
+          {isAdmin && (
+            <button
+              className="live-btn-primary live-btn-admin-save"
+              onClick={() => saveOfficialStreamsToServer()}
+              disabled={savingServer}
+              title="Lưu danh sách này làm mặc định cho tất cả khách xem trang"
+              style={{ background: '#10b981' }}
+            >
+              {savingServer ? '⏳ Đang lưu...' : '💾 Lưu Danh Sách Cho Tất Cả Khách (Admin)'}
+            </button>
+          )}
           <button className="live-btn-primary" onClick={() => setShowBatchModal(true)}>
             📋 Nhập danh sách Shop
           </button>
@@ -444,6 +511,8 @@ export default function LiveTrackerClient() {
           </button>
         </div>
       </div>
+
+      {toast && <div className="live-toast-notification">{toast}</div>}
 
       {/* Main View Area */}
       <div ref={gridContainerRef} className={`live-container ${isFullscreen ? 'fullscreen-mode' : ''}`}>
@@ -725,6 +794,25 @@ body {
   background-color: var(--live-bg);
   color: var(--live-text);
   min-height: 100vh;
+}
+
+.live-toast-notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #10b981;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  z-index: 2000;
+  animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 .live-page-container {
