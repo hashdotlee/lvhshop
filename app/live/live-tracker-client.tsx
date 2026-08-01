@@ -763,7 +763,7 @@ export default function LiveTrackerClient() {
                   />
                 </div>
 
-                {activeCommentStreamId === stream.id && (
+                {(showComments || activeCommentStreamId === stream.id) && (
                   <FacebookCommentBox url={stream.url} />
                 )}
               </div>
