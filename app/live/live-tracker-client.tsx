@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
-import FacebookCommentBox from '../components/FacebookCommentBox'
 
 export interface StreamItem {
   id: string
@@ -31,7 +30,6 @@ const DEFAULT_STREAMS: StreamItem[] = [
 
 function getEmbedUrl(
   rawUrl: string, 
-  showComments: boolean = true, 
   embedType: 'video' | 'page' = 'video',
   autoPlay: boolean = false
 ): string {
@@ -43,8 +41,6 @@ function getEmbedUrl(
     return trimmed
   }
 
-  const showTextParam = showComments ? 'true' : 'false'
-  const pageHeight = showComments ? '1200' : '800'
   const autoPlayParam = autoPlay ? 'true' : 'false'
 
   // Handle Facebook URLs
@@ -68,13 +64,13 @@ function getEmbedUrl(
       if (!videoTargetUrl.startsWith('http')) videoTargetUrl = 'https://www.facebook.com/' + videoTargetUrl
 
       const encoded = encodeURIComponent(videoTargetUrl)
-      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=${showTextParam}&width=auto&autoplay=${autoPlayParam}`
+      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=false&width=auto&autoplay=${autoPlayParam}`
     } else {
       let cleanPageUrl = trimmed.replace(/\/live\/?$/, '').replace(/\/+$/, '')
       if (!cleanPageUrl.startsWith('http')) cleanPageUrl = 'https://www.facebook.com/' + cleanPageUrl
 
       const encodedPage = encodeURIComponent(cleanPageUrl)
-      return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=${pageHeight}&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
+      return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=800&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
     }
   }
 
@@ -83,11 +79,11 @@ function getEmbedUrl(
     if (embedType === 'video') {
       const videoTargetUrl = `https://www.facebook.com/${trimmed}/live`
       const encoded = encodeURIComponent(videoTargetUrl)
-      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=${showTextParam}&width=auto&autoplay=${autoPlayParam}`
+      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=false&width=auto&autoplay=${autoPlayParam}`
     } else {
       const cleanPageUrl = `https://www.facebook.com/${trimmed}`
       const encodedPage = encodeURIComponent(cleanPageUrl)
-      return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=${pageHeight}&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
+      return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=800&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
     }
   }
 
@@ -114,12 +110,10 @@ export default function LiveTrackerClient() {
   const [streams, setStreams] = useState<StreamItem[]>(DEFAULT_STREAMS)
   const [columns, setColumns] = useState<number>(3) // 1, 2, 3, 4
   const [aspectRatio, setAspectRatio] = useState<'16-9' | '9-16' | 'fit' | 'auto'>('9-16')
-  const [showComments, setShowComments] = useState<boolean>(true)
   const [autoPlay, setAutoPlay] = useState<boolean>(false)
   const [embedType, setEmbedType] = useState<'video' | 'page'>('video')
   const [viewMode, setViewMode] = useState<'grid' | 'focus'>('grid')
   const [focusedId, setFocusedId] = useState<string | null>(null)
-  const [activeCommentStreamId, setActiveCommentStreamId] = useState<string | null>(null)
   
   // Admin & Toast state
   const [isAdmin, setIsAdmin] = useState(false)
@@ -552,26 +546,6 @@ export default function LiveTrackerClient() {
         </div>
 
         <div className="control-group">
-          <span className="control-label">Bình luận:</span>
-          <div className="btn-segmented">
-            <button
-              className={`seg-btn ${showComments ? 'active' : ''}`}
-              onClick={() => setShowComments(true)}
-              title="Hiện đầy đủ khung bình luận & tương tác Facebook"
-            >
-              💬 Hiện Comment
-            </button>
-            <button
-              className={`seg-btn ${!showComments ? 'active' : ''}`}
-              onClick={() => setShowComments(false)}
-              title="Chỉ hiển thị Video gọn gàng"
-            >
-              📹 Chỉ Video
-            </button>
-          </div>
-        </div>
-
-        <div className="control-group">
           <span className="control-label">Âm thanh:</span>
           <div className="btn-segmented">
             <button
@@ -649,7 +623,6 @@ export default function LiveTrackerClient() {
                   <span className="stream-title">{activeFocusStream.title}</span>
                 </div>
                 <div className="stream-controls">
-                  <button onClick={() => openCommentPopup(activeFocusStream.url)} title="Mở cửa sổ bình luận Facebook">💬 Live Chat</button>
                   <button onClick={() => handleRefresh(activeFocusStream.id)} title="Tải lại stream">↻</button>
                   <a href={activeFocusStream.url} target="_blank" rel="noopener noreferrer" title="Xem trên Facebook">
                     ↗️ FB
@@ -663,15 +636,12 @@ export default function LiveTrackerClient() {
               <div className="stream-video-wrap focus-video">
                 <iframe
                   id={`iframe-${activeFocusStream.id}`}
-                  src={getEmbedUrl(activeFocusStream.url, showComments, embedType, autoPlay)}
+                  src={getEmbedUrl(activeFocusStream.url, embedType, autoPlay)}
                   className="stream-iframe"
                   allowFullScreen
                   allow="autoplay *; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen *"
                 />
               </div>
-              {showComments && (
-                <FacebookCommentBox url={activeFocusStream.url} />
-              )}
             </div>
 
             {/* Side Thumbnail List */}
@@ -715,16 +685,6 @@ export default function LiveTrackerClient() {
                     {stream.note && <span className="stream-note-tag">{stream.note}</span>}
                   </div>
                   <div className="stream-controls">
-                    <button 
-                      onClick={() => setActiveCommentStreamId(activeCommentStreamId === stream.id ? null : stream.id)}
-                      className={activeCommentStreamId === stream.id ? 'active' : ''}
-                      title="Bật/Tắt Khung Gõ Bình Luận Trực Tiếp Trực Tuyến"
-                    >
-                      💬
-                    </button>
-                    <button onClick={() => openCommentPopup(stream.url)} title="Mở cửa sổ bình luận Facebook pop-up">
-                      ↗️💬
-                    </button>
                     <button onClick={() => { setFocusedId(stream.id); setViewMode('focus') }} title="Phóng to tiêu điểm">
                       🔍
                     </button>
@@ -756,16 +716,12 @@ export default function LiveTrackerClient() {
                 <div className="stream-video-wrap">
                   <iframe
                     id={`iframe-${stream.id}`}
-                    src={getEmbedUrl(stream.url, showComments, embedType, autoPlay)}
+                    src={getEmbedUrl(stream.url, embedType, autoPlay)}
                     className="stream-iframe"
                     allowFullScreen
                     allow="autoplay *; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen *"
                   />
                 </div>
-
-                {(showComments || activeCommentStreamId === stream.id) && (
-                  <FacebookCommentBox url={stream.url} />
-                )}
               </div>
             ))}
           </div>
