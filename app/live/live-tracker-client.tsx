@@ -572,27 +572,29 @@ export default function LiveTrackerClient() {
 
         <div className="control-actions">
           {isAdmin && (
-            <button
-              className="live-btn-primary live-btn-admin-save"
-              onClick={() => saveOfficialStreamsToServer()}
-              disabled={savingServer}
-              title="Lưu danh sách này làm mặc định cho tất cả khách xem trang"
-              style={{ background: '#10b981' }}
-            >
-              {savingServer ? '⏳ Đang lưu...' : '💾 Lưu Danh Sách Cho Tất Cả Khách (Admin)'}
-            </button>
+            <>
+              <button
+                className="live-btn-primary live-btn-admin-save"
+                onClick={() => saveOfficialStreamsToServer()}
+                disabled={savingServer}
+                title="Lưu danh sách này làm mặc định cho tất cả khách xem trang"
+                style={{ background: '#10b981' }}
+              >
+                {savingServer ? '⏳ Đang lưu...' : '💾 Lưu Cho Tất Cả Khách'}
+              </button>
+              <button className="live-btn-primary" onClick={() => setShowBatchModal(true)}>
+                📋 Nhập Shop
+              </button>
+              <button className="live-btn-ghost" onClick={() => setShowAddModal(true)}>
+                ➕ Thêm 1 Shop
+              </button>
+              <button className="live-btn-ghost" onClick={resetToDefaultPresets} title="Đặt lại mẫu mặc định">
+                ↺ Mẫu
+              </button>
+            </>
           )}
-          <button className="live-btn-primary" onClick={() => setShowBatchModal(true)}>
-            📋 Nhập danh sách Shop
-          </button>
-          <button className="live-btn-ghost" onClick={() => setShowAddModal(true)}>
-            ➕ Thêm 1 Shop
-          </button>
           <button className="live-btn-icon" onClick={toggleFullscreen} title={isFullscreen ? 'Thoát toàn màn hình' : 'Xem toàn màn hình'}>
             {isFullscreen ? '📉 Thu nhỏ' : '🖥️ Toàn màn hình'}
-          </button>
-          <button className="live-btn-ghost" onClick={resetToDefaultPresets} title="Đặt lại mẫu">
-            ↺ Mẫu
           </button>
         </div>
       </div>
@@ -631,8 +633,10 @@ export default function LiveTrackerClient() {
                   <a href={activeFocusStream.url} target="_blank" rel="noopener noreferrer" title="Xem trên Facebook">
                     ↗️ FB
                   </a>
-                  <button onClick={() => setEditingStream(activeFocusStream)} title="Chỉnh sửa">✏️</button>
-                  <button onClick={() => setViewMode('grid')} title="Trở lại xem lưới">✕ Trốn xem lớn</button>
+                  {isAdmin && (
+                    <button onClick={() => setEditingStream(activeFocusStream)} title="Chỉnh sửa (Admin)">✏️</button>
+                  )}
+                  <button onClick={() => setViewMode('grid')} title="Trở lại xem lưới">✕ Đóng xem lớn</button>
                 </div>
               </div>
               <div className="stream-video-wrap focus-video">
@@ -650,7 +654,9 @@ export default function LiveTrackerClient() {
             <div className="focus-sidebar">
               <div className="focus-sidebar-header">
                 <h3 className="sidebar-title">Danh sách Shop ({streams.length})</h3>
-                <button className="btn-text-sm" onClick={() => setShowBatchModal(true)}>Quản lý danh sách</button>
+                {isAdmin && (
+                  <button className="btn-text-sm" onClick={() => setShowBatchModal(true)}>Quản lý danh sách</button>
+                )}
               </div>
               <div className="sidebar-list">
                 {streams.map((s, idx) => (
@@ -697,18 +703,22 @@ export default function LiveTrackerClient() {
                     <a href={stream.url} target="_blank" rel="noopener noreferrer" title="Mở trên Facebook">
                       ↗️
                     </a>
-                    <button onClick={() => setEditingStream(stream)} title="Sửa tên / URL">
-                      ✏️
-                    </button>
-                    <button onClick={() => handleMove(index, -1)} disabled={index === 0} title="Di chuyển sang trái/lên">
-                      ‹
-                    </button>
-                    <button onClick={() => handleMove(index, 1)} disabled={index === streams.length - 1} title="Di chuyển sang phải/xuống">
-                      ›
-                    </button>
-                    <button className="btn-del" onClick={() => handleDelete(stream.id)} title="Xoá khung live này">
-                      ✕
-                    </button>
+                    {isAdmin && (
+                      <>
+                        <button onClick={() => setEditingStream(stream)} title="Sửa tên / URL">
+                          ✏️
+                        </button>
+                        <button onClick={() => handleMove(index, -1)} disabled={index === 0} title="Di chuyển sang trái/lên">
+                          ‹
+                        </button>
+                        <button onClick={() => handleMove(index, 1)} disabled={index === streams.length - 1} title="Di chuyển sang phải/xuống">
+                          ›
+                        </button>
+                        <button className="btn-del" onClick={() => handleDelete(stream.id)} title="Xoá khung live này">
+                          ✕
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
