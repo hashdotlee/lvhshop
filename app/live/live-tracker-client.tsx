@@ -60,7 +60,7 @@ function getEmbedUrl(rawUrl: string): string {
       if (!cleanPageUrl.startsWith('http')) cleanPageUrl = 'https://www.facebook.com/' + cleanPageUrl
 
       const encodedPage = encodeURIComponent(cleanPageUrl)
-      return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=700&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`
+      return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=1000&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
     }
   }
 
@@ -68,7 +68,7 @@ function getEmbedUrl(rawUrl: string): string {
   if (/^[a-zA-Z0-9._-]+$/.test(trimmed) && !trimmed.startsWith('http')) {
     const cleanPageUrl = `https://www.facebook.com/${trimmed}`
     const encodedPage = encodeURIComponent(cleanPageUrl)
-    return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=700&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`
+    return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=1000&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
   }
 
   // Fallback for YouTube
@@ -93,7 +93,7 @@ function getEmbedUrl(rawUrl: string): string {
 export default function LiveTrackerClient() {
   const [streams, setStreams] = useState<StreamItem[]>(DEFAULT_STREAMS)
   const [columns, setColumns] = useState<number>(2) // 1, 2, 3, 4
-  const [aspectRatio, setAspectRatio] = useState<'16-9' | '9-16' | 'auto'>('16-9')
+  const [aspectRatio, setAspectRatio] = useState<'16-9' | '9-16' | 'fit' | 'auto'>('fit')
   const [viewMode, setViewMode] = useState<'grid' | 'focus'>('grid')
   const [focusedId, setFocusedId] = useState<string | null>(null)
   
@@ -213,7 +213,7 @@ export default function LiveTrackerClient() {
     }
   }
 
-  const changeAspect = (aspect: '16-9' | '9-16' | 'auto') => {
+  const changeAspect = (aspect: '16-9' | '9-16' | 'fit' | 'auto') => {
     setAspectRatio(aspect)
     try {
       localStorage.setItem('lvh_live_aspect', aspect)
@@ -455,6 +455,13 @@ export default function LiveTrackerClient() {
         <div className="control-group">
           <span className="control-label">Tỉ lệ khung:</span>
           <div className="btn-segmented">
+            <button
+              className={`seg-btn ${aspectRatio === 'fit' ? 'active' : ''}`}
+              onClick={() => changeAspect('fit')}
+              title="Vừa vặn khung Live (Không bị cắt)"
+            >
+              ↕️ Fit Chuẩn
+            </button>
             <button
               className={`seg-btn ${aspectRatio === '16-9' ? 'active' : ''}`}
               onClick={() => changeAspect('16-9')}
@@ -1103,6 +1110,11 @@ body {
   position: relative;
   width: 100%;
   background: #000;
+  overflow: hidden;
+}
+.aspect-fit .stream-video-wrap {
+  height: 520px;
+  max-height: 75vh;
 }
 .aspect-16-9 .stream-video-wrap {
   padding-top: 56.25%; /* 16:9 */
@@ -1111,7 +1123,7 @@ body {
   padding-top: 130%; /* taller for mobile vertical live */
 }
 .aspect-auto .stream-video-wrap {
-  height: 380px;
+  height: 420px;
 }
 .stream-iframe {
   position: absolute;
@@ -1120,6 +1132,7 @@ body {
   width: 100%;
   height: 100%;
   border: none;
+  object-fit: contain;
 }
 
 /* Focus / Theater Mode Layout */
