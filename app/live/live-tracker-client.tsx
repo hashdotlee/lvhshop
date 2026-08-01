@@ -141,7 +141,7 @@ export default function LiveTrackerClient() {
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  // Restore saved state from localStorage & fetch Admin official list
+  // Restore saved state & fetch Admin official list from server
   useEffect(() => {
     // Check Admin status
     if (typeof window !== 'undefined' && sessionStorage.getItem('cq_admin')) {
@@ -150,34 +150,24 @@ export default function LiveTrackerClient() {
     }
 
     try {
-      const savedStreams = localStorage.getItem('lvh_live_streams')
-      if (savedStreams) {
-        const parsed = JSON.parse(savedStreams)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setStreams(parsed)
-        }
-      }
       const savedCols = localStorage.getItem('lvh_live_cols')
       if (savedCols) {
-        setColumns(Number(savedCols) || 2)
+        setColumns(Number(savedCols) || 3)
       }
       const savedAspect = localStorage.getItem('lvh_live_aspect')
-      if (savedAspect && ['16-9', '9-16', 'auto'].includes(savedAspect)) {
-        setAspectRatio(savedAspect as '16-9' | '9-16' | 'auto')
+      if (savedAspect && ['16-9', '9-16', 'fit', 'auto'].includes(savedAspect)) {
+        setAspectRatio(savedAspect as '16-9' | '9-16' | 'fit' | 'auto')
       }
     } catch {
       /* ignore storage errors */
     }
 
-    // Fetch official Admin list from server
+    // Always fetch official Admin list from server
     fetch('/api/live-streams')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
-          const hasLocalCustom = localStorage.getItem('lvh_live_streams')
-          if (!hasLocalCustom) {
-            setStreams(data)
-          }
+          setStreams(data)
         }
       })
       .catch(() => {})
@@ -209,13 +199,15 @@ export default function LiveTrackerClient() {
     }
   }
 
-  // Save changes to localStorage
+  // Save changes (Admin only)
   const saveStreams = (newStreams: StreamItem[]) => {
     setStreams(newStreams)
-    try {
-      localStorage.setItem('lvh_live_streams', JSON.stringify(newStreams))
-    } catch {
-      /* ignore */
+    if (isAdmin) {
+      try {
+        localStorage.setItem('lvh_live_streams', JSON.stringify(newStreams))
+      } catch {
+        /* ignore */
+      }
     }
   }
 
