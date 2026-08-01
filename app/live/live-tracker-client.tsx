@@ -179,18 +179,19 @@ export default function LiveTrackerClient() {
   // Admin function: Save current streams to server for ALL users
   const saveOfficialStreamsToServer = async (streamsToSave?: StreamItem[]) => {
     const list = streamsToSave || streams
+    const keyToUse = adminKey.current || (typeof window !== 'undefined' ? sessionStorage.getItem('cq_admin_key') : '') || 'admin-lvh2025'
     setSavingServer(true)
     try {
       const res = await fetch('/api/live-streams', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-admin-key': adminKey.current,
+          'x-admin-key': keyToUse,
         },
         body: JSON.stringify({ streams: list }),
       })
       if (res.ok) {
-        showToast('✅ Đã lưu danh sách Fanpage chính thức cho tất cả khách hàng!')
+        showToast('✅ Đã lưu danh sách Shop chính thức cho tất cả khách xem trang!')
       } else {
         const err = await res.json()
         showToast(`❌ Lỗi lưu Server: ${err.error || res.status}`)
@@ -202,14 +203,17 @@ export default function LiveTrackerClient() {
     }
   }
 
-  // Save changes (Admin only)
-  const saveStreams = (newStreams: StreamItem[]) => {
+  // Save changes (Admin only: auto syncs to server)
+  const saveStreams = (newStreams: StreamItem[], autoSync: boolean = true) => {
     setStreams(newStreams)
     if (isAdmin) {
       try {
         localStorage.setItem('lvh_live_streams', JSON.stringify(newStreams))
       } catch {
         /* ignore */
+      }
+      if (autoSync) {
+        saveOfficialStreamsToServer(newStreams)
       }
     }
   }
