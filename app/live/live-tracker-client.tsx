@@ -44,17 +44,36 @@ const DEFAULT_STREAMS: StreamItem[] = [
 
 function getEmbedUrl(rawUrl: string): string {
   if (!rawUrl) return ''
-  const trimmed = rawUrl.trim()
+  let trimmed = rawUrl.trim()
   
+  // If already a Facebook embed plugin URL
   if (trimmed.includes('facebook.com/plugins/video.php')) {
     return trimmed
   }
 
+  // Handle Facebook URLs or username
   if (trimmed.includes('facebook.com') || trimmed.includes('fb.watch')) {
+    // If it's a page link without /live or /videos or watch, convert to Page live URL
+    if (
+      !trimmed.includes('/videos/') &&
+      !trimmed.includes('/live/') &&
+      !trimmed.includes('/watch') &&
+      !trimmed.includes('/posts/')
+    ) {
+      trimmed = trimmed.replace(/\/+$/, '') + '/live/'
+    }
+
     const encoded = encodeURIComponent(trimmed)
     return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=false&width=auto`
   }
 
+  // Handle plain username or page ID input (e.g. "leviethoang.shop")
+  if (/^[a-zA-Z0-9._-]+$/.test(trimmed) && !trimmed.startsWith('http')) {
+    const pageLiveUrl = `https://www.facebook.com/${trimmed}/live/`
+    return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(pageLiveUrl)}&show_text=false&width=auto`
+  }
+
+  // Fallback for YouTube
   if (trimmed.includes('youtube.com/watch') || trimmed.includes('youtu.be/')) {
     let ytId = ''
     if (trimmed.includes('youtu.be/')) {
@@ -563,15 +582,15 @@ export default function LiveTrackerClient() {
               <textarea
                 className="form-textarea"
                 rows={7}
-                placeholder={`Ví dụ 1 (Đơn giản):\nhttps://www.facebook.com/shop1/videos/123456\nhttps://www.facebook.com/shop2/videos/789012\n\nVí dụ 2 (Có tên shop):\nTên Shop A | https://www.facebook.com/shopA/videos/123\nTên Shop B | https://www.facebook.com/shopB/videos/456`}
+                placeholder={`Ví dụ 1 (Dán Fanpage hoặc URL Live):\nhttps://www.facebook.com/leviethoang.shop\nhttps://www.facebook.com/shop2/videos/123456\n\nVí dụ 2 (Có tên shop):\nTên Shop A | https://www.facebook.com/ShopA\nTên Shop B | https://www.facebook.com/ShopB/live/`}
                 value={batchText}
                 onChange={e => setBatchText(e.target.value)}
               />
               <div className="form-hint">
-                💡 Định dạng hỗ trợ:
-                <br />• Dán danh sách URL (mỗi URL 1 dòng)
-                <br />• <code>Tên Shop | URL Facebook Live</code>
-                <br />• Hoặc dán mã JSON dạng <code>[{`{"shopName": "Shop A", "url": "..."}`}]</code>
+                💡 <b>Hỗ trợ tự động lấy Live mới nhất:</b>
+                <br />• Dán link Trang Fanpage (VD: <code>https://facebook.com/TenShop</code>) — Hệ thống tự mở live mới nhất / đang phát của shop đó!
+                <br />• Dán link video Facebook Live cụ thể (VD: <code>https://facebook.com/.../videos/...</code>)
+                <br />• <code>Tên Shop | URL Fanpage hoặc URL Live</code> (mỗi shop 1 dòng)
               </div>
 
               {streams.length > 0 && (
