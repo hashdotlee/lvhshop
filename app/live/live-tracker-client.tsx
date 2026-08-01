@@ -326,6 +326,14 @@ export default function LiveTrackerClient() {
     }
   }
 
+  const openCommentPopup = (rawUrl: string) => {
+    let targetUrl = rawUrl
+    if (!rawUrl.startsWith('http')) {
+      targetUrl = `https://www.facebook.com/${rawUrl.replace(/^@/, '')}`
+    }
+    window.open(targetUrl, 'FB_COMMENT_WINDOW', 'width=550,height=750,scrollbars=yes,resizable=yes')
+  }
+
   const handleSaveEdit = () => {
     if (!editingStream) return
     const updated = streams.map(s => s.id === editingStream.id ? editingStream : s)
@@ -586,6 +594,7 @@ export default function LiveTrackerClient() {
                   <span className="stream-title">{activeFocusStream.title}</span>
                 </div>
                 <div className="stream-controls">
+                  <button onClick={() => openCommentPopup(activeFocusStream.url)} title="Mở cửa sổ bình luận Facebook">💬 Live Chat</button>
                   <button onClick={() => handleRefresh(activeFocusStream.id)} title="Tải lại stream">↻</button>
                   <a href={activeFocusStream.url} target="_blank" rel="noopener noreferrer" title="Xem trên Facebook">
                     ↗️ FB
@@ -644,6 +653,9 @@ export default function LiveTrackerClient() {
                     {stream.note && <span className="stream-note-tag">{stream.note}</span>}
                   </div>
                   <div className="stream-controls">
+                    <button onClick={() => openCommentPopup(stream.url)} title="Mở cửa sổ bình luận Facebook">
+                      💬
+                    </button>
                     <button onClick={() => { setFocusedId(stream.id); setViewMode('focus') }} title="Phóng to tiêu điểm">
                       🔍
                     </button>
