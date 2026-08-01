@@ -748,6 +748,7 @@ export default function HomeClient() {
                 Đơn hàng
               </button>
               <a href="/inventory" className="tab-btn" style={{textDecoration:'none'}}>📦 Kho hàng</a>
+              <a href="/live" className="tab-btn" style={{textDecoration:'none'}}>📺 Theo dõi Live</a>
               <div className="admin-badge"><span className="admin-dot"/>Admin
                 <button className="logout-btn" onClick={logout}>✕</button>
               </div>
@@ -756,6 +757,7 @@ export default function HomeClient() {
             <nav style={{display:'flex',alignItems:'center',gap:4}}>
               <button className={typeFilter==='ban'?'active':''} onClick={()=>setTypeFilter('ban')}>🏷️ Bán</button>
               <button className={typeFilter==='mua'?'active':''} onClick={()=>setTypeFilter('mua')}>🔍 Tìm mua</button>
+              <a href="/live" className="nav-blog-link">📺 Theo dõi Live</a>
               <a href="/blog" className="nav-blog-link">Blog</a>
               <a href="/game" className="nav-blog-link">🎮 Game</a>
               {supaUser ? (
