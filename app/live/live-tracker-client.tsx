@@ -14,31 +14,17 @@ export interface StreamItem {
 const DEFAULT_STREAMS: StreamItem[] = [
   {
     id: 'preset-1',
-    title: 'Khung Live 1 - Dán URL shop của bạn',
-    shopName: 'Shop Mẫu 1',
-    url: 'https://www.facebook.com/facebook/videos/10153231379946729',
-    note: 'Sẵn sàng theo dõi',
+    title: 'Fanpage nhankieu24 (Tự động cập nhật phiên Live)',
+    shopName: 'nhankieu24',
+    url: 'https://www.facebook.com/nhankieu24',
+    note: 'Theo dõi live tự động',
   },
   {
     id: 'preset-2',
-    title: 'Khung Live 2 - Dán URL shop của bạn',
-    shopName: 'Shop Mẫu 2',
-    url: 'https://www.facebook.com/facebook/videos/10153231379946729',
-    note: 'Sẵn sàng theo dõi',
-  },
-  {
-    id: 'preset-3',
-    title: 'Khung Live 3 - Dán URL shop của bạn',
-    shopName: 'Shop Mẫu 3',
-    url: 'https://www.facebook.com/facebook/videos/10153231379946729',
-    note: 'Sẵn sàng theo dõi',
-  },
-  {
-    id: 'preset-4',
-    title: 'Khung Live 4 - Dán URL shop của bạn',
-    shopName: 'Shop Mẫu 4',
-    url: 'https://www.facebook.com/facebook/videos/10153231379946729',
-    note: 'Sẵn sàng theo dõi',
+    title: 'Hàng Nhật Bãi Lê Viết Hoàng',
+    shopName: 'leviethoang.shop',
+    url: 'https://www.facebook.com/leviethoang.shop',
+    note: 'Theo dõi live tự động',
   },
 ]
 
@@ -283,30 +269,47 @@ export default function LiveTrackerClient() {
     if (newItems.length === 0) {
       const lines = trimmed.split('\n').map(l => l.trim()).filter(Boolean)
       newItems = lines.map((line, idx) => {
-        let name = `Shop Live ${idx + 1}`
-        let url = line
+        let name = ''
+        let raw = line
         if (line.includes('|')) {
           const parts = line.split('|')
           name = parts[0].trim()
-          url = parts.slice(1).join('|').trim()
+          raw = parts.slice(1).join('|').trim()
         } else if (line.includes(',')) {
           const parts = line.split(',')
           if (parts[0].includes('http')) {
-            url = parts[0].trim()
-            name = parts.slice(1).join(',').trim() || `Shop ${idx + 1}`
+            raw = parts[0].trim()
+            name = parts.slice(1).join(',').trim()
           } else {
             name = parts[0].trim()
-            url = parts.slice(1).join(',').trim()
+            raw = parts.slice(1).join(',').trim()
+          }
+        }
+
+        let finalUrl = raw
+        if (!raw.startsWith('http')) {
+          const cleanName = raw.replace(/^@/, '')
+          finalUrl = `https://www.facebook.com/${cleanName}`
+          if (!name) name = cleanName
+        } else {
+          if (!name) {
+            try {
+              const u = new URL(raw)
+              name = u.pathname.split('/').filter(Boolean)[0] || `Shop ${idx + 1}`
+            } catch {
+              name = `Shop ${idx + 1}`
+            }
           }
         }
 
         return {
           id: 'batch-' + Date.now() + '-' + idx,
-          title: name,
+          title: `Shop ${name}`,
           shopName: name,
-          url: url,
+          url: finalUrl,
+          note: 'Theo dõi live tự động',
         }
-      }).filter(i => i.url.startsWith('http'))
+      }).filter(i => i.url)
     }
 
     if (newItems.length > 0) {

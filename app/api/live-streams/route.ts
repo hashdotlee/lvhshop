@@ -17,17 +17,17 @@ const FALLBACK_FILE = path.join(process.cwd(), 'lib', 'live-streams-store.json')
 const INITIAL_STREAMS = [
   {
     id: 'preset-1',
-    title: 'Hàng Nhật Bãi - Lê Viết Hoàng Shop',
-    shop_name: 'leviethoang.shop',
-    url: 'https://www.facebook.com/leviethoang.shop/live/',
-    note: 'Fanpage chính chủ - Chuyên hàng Nhật chọn lọc',
+    title: 'Fanpage nhankieu24 (Tự động cập nhật phiên Live)',
+    shop_name: 'nhankieu24',
+    url: 'https://www.facebook.com/nhankieu24',
+    note: 'Đang theo dõi phiên Live',
   },
   {
     id: 'preset-2',
-    title: 'Săn Đồ Nhật Độc Lạ Live 24/7',
-    shop_name: 'Nhật Bãi Độc Lạ',
-    url: 'https://www.facebook.com/facebook/videos/10153231379946729',
-    note: 'Radio vintage, amply, loa nghe nhạc Nhật',
+    title: 'Hàng Nhật Bãi - Lê Viết Hoàng Shop',
+    shop_name: 'leviethoang.shop',
+    url: 'https://www.facebook.com/leviethoang.shop',
+    note: 'Fanpage chính chủ - Chuyên hàng Nhật chọn lọc',
   },
 ]
 
