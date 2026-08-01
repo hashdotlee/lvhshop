@@ -1223,19 +1223,20 @@ body {
   width: 100%;
   background: #000;
   overflow: hidden;
+  padding-bottom: 6px;
 }
 .aspect-fit .stream-video-wrap {
-  height: 520px;
-  max-height: 75vh;
+  height: 570px;
+  max-height: 82vh;
 }
 .aspect-16-9 .stream-video-wrap {
-  padding-top: 56.25%; /* 16:9 */
+  padding-top: calc(56.25% + 50px); /* 16:9 + extra bottom padding for controller */
 }
 .aspect-9-16 .stream-video-wrap {
-  padding-top: 160%; /* Perfect ratio for TikTok & Facebook Mobile Vertical Live */
+  padding-top: calc(160% + 50px); /* 9:16 + extra bottom padding for controller */
 }
 .aspect-auto .stream-video-wrap {
-  height: 420px;
+  height: 490px;
 }
 .stream-iframe {
   position: absolute;
