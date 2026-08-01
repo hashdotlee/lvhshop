@@ -28,7 +28,7 @@ const DEFAULT_STREAMS: StreamItem[] = [
   },
 ]
 
-function getEmbedUrl(rawUrl: string, showComments: boolean = true): string {
+function getEmbedUrl(rawUrl: string, showComments: boolean = true, embedType: 'video' | 'page' = 'video'): string {
   if (!rawUrl) return ''
   let trimmed = rawUrl.trim()
   
@@ -42,22 +42,27 @@ function getEmbedUrl(rawUrl: string, showComments: boolean = true): string {
 
   // Handle Facebook URLs
   if (trimmed.includes('facebook.com') || trimmed.includes('fb.watch')) {
-    // Check if it's a specific video permalink (contains /videos/, /watch, /reel/, /posts/, or fb.watch)
-    const isSpecificVideo = (
+    const isVideoLink = (
       trimmed.includes('/videos/') ||
       trimmed.includes('/watch') ||
       trimmed.includes('/reel/') ||
       trimmed.includes('/posts/') ||
+      trimmed.includes('/live') ||
       trimmed.includes('fb.watch') ||
-      /\d{8,}/.test(trimmed)
+      /\d{8,}/.test(trimmed) ||
+      embedType === 'video'
     )
 
-    if (isSpecificVideo) {
-      // Direct video embed with show_text option for live comments
-      const encoded = encodeURIComponent(trimmed)
-      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=${showTextParam}&width=auto`
+    if (isVideoLink) {
+      let videoTargetUrl = trimmed
+      if (!videoTargetUrl.includes('/videos/') && !videoTargetUrl.includes('/watch') && !videoTargetUrl.includes('/live') && !videoTargetUrl.includes('fb.watch')) {
+        videoTargetUrl = videoTargetUrl.replace(/\/+$/, '') + '/live'
+      }
+      if (!videoTargetUrl.startsWith('http')) videoTargetUrl = 'https://www.facebook.com/' + videoTargetUrl
+
+      const encoded = encodeURIComponent(videoTargetUrl)
+      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=${showTextParam}&width=auto&autoplay=true`
     } else {
-      // Fanpage link (e.g. https://www.facebook.com/nhankieu24 or https://www.facebook.com/nhankieu24/live)
       let cleanPageUrl = trimmed.replace(/\/live\/?$/, '').replace(/\/+$/, '')
       if (!cleanPageUrl.startsWith('http')) cleanPageUrl = 'https://www.facebook.com/' + cleanPageUrl
 
@@ -68,9 +73,15 @@ function getEmbedUrl(rawUrl: string, showComments: boolean = true): string {
 
   // Handle plain username input (e.g. "nhankieu24")
   if (/^[a-zA-Z0-9._-]+$/.test(trimmed) && !trimmed.startsWith('http')) {
-    const cleanPageUrl = `https://www.facebook.com/${trimmed}`
-    const encodedPage = encodeURIComponent(cleanPageUrl)
-    return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=${pageHeight}&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
+    if (embedType === 'video') {
+      const videoTargetUrl = `https://www.facebook.com/${trimmed}/live`
+      const encoded = encodeURIComponent(videoTargetUrl)
+      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=${showTextParam}&width=auto&autoplay=true`
+    } else {
+      const cleanPageUrl = `https://www.facebook.com/${trimmed}`
+      const encodedPage = encodeURIComponent(cleanPageUrl)
+      return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=${pageHeight}&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
+    }
   }
 
   // Fallback for YouTube
@@ -97,6 +108,7 @@ export default function LiveTrackerClient() {
   const [columns, setColumns] = useState<number>(2) // 1, 2, 3, 4
   const [aspectRatio, setAspectRatio] = useState<'16-9' | '9-16' | 'fit' | 'auto'>('fit')
   const [showComments, setShowComments] = useState<boolean>(true)
+  const [embedType, setEmbedType] = useState<'video' | 'page'>('video')
   const [viewMode, setViewMode] = useState<'grid' | 'focus'>('grid')
   const [focusedId, setFocusedId] = useState<string | null>(null)
   
@@ -519,6 +531,26 @@ export default function LiveTrackerClient() {
         </div>
 
         <div className="control-group">
+          <span className="control-label">Kiểu nhúng:</span>
+          <div className="btn-segmented">
+            <button
+              className={`seg-btn ${embedType === 'video' ? 'active' : ''}`}
+              onClick={() => setEmbedType('video')}
+              title="Nhúng trực tiếp Trình phát Video (Vừa vặn 100% không bị cắt)"
+            >
+              🎬 Full Video
+            </button>
+            <button
+              className={`seg-btn ${embedType === 'page' ? 'active' : ''}`}
+              onClick={() => setEmbedType('page')}
+              title="Nhúng Bảng tin Fanpage"
+            >
+              📰 Fanpage Feed
+            </button>
+          </div>
+        </div>
+
+        <div className="control-group">
           <span className="control-label">Bình luận:</span>
           <div className="btn-segmented">
             <button
@@ -606,7 +638,7 @@ export default function LiveTrackerClient() {
               <div className="stream-video-wrap focus-video">
                 <iframe
                   id={`iframe-${activeFocusStream.id}`}
-                  src={getEmbedUrl(activeFocusStream.url, showComments)}
+                  src={getEmbedUrl(activeFocusStream.url, showComments, embedType)}
                   className="stream-iframe"
                   allowFullScreen
                   allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
@@ -683,7 +715,7 @@ export default function LiveTrackerClient() {
                 <div className="stream-video-wrap">
                   <iframe
                     id={`iframe-${stream.id}`}
-                    src={getEmbedUrl(stream.url, showComments)}
+                    src={getEmbedUrl(stream.url, showComments, embedType)}
                     className="stream-iframe"
                     allowFullScreen
                     allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
