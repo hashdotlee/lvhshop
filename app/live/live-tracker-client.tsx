@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
+import FacebookCommentBox from '../components/FacebookCommentBox'
 
 export interface StreamItem {
   id: string
@@ -111,6 +112,7 @@ export default function LiveTrackerClient() {
   const [embedType, setEmbedType] = useState<'video' | 'page'>('video')
   const [viewMode, setViewMode] = useState<'grid' | 'focus'>('grid')
   const [focusedId, setFocusedId] = useState<string | null>(null)
+  const [activeCommentStreamId, setActiveCommentStreamId] = useState<string | null>(null)
   
   // Admin & Toast state
   const [isAdmin, setIsAdmin] = useState(false)
@@ -640,6 +642,9 @@ export default function LiveTrackerClient() {
                   allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
                 />
               </div>
+              {showComments && (
+                <FacebookCommentBox url={activeFocusStream.url} />
+              )}
             </div>
 
             {/* Side Thumbnail List */}
@@ -683,8 +688,15 @@ export default function LiveTrackerClient() {
                     {stream.note && <span className="stream-note-tag">{stream.note}</span>}
                   </div>
                   <div className="stream-controls">
-                    <button onClick={() => openCommentPopup(stream.url)} title="Mở cửa sổ bình luận Facebook">
+                    <button 
+                      onClick={() => setActiveCommentStreamId(activeCommentStreamId === stream.id ? null : stream.id)}
+                      className={activeCommentStreamId === stream.id ? 'active' : ''}
+                      title="Bật/Tắt Khung Gõ Bình Luận Trực Tiếp Trực Tuyến"
+                    >
                       💬
+                    </button>
+                    <button onClick={() => openCommentPopup(stream.url)} title="Mở cửa sổ bình luận Facebook pop-up">
+                      ↗️💬
                     </button>
                     <button onClick={() => { setFocusedId(stream.id); setViewMode('focus') }} title="Phóng to tiêu điểm">
                       🔍
@@ -723,6 +735,10 @@ export default function LiveTrackerClient() {
                     allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
                   />
                 </div>
+
+                {activeCommentStreamId === stream.id && (
+                  <FacebookCommentBox url={stream.url} />
+                )}
               </div>
             ))}
           </div>
