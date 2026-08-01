@@ -28,7 +28,7 @@ const DEFAULT_STREAMS: StreamItem[] = [
   },
 ]
 
-function getEmbedUrl(rawUrl: string): string {
+function getEmbedUrl(rawUrl: string, showComments: boolean = true): string {
   if (!rawUrl) return ''
   let trimmed = rawUrl.trim()
   
@@ -36,6 +36,9 @@ function getEmbedUrl(rawUrl: string): string {
   if (trimmed.includes('facebook.com/plugins/')) {
     return trimmed
   }
+
+  const showTextParam = showComments ? 'true' : 'false'
+  const pageHeight = showComments ? '1200' : '800'
 
   // Handle Facebook URLs
   if (trimmed.includes('facebook.com') || trimmed.includes('fb.watch')) {
@@ -50,17 +53,16 @@ function getEmbedUrl(rawUrl: string): string {
     )
 
     if (isSpecificVideo) {
-      // Direct video embed
+      // Direct video embed with show_text option for live comments
       const encoded = encodeURIComponent(trimmed)
-      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=false&width=auto`
+      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=${showTextParam}&width=auto`
     } else {
       // Fanpage link (e.g. https://www.facebook.com/nhankieu24 or https://www.facebook.com/nhankieu24/live)
-      // Extract clean page URL without /live
       let cleanPageUrl = trimmed.replace(/\/live\/?$/, '').replace(/\/+$/, '')
       if (!cleanPageUrl.startsWith('http')) cleanPageUrl = 'https://www.facebook.com/' + cleanPageUrl
 
       const encodedPage = encodeURIComponent(cleanPageUrl)
-      return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=1000&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
+      return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=${pageHeight}&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
     }
   }
 
@@ -68,7 +70,7 @@ function getEmbedUrl(rawUrl: string): string {
   if (/^[a-zA-Z0-9._-]+$/.test(trimmed) && !trimmed.startsWith('http')) {
     const cleanPageUrl = `https://www.facebook.com/${trimmed}`
     const encodedPage = encodeURIComponent(cleanPageUrl)
-    return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=1000&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
+    return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=${pageHeight}&small_header=true&adapt_container_width=true&hide_cover=true&show_facepile=false`
   }
 
   // Fallback for YouTube
@@ -94,6 +96,7 @@ export default function LiveTrackerClient() {
   const [streams, setStreams] = useState<StreamItem[]>(DEFAULT_STREAMS)
   const [columns, setColumns] = useState<number>(2) // 1, 2, 3, 4
   const [aspectRatio, setAspectRatio] = useState<'16-9' | '9-16' | 'fit' | 'auto'>('fit')
+  const [showComments, setShowComments] = useState<boolean>(true)
   const [viewMode, setViewMode] = useState<'grid' | 'focus'>('grid')
   const [focusedId, setFocusedId] = useState<string | null>(null)
   
@@ -507,6 +510,26 @@ export default function LiveTrackerClient() {
           </div>
         </div>
 
+        <div className="control-group">
+          <span className="control-label">Bình luận:</span>
+          <div className="btn-segmented">
+            <button
+              className={`seg-btn ${showComments ? 'active' : ''}`}
+              onClick={() => setShowComments(true)}
+              title="Hiện đầy đủ khung bình luận & tương tác Facebook"
+            >
+              💬 Hiện Comment
+            </button>
+            <button
+              className={`seg-btn ${!showComments ? 'active' : ''}`}
+              onClick={() => setShowComments(false)}
+              title="Chỉ hiển thị Video gọn gàng"
+            >
+              📹 Chỉ Video
+            </button>
+          </div>
+        </div>
+
         <div className="control-actions">
           {isAdmin && (
             <button
@@ -574,7 +597,7 @@ export default function LiveTrackerClient() {
               <div className="stream-video-wrap focus-video">
                 <iframe
                   id={`iframe-${activeFocusStream.id}`}
-                  src={getEmbedUrl(activeFocusStream.url)}
+                  src={getEmbedUrl(activeFocusStream.url, showComments)}
                   className="stream-iframe"
                   allowFullScreen
                   allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
@@ -648,7 +671,7 @@ export default function LiveTrackerClient() {
                 <div className="stream-video-wrap">
                   <iframe
                     id={`iframe-${stream.id}`}
-                    src={getEmbedUrl(stream.url)}
+                    src={getEmbedUrl(stream.url, showComments)}
                     className="stream-iframe"
                     allowFullScreen
                     allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
