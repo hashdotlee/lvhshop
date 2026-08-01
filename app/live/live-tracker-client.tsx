@@ -46,31 +46,43 @@ function getEmbedUrl(rawUrl: string): string {
   if (!rawUrl) return ''
   let trimmed = rawUrl.trim()
   
-  // If already a Facebook embed plugin URL
-  if (trimmed.includes('facebook.com/plugins/video.php')) {
+  // If already an embed plugin URL
+  if (trimmed.includes('facebook.com/plugins/')) {
     return trimmed
   }
 
-  // Handle Facebook URLs or username
+  // Handle Facebook URLs
   if (trimmed.includes('facebook.com') || trimmed.includes('fb.watch')) {
-    // If it's a page link without /live or /videos or watch, convert to Page live URL
-    if (
-      !trimmed.includes('/videos/') &&
-      !trimmed.includes('/live/') &&
-      !trimmed.includes('/watch') &&
-      !trimmed.includes('/posts/')
-    ) {
-      trimmed = trimmed.replace(/\/+$/, '') + '/live/'
-    }
+    // Check if it's a specific video permalink (contains /videos/, /watch, /reel/, /posts/, or fb.watch)
+    const isSpecificVideo = (
+      trimmed.includes('/videos/') ||
+      trimmed.includes('/watch') ||
+      trimmed.includes('/reel/') ||
+      trimmed.includes('/posts/') ||
+      trimmed.includes('fb.watch') ||
+      /\d{8,}/.test(trimmed)
+    )
 
-    const encoded = encodeURIComponent(trimmed)
-    return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=false&width=auto`
+    if (isSpecificVideo) {
+      // Direct video embed
+      const encoded = encodeURIComponent(trimmed)
+      return `https://www.facebook.com/plugins/video.php?href=${encoded}&show_text=false&width=auto`
+    } else {
+      // Fanpage link (e.g. https://www.facebook.com/nhankieu24 or https://www.facebook.com/nhankieu24/live)
+      // Extract clean page URL without /live
+      let cleanPageUrl = trimmed.replace(/\/live\/?$/, '').replace(/\/+$/, '')
+      if (!cleanPageUrl.startsWith('http')) cleanPageUrl = 'https://www.facebook.com/' + cleanPageUrl
+
+      const encodedPage = encodeURIComponent(cleanPageUrl)
+      return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=700&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`
+    }
   }
 
-  // Handle plain username or page ID input (e.g. "leviethoang.shop")
+  // Handle plain username input (e.g. "nhankieu24")
   if (/^[a-zA-Z0-9._-]+$/.test(trimmed) && !trimmed.startsWith('http')) {
-    const pageLiveUrl = `https://www.facebook.com/${trimmed}/live/`
-    return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(pageLiveUrl)}&show_text=false&width=auto`
+    const cleanPageUrl = `https://www.facebook.com/${trimmed}`
+    const encodedPage = encodeURIComponent(cleanPageUrl)
+    return `https://www.facebook.com/plugins/page.php?href=${encodedPage}&tabs=timeline&width=500&height=700&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`
   }
 
   // Fallback for YouTube
