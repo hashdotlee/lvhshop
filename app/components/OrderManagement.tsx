@@ -43,6 +43,7 @@ export type Order = {
 type Props = {
   adminKey: string
   onToast: (msg: string) => void
+  initialSelectedItems?: { id: number, title: string, price: number | null }[]
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -96,7 +97,7 @@ const EMPTY_FORM = {
 }
 
 // ─── Main Component ───────────────────────────────────────────────
-export default function OrderManagement({ adminKey, onToast }: Props) {
+export default function OrderManagement({ adminKey, onToast, initialSelectedItems }: Props) {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -164,6 +165,21 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
     fetchOrders()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (initialSelectedItems && initialSelectedItems.length > 0) {
+      setForm({ ...EMPTY_FORM })
+      setCreateCartItems(initialSelectedItems)
+      setCreateStagedItem(null)
+      setCreateStagedPrice('')
+      setItemSearch('')
+      setSearchedItems([])
+      const total = initialSelectedItems.reduce((s, i) => s + (i.price ?? 0), 0)
+      setForm(f => ({ ...f, total_amount: total ? String(total) : '' }))
+      setShowCreateModal(true)
+    }
+  }, [initialSelectedItems])
+
 
   // ── Item search ────────────────────────────────────────────────
   async function searchItems(query: string) {

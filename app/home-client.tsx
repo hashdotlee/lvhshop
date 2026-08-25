@@ -146,6 +146,8 @@ export default function HomeClient() {
   const adminKey = useRef('')
 
   const [adminView, setAdminView]     = useState<'listing'|'customers'|'orders'>('listing')
+  const [selectedItemIds, setSelectedItemIds] = useState<number[]>([])
+  const [initialOrderItems, setInitialOrderItems] = useState<{ id: number, title: string, price: number | null }[]>([])
 
   function switchAdminView(view: 'listing'|'customers'|'orders') {
     setAdminView(view)
@@ -888,7 +890,7 @@ export default function HomeClient() {
 
         {/* ORDERS VIEW */}
         {isAdmin && adminView==='orders' && (
-          <OrderManagement adminKey={adminKey.current} onToast={showToast} />
+          <OrderManagement adminKey={adminKey.current} onToast={showToast} initialSelectedItems={initialOrderItems} />
         )}
 
         {/* LISTING VIEW */}
@@ -1148,6 +1150,72 @@ export default function HomeClient() {
                   </div>
                 )}
 
+                {isAdmin ? (
+                  <div className="admin-items-table-wrap">
+                    {selectedItemIds.length > 0 && (
+                      <div className="bulk-action-bar">
+                        <span>Đã chọn {selectedItemIds.length} mặt hàng</span>
+                        <div style={{display:'flex',gap:8}}>
+                          <button className="btn-dark" onClick={() => {
+                            const selected = items.filter(i => selectedItemIds.includes(i.id)).map(i => ({ id: i.id, title: i.title, price: i.price }))
+                            setInitialOrderItems(selected)
+                            setAdminView('orders')
+                          }}>+ Tạo đơn hàng</button>
+                          <button className="btn-cancel" onClick={() => setSelectedItemIds([])}>Bỏ chọn</button>
+                        </div>
+                      </div>
+                    )}
+                    <table className="admin-items-table">
+                      <thead>
+                        <tr>
+                          <th><input type="checkbox" checked={selectedItemIds.length === filtered.length && filtered.length > 0} onChange={e => setSelectedItemIds(e.target.checked ? filtered.map(i => i.id) : [])} /></th>
+                          <th>Ảnh</th>
+                          <th>Mã/SKU</th>
+                          <th>Tên sản phẩm</th>
+                          <th>Giá</th>
+                          <th>Tình trạng</th>
+                          <th>Thùng</th>
+                          <th>Trạng thái</th>
+                          <th>Ngày đăng</th>
+                          <th>Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map(item => (
+                          <tr key={item.id} className={item.status === 'sold' ? 'row-sold' : ''}>
+                            <td><input type="checkbox" checked={selectedItemIds.includes(item.id)} onChange={e => {
+                                if (e.target.checked) setSelectedItemIds(prev => [...prev, item.id])
+                                else setSelectedItemIds(prev => prev.filter(id => id !== item.id))
+                            }} /></td>
+                            <td>{getImages(item)[0] && <img src={getImages(item)[0]} alt="" style={{width: 36, height: 36, objectFit: 'cover', borderRadius: 4, display:'block'}} />}</td>
+                            <td><div style={{fontSize: 12, fontWeight: 'bold'}}>{item.order_code}</div><div style={{fontSize: 11, color: '#666'}}>{item.sku}</div></td>
+                            <td style={{maxWidth: 250, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={item.title}>{item.title}</td>
+                            <td style={{fontWeight: 600, color: 'var(--green)'}}>{fmtVND(item.price)}</td>
+                            <td style={{fontSize: 13}}>{item.condition}</td>
+                            <td style={{fontSize: 13, fontWeight: 600}}>{item.bin_location}</td>
+                            <td>
+                                {item.status==='sold' ? <span className="badge-sold">Đã bán</span>
+                                : item.status==='reserved' ? <span className="badge-reserved">🔒 Đang giữ</span>
+                                : item.status==='incoming' ? <span className="badge-incoming">📦 Sắp về</span>
+                                : <span className="badge-avail">Còn hàng</span>}
+                            </td>
+                            <td style={{fontSize: 11, color: '#666'}}>{fmtDate(item.created_at)}</td>
+                            <td>
+                              <div style={{display:'flex',gap:4}}>
+                                <button className="btn-edit-item" style={{margin:0,padding:'4px 8px'}} onClick={e=>{e.preventDefault();e.stopPropagation();openEditItem(item)}}>✎</button>
+                                <button className="btn-sell-item" style={{margin:0,padding:'4px 8px',color:item.status==='sold'?'#60a5fa':'#4ade80'}} onClick={e=>{e.preventDefault();e.stopPropagation();item.status==='sold'?markAvailable(item):setSoldItem(item)}}>💰</button>
+                                <button className="btn-del-item" style={{margin:0,padding:'4px 8px'}} onClick={e=>{e.preventDefault();e.stopPropagation();deleteItem(item.id)}}>🗑</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {filtered.length === 0 && (
+                          <tr><td colSpan={10} style={{textAlign:'center',padding:32,color:'#888'}}>Không có mặt hàng nào</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
                 <div className="listing">
                   {loadingItems ? <div className="empty"><div className="spinner" style={{margin:'0 auto'}}/></div>
                   : displayItems.length===0 ? <div className="empty"><div className="empty-icon">📦</div><p>Chưa có tin nào{isAdmin?'. Nhập đơn ở trên.':'.'}</p></div>
@@ -1273,6 +1341,7 @@ export default function HomeClient() {
                     )
                   })}
                 </div>
+                )}
               </div>
 
             </div>
@@ -1694,6 +1763,18 @@ main{width:100%;padding:24px 28px}
 .cat-tag{background:var(--surface);border:1px solid var(--border);padding:5px 14px;border-radius:20px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;color:var(--muted);transition:all .15s;white-space:nowrap}
 .cat-tag:hover{border-color:var(--accent);color:var(--text)}
 .cat-tag.active{background:var(--accent);border-color:var(--accent);color:white}
+
+/* Admin Table */
+.admin-items-table-wrap { width: 100%; overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 24px; }
+.admin-items-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+.admin-items-table th { padding: 12px 16px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--bg); white-space: nowrap; }
+.admin-items-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.admin-items-table tr:last-child td { border-bottom: none; }
+.admin-items-table tr:hover { background: var(--bg); }
+.admin-items-table .row-sold td { opacity: 0.6; }
+.bulk-action-bar { position: sticky; top: 0; z-index: 10; background: var(--green-bg); border-bottom: 1px solid #b6dfca; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; font-weight: 600; color: var(--green); border-radius: 12px 12px 0 0; }
+.bulk-action-bar .btn-dark { background: var(--green); }
+.bulk-action-bar .btn-cancel { background: transparent; border: 1px solid var(--green); color: var(--green); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-family: inherit; font-weight: 600; }
 
 /* FORM */
 .lbl{font-size:11px;font-weight:500;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
