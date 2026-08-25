@@ -641,6 +641,9 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
             Xuất CSV
           </button>
+          <a href="/accounting" className="om-btn-ghost" style={{ textDecoration: 'none', color: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            📊 Kế toán & Thuế
+          </a>
           <button className="om-btn-primary" onClick={() => { setForm({ ...EMPTY_FORM }); clearCreateCart(); setShowCreateModal(true) }}>
             + Tạo đơn hàng
           </button>
@@ -1343,22 +1346,23 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
             </div>
           </div>
 
-          {/* The actual printable area */}
+          {/* The actual printable area — Layout size A7 (74mm x 105mm) */}
           <div className="invoice-print-wrap">
 
             <div className="inv-shop">leviethoang<span>.shop</span></div>
+            <div className="inv-doc-title">HÓA ĐƠN BÁN HÀNG</div>
             <div className="inv-divider" />
 
-            {/* Order meta — 2 items per line */}
+            {/* Order meta */}
             <div className="inv-inline-row">
               <strong>{printOrder.order_number}</strong>
               <span>{fmtDate(printOrder.created_at)}</span>
             </div>
-            <div className="inv-tag">{printOrder.payment_method === 'cod' ? 'COD' : 'Chuyen khoan'}</div>
+            <div className="inv-tag">{printOrder.payment_method === 'cod' ? 'Thanh toán COD' : 'Chuyển khoản'}</div>
 
             <div className="inv-divider" />
 
-            {/* Customer — compact */}
+            {/* Customer */}
             <div className="inv-customer-name">{printOrder.customer_name} · {printOrder.customer_phone}</div>
             <div className="inv-customer-addr">{printOrder.customer_address}</div>
             {printOrder.customer_note && <div className="inv-customer-note">"{printOrder.customer_note}"</div>}
@@ -1367,6 +1371,12 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
 
             {/* Products */}
             <table className="inv-items-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Sản phẩm</th>
+                  <th style={{ textAlign: 'right' }}>Thành tiền</th>
+                </tr>
+              </thead>
               <tbody>
                 {printOrder.order_items && printOrder.order_items.length > 0 ? (
                   printOrder.order_items.map(oi => (
@@ -1385,31 +1395,30 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
             </table>
 
             <div className="inv-total-row">
-              <span>TONG</span>
+              <span>TỔNG CỘNG</span>
               <span className="inv-total-val">{fmtVND(printOrder.total_amount ?? printOrder.item_price)}</span>
             </div>
 
             {/* Shipping */}
             <div className="inv-divider" />
             <div className="inv-shipping">
-              {CARRIER_LABEL[printOrder.shipping_carrier] || printOrder.shipping_carrier}
-              {printOrder.tracking_number && <span className="inv-tracking"> · {printOrder.tracking_number}</span>}
+              Vận chuyển: <strong>{CARRIER_LABEL[printOrder.shipping_carrier] || printOrder.shipping_carrier}</strong>
+              {printOrder.tracking_number && <span className="inv-tracking"> · Mã VĐ: {printOrder.tracking_number}</span>}
             </div>
 
             {/* QR */}
             {printOrder.payment_method === 'bank_transfer' && process.env.NEXT_PUBLIC_BANK_ID && (
               <>
                 <div className="inv-divider" />
-                <div className="inv-bank-row"><span>{process.env.NEXT_PUBLIC_BANK_ID?.toUpperCase()}</span><strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT}</strong></div>
-                <div className="inv-bank-row"><span>TK</span><strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME}</strong></div>
-                <div className="inv-bank-row"><span>ND</span><strong>{printOrder.order_number}</strong></div>
-                <div className="inv-bank-row"><span>So tien</span><strong>{fmtVND(printOrder.total_amount)}</strong></div>
+                <div className="inv-bank-row"><span>Ngân hàng:</span><strong>{process.env.NEXT_PUBLIC_BANK_ID?.toUpperCase()} - {process.env.NEXT_PUBLIC_BANK_ACCOUNT}</strong></div>
+                <div className="inv-bank-row"><span>Chủ TK:</span><strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME}</strong></div>
+                <div className="inv-bank-row"><span>Nội dung:</span><strong>{printOrder.order_number}</strong></div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={vietQRUrlForOrder(printOrder)} alt="QR" className="inv-qr-img" />
               </>
             )}
 
-            <div className="inv-footer">Cam on quy khach!</div>
+            <div className="inv-footer">Cảm ơn quý khách!</div>
           </div>
         </>
       )}
@@ -1419,42 +1428,46 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
 
 // ─── Styles ───────────────────────────────────────────────────────
 const omStyles = `
-/* ── Print invoice — 58mm vertical, ultra-compact ── */
+/* ── Print invoice — Layout size A7 (74mm x 105mm) ── */
 .invoice-print-wrap{display:none}
-@page{size:58mm auto;margin:0}
+@page{size:74mm 105mm;margin:0}
 @media print{
   body *{visibility:hidden}
   .invoice-print-wrap{
     display:block!important;visibility:visible;
     position:fixed;inset:0;z-index:9999;
-    width:58mm;background:white;
-    padding:2mm 3mm;
-    font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#000;
-    line-height:1.25;
+    width:74mm;height:105mm;min-height:105mm;max-height:105mm;
+    box-sizing:border-box;background:white;
+    padding:4mm 5mm;
+    font-family:'Be Vietnam Pro',Arial,Helvetica,sans-serif;font-size:8.5pt;color:#000;
+    line-height:1.3;page-break-after:always;break-after:page;
+    overflow:hidden;
   }
   .invoice-print-wrap *{visibility:visible}
 }
 .inv-shop{font-size:13pt;font-weight:800;letter-spacing:-.3px;text-align:center;display:block}
 .inv-shop span{font-weight:300;color:#555}
+.inv-doc-title{font-size:8pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;text-align:center;color:#444;margin-top:1mm}
 .inv-divider{border:none;border-top:1px dashed #bbb;margin:1.5mm 0}
 .inv-inline-row{display:flex;justify-content:space-between;align-items:baseline;font-size:8.5pt;gap:2mm}
-.inv-inline-row strong{font-size:9pt;font-family:monospace}
-.inv-tag{font-size:8pt;color:#555;margin-top:.5mm}
-.inv-customer-name{font-size:10pt;font-weight:700;margin-top:.5mm}
-.inv-customer-addr{font-size:8.5pt;color:#333;line-height:1.3;margin-top:.5mm}
-.inv-customer-note{font-size:8pt;color:#666;font-style:italic;margin-top:.5mm}
+.inv-inline-row strong{font-size:9pt;font-family:monospace;font-weight:700}
+.inv-tag{font-size:8pt;color:#444;margin-top:.5mm;font-weight:600}
+.inv-customer-name{font-size:9.5pt;font-weight:700;margin-top:.5mm}
+.inv-customer-addr{font-size:8pt;color:#222;line-height:1.25;margin-top:.5mm}
+.inv-customer-note{font-size:7.5pt;color:#555;font-style:italic;margin-top:.5mm}
 .inv-items-table{width:100%;border-collapse:collapse;margin:1mm 0}
-.inv-items-table td{padding:.8mm 0;font-size:9pt;line-height:1.3;vertical-align:top}
+.inv-items-table th{font-size:7.5pt;font-weight:700;color:#555;padding:.5mm 0;border-bottom:1px solid #000;text-transform:uppercase}
+.inv-items-table td{padding:1mm 0;font-size:8.5pt;line-height:1.25;vertical-align:top}
 .inv-items-table td:last-child{text-align:right;font-weight:700;white-space:nowrap;padding-left:2mm;width:1%}
 .inv-items-table tr:not(:last-child) td{border-bottom:1px dashed #ddd}
-.inv-total-row{display:flex;justify-content:space-between;align-items:center;border-top:1.5px solid #000;border-bottom:1.5px solid #000;padding:1.5mm 0;margin:.5mm 0;font-weight:800;font-size:10.5pt}
-.inv-total-val{font-size:12pt;font-weight:900}
-.inv-shipping{font-size:8.5pt;color:#555;margin-top:.5mm}
+.inv-total-row{display:flex;justify-content:space-between;align-items:center;border-top:1.5px solid #000;border-bottom:1.5px solid #000;padding:1mm 0;margin:1mm 0;font-weight:800;font-size:9pt}
+.inv-total-val{font-size:10.5pt;font-weight:900}
+.inv-shipping{font-size:8pt;color:#333;margin-top:.5mm}
 .inv-tracking{font-weight:700;color:#000}
-.inv-bank-row{display:flex;justify-content:space-between;font-size:8.5pt;line-height:1.4}
-.inv-bank-row span{color:#666}
-.inv-qr-img{display:block;width:44mm;height:44mm;margin:1.5mm auto 0;border:1px solid #ddd}
-.inv-footer{text-align:center;margin-top:2mm;padding-top:1.5mm;border-top:1px dashed #bbb;font-size:9pt;font-weight:700}
+.inv-bank-row{display:flex;justify-content:space-between;font-size:7.5pt;line-height:1.3}
+.inv-bank-row span{color:#555}
+.inv-qr-img{display:block;width:32mm;height:32mm;margin:1.5mm auto 0;border:1px solid #ddd}
+.inv-footer{text-align:center;margin-top:1.5mm;padding-top:1mm;border-top:1px dashed #bbb;font-size:8pt;font-weight:700}
 
 /* ── Stats ── */
 .om-stats-wrap{border:1px solid var(--border,#e8e6e1);border-radius:10px;padding:14px 16px;margin-bottom:14px;background:var(--tag-bg,#f9f8f6)}

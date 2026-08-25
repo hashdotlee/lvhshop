@@ -495,7 +495,7 @@ function OrderList({
                       </svg>
                       In / Lưu hóa đơn
                     </button>
-                    <span className="mo-invoice-hint">Hóa đơn dạng A4 để đối chiếu</span>
+                    <span className="mo-invoice-hint">Hóa đơn layout A7</span>
                   </div>
                 </div>
               )}
@@ -589,78 +589,81 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:#f9f8f6;color:#1a1916;fo
 .mo-change-phone-btn:hover{border-color:#1a1916;background:#f9f8f6}
 
 /* ═══════════════════════════════════════════
-   INVOICE PRINT — A4, screen preview hidden
+   INVOICE PRINT — Layout size A7 (74mm x 105mm)
    ═══════════════════════════════════════════ */
 .inv-print-wrap{display:none}
 
-@page{size:A4;margin:16mm 16mm 14mm}
+@page{size:74mm 105mm;margin:0}
 @media print{
   body *{visibility:hidden}
   .inv-print-wrap{
     display:block!important;visibility:visible;
     position:fixed;inset:0;z-index:9999;
-    background:white;padding:0;
-    font-family:'Be Vietnam Pro',Arial,sans-serif;font-size:10pt;color:#111;
-    line-height:1.5;
+    width:74mm;height:105mm;min-height:105mm;max-height:105mm;
+    box-sizing:border-box;background:white;
+    padding:4mm 5mm;
+    font-family:'Be Vietnam Pro',Arial,sans-serif;font-size:8.5pt;color:#111;
+    line-height:1.3;page-break-after:always;break-after:page;
+    overflow:hidden;
   }
   .inv-print-wrap *{visibility:visible}
 }
 
 /* Header */
-.inv-header{text-align:center;margin-bottom:14pt;padding-bottom:10pt;border-bottom:2px solid #1a1916}
-.inv-shop-name{font-size:22pt;font-weight:800;letter-spacing:-.5px;color:#1a1916}
+.inv-header{text-align:center;margin-bottom:2mm;padding-bottom:1.5mm;border-bottom:1.5px solid #1a1916}
+.inv-shop-name{font-size:13pt;font-weight:800;letter-spacing:-.3px;color:#1a1916}
 .inv-shop-name span{font-weight:300;color:#666}
-.inv-doc-title{font-size:13pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#444;margin-top:4pt}
+.inv-doc-title{font-size:8pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#444;margin-top:1pt}
 
 /* Meta row */
-.inv-meta-row{display:flex;gap:24pt;margin-bottom:12pt}
+.inv-meta-row{display:flex;justify-content:space-between;gap:4pt;margin-bottom:2mm;font-size:8pt}
 .inv-meta-left,.inv-meta-right{flex:1}
-.inv-meta-line{font-size:9.5pt;margin-bottom:3pt;display:flex;gap:6pt}
-.inv-meta-line span{color:#666;min-width:90pt;flex-shrink:0}
+.inv-meta-line{margin-bottom:1.5pt;display:flex;gap:3pt}
+.inv-meta-line span{color:#666;min-width:48pt;flex-shrink:0}
 .inv-meta-line strong{color:#111}
 
 /* Divider */
-.inv-divider{border:none;border-top:1px solid #ddd;margin:10pt 0}
+.inv-divider{border:none;border-top:1px dashed #ccc;margin:1.5mm 0}
 
 /* Section title */
-.inv-section-title{font-size:8pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:7pt}
+.inv-section-title{font-size:7.5pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#777;margin-bottom:1mm}
 
 /* Customer */
-.inv-customer-grid{display:grid;grid-template-columns:1fr 1fr;gap:5pt 20pt;margin-bottom:4pt}
-.inv-cust-row{font-size:9.5pt;display:flex;gap:6pt}
-.inv-cust-row span{color:#666;min-width:80pt;flex-shrink:0}
+.inv-customer-grid{display:flex;flex-direction:column;gap:1.5pt;margin-bottom:1mm;font-size:8pt}
+.inv-cust-row{display:flex;gap:4pt}
+.inv-cust-row span{color:#666;min-width:48pt;flex-shrink:0}
 .inv-cust-row strong{color:#111}
 .inv-cust-full{grid-column:1/-1}
 
 /* Items table */
-.inv-table{width:100%;border-collapse:collapse;margin-bottom:0;font-size:9.5pt}
-.inv-table thead tr{background:#f0efe9;border-bottom:1.5px solid #ccc}
-.inv-table th{padding:6pt 8pt;text-align:left;font-size:8pt;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#666}
-.inv-th-stt{width:28pt;text-align:center}
-.inv-th-name{min-width:160pt}
-.inv-th-code{width:90pt}
-.inv-th-qty{width:24pt;text-align:center}
-.inv-th-price{width:72pt;text-align:right}
-.inv-th-total{width:80pt;text-align:right}
+.inv-table{width:100%;border-collapse:collapse;margin-bottom:0;font-size:8pt}
+.inv-table thead tr{background:#f0efe9;border-bottom:1px solid #ccc}
+.inv-table th{padding:1.5pt 3pt;text-align:left;font-size:7.5pt;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:#555}
+.inv-th-stt{width:16pt;text-align:center}
+.inv-th-name{min-width:70pt}
+.inv-th-code{width:50pt}
+.inv-th-qty{width:18pt;text-align:center}
+.inv-th-price{width:40pt;text-align:right}
+.inv-th-total{width:45pt;text-align:right}
 .inv-table tbody tr{border-bottom:1px dashed #e0e0e0}
 .inv-table tbody tr:last-child{border-bottom:none}
-.inv-table td{padding:7pt 8pt;vertical-align:top}
+.inv-table td{padding:2pt 3pt;vertical-align:top}
 .inv-td-center{text-align:center;color:#666}
-.inv-td-code{font-family:monospace;font-size:8.5pt;color:#555}
+.inv-td-code{font-family:monospace;font-size:7.5pt;color:#555}
 .inv-td-right{text-align:right}
 .inv-td-bold{font-weight:700;color:#1a1916}
 
 /* Total */
-.inv-total-wrap{border-top:1.5px solid #1a1916;margin-top:0;padding-top:8pt}
-.inv-total-row{display:flex;justify-content:space-between;align-items:center;font-size:9.5pt;color:#666;padding:2pt 8pt}
-.inv-grand-total{font-size:13pt;font-weight:800;color:#1a1916;padding:6pt 8pt;border-top:1px solid #e0e0e0;margin-top:2pt}
-.inv-pay-method{font-size:9pt;color:#555;text-align:right;padding:2pt 8pt 6pt}
+.inv-total-wrap{border-top:1.5px solid #1a1916;margin-top:1mm;padding-top:1mm}
+.inv-total-row{display:flex;justify-content:space-between;align-items:center;font-size:8.5pt;color:#555}
+.inv-grand-total{font-size:10pt;font-weight:800;color:#1a1916}
+.inv-pay-method{font-size:7.5pt;color:#555;text-align:right;margin-top:1pt}
 
 /* Footer */
-.inv-footer{margin-top:12pt;text-align:center;padding-top:8pt;border-top:1px dashed #ccc}
-.inv-footer-note{font-size:9pt;color:#666;line-height:1.6;margin-bottom:4pt}
+.inv-footer{margin-top:1.5mm;text-align:center;padding-top:1mm;border-top:1px dashed #ccc}
+.inv-footer-note{font-size:7.5pt;color:#555;line-height:1.3}
 .inv-footer-note strong{color:#1a1916}
-.inv-footer-url{font-size:10pt;font-weight:700;color:#1a1916;letter-spacing:-.3px}
+.inv-footer-url{font-size:8pt;font-weight:700;color:#1a1916}
 
 @media(max-width:600px){
   .mo-header{padding:12px 16px}

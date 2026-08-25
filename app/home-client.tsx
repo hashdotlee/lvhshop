@@ -748,6 +748,7 @@ export default function HomeClient() {
                 Đơn hàng
               </button>
               <a href="/inventory" className="tab-btn" style={{textDecoration:'none'}}>📦 Kho hàng</a>
+              <a href="/accounting" className="tab-btn" style={{textDecoration:'none'}}>📊 Kế toán & Thuế</a>
               <a href="/live" className="tab-btn" style={{textDecoration:'none'}}>📺 Theo dõi Live</a>
               <div className="admin-badge"><span className="admin-dot"/>Admin
                 <button className="logout-btn" onClick={logout}>✕</button>

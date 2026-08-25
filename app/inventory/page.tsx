@@ -493,17 +493,30 @@ export default function InventoryPage() {
     <div style={S.page}>
       <style>{pageCSS + printCSS}</style>
 
-      {/* Print labels overlay */}
+      {/* Print labels overlay — Layout size A7 (74mm x 105mm) */}
       {printItems && (
         <div className="print-labels-container">
           {printItems.map(item => (
             <div key={item.id} className="print-label">
-              <div className="pl-barcode">{item.order_code}</div>
-              {item.sku && <div className="pl-sku">SKU: {item.sku}</div>}
-              <div className="pl-title">{item.title}</div>
-              <div className="pl-row">
-                <span className="pl-bin">{item.bin_location ?? ''}</span>
-                <span className="pl-price">{fmtVND(item.price)}</span>
+              <div className="pl-header">
+                <div className="pl-shop">leviethoang<span>.shop</span></div>
+              </div>
+              <div className="pl-code-box">
+                <div className="pl-barcode">{item.order_code}</div>
+                {item.sku && <div className="pl-sku">SKU: {item.sku}</div>}
+              </div>
+              <div className="pl-content">
+                <div className="pl-title">{item.title}</div>
+                {item.condition && <div className="pl-cond">Tình trạng: {item.condition}</div>}
+              </div>
+              <div className="pl-meta-wrap">
+                <div className="pl-row">
+                  <span className="pl-bin">{item.bin_location ? `Thùng: ${item.bin_location}` : '—'}</span>
+                  <span className="pl-price">{fmtVND(item.price)}</span>
+                </div>
+              </div>
+              <div className="pl-footer">
+                leviethoang.shop · Hàng chọn lọc
               </div>
             </div>
           ))}
@@ -526,6 +539,9 @@ export default function InventoryPage() {
           <button style={view === 'import' ? S.tabActive : S.tab} onClick={() => { setView('import'); setLastImport(null) }}>
             + Nhập
           </button>
+          <a href="/accounting" style={{ ...S.tab, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+            📊 Kế toán & Thuế
+          </a>
         </div>
       </header>
 
@@ -1556,7 +1572,7 @@ const pageCSS = `
 
 const printCSS = `
   @page {
-    size: 58mm auto;
+    size: 74mm 105mm;
     margin: 0;
   }
   @media print {
@@ -1574,42 +1590,79 @@ const printCSS = `
     background: white; width: 100%;
   }
   .print-label {
-    width: 58mm;
-    min-height: 32mm;
-    padding: 3mm 4mm 3mm;
-    font-family: 'Courier New', Courier, monospace;
+    width: 74mm;
+    height: 105mm;
+    min-height: 105mm;
+    max-height: 105mm;
+    box-sizing: border-box;
+    padding: 4mm 5mm;
+    font-family: 'Be Vietnam Pro', Arial, sans-serif;
     color: #000;
     background: white;
-    display: flex; flex-direction: column; justify-content: flex-start; gap: 1.5mm;
+    display: flex; flex-direction: column; justify-content: space-between;
     page-break-after: always;
     break-after: page;
     page-break-inside: avoid;
     break-inside: avoid;
-    border-bottom: 1px dashed #ccc;
   }
-  .pl-barcode {
-    font-size: 12pt; font-weight: 900; letter-spacing: 1.5px;
+  .pl-header {
     text-align: center;
     border-bottom: 1.5px solid #000;
-    padding-bottom: 2mm; margin-bottom: 1mm;
-    word-break: break-all;
+    padding-bottom: 1.5mm;
+    margin-bottom: 2mm;
+  }
+  .pl-shop {
+    font-size: 12pt; font-weight: 800; letter-spacing: -0.3px;
+  }
+  .pl-shop span { font-weight: 300; color: #555; }
+  .pl-code-box {
+    text-align: center;
+    background: #f8f8f8;
+    border: 1px solid #000;
+    border-radius: 4px;
+    padding: 2mm 1mm;
+    margin-bottom: 2mm;
+  }
+  .pl-barcode {
+    font-size: 15pt; font-weight: 900; letter-spacing: 2px;
+    font-family: 'Courier New', Courier, monospace;
     line-height: 1.2;
   }
   .pl-sku {
-    font-size: 7pt; color: #444; font-weight: 600; letter-spacing: 0.5px;
+    font-size: 8pt; color: #333; font-weight: 700; letter-spacing: 0.5px;
+    margin-top: 1mm;
+    font-family: monospace;
+  }
+  .pl-content {
+    flex: 1;
+    display: flex; flex-direction: column; justify-content: flex-start;
   }
   .pl-title {
-    font-size: 8pt; font-weight: 700; line-height: 1.35;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    font-size: 10pt; font-weight: 700; line-height: 1.35;
+    color: #000;
+    display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
     overflow: hidden;
-    font-family: Arial, sans-serif;
+    margin-bottom: 2mm;
+  }
+  .pl-cond {
+    font-size: 8pt; color: #444; font-weight: 600; margin-bottom: 1.5mm;
+  }
+  .pl-meta-wrap {
+    border-top: 1.5px solid #000;
+    border-bottom: 1.5px solid #000;
+    padding: 2mm 0;
+    margin-bottom: 2mm;
   }
   .pl-row {
-    font-size: 7.5pt;
+    font-size: 8.5pt;
     display: flex; align-items: center; justify-content: space-between;
-    margin-top: 1mm;
-    border-top: 0.5px solid #ddd; padding-top: 1.5mm;
   }
-  .pl-bin { font-weight: 700; font-size: 8pt; }
-  .pl-price { font-weight: 800; font-size: 8.5pt; text-align: right; }
+  .pl-bin { font-weight: 700; font-size: 9pt; color: #000; }
+  .pl-price { font-weight: 900; font-size: 12.5pt; text-align: right; color: #000; }
+  .pl-footer {
+    text-align: center;
+    font-size: 7.5pt; color: #555; font-weight: 600;
+    border-top: 1px dashed #ccc;
+    padding-top: 1.5mm;
+  }
 `
