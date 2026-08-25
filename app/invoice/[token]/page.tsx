@@ -22,6 +22,9 @@ type Order = {
   payment_status: string
   order_status: string
   total_amount: number | null
+  shipping_fee: number | null
+  shipping_discount: number | null
+  item_discount: number | null
   created_at: string
   order_items: OrderItem[]
 }
@@ -91,8 +94,12 @@ export default async function InvoicePage({ params }: { params: { token: string 
   if (!order) notFound()
 
   const items = order.order_items ?? []
-  const total = order.total_amount ??
-    (items.length > 0 ? items.reduce((s, i) => s + (i.item_price ?? 0) * i.quantity, 0) || null : null)
+  const itemsTotal = order.total_amount ??
+    (items.length > 0 ? items.reduce((s, i) => s + (i.item_price ?? 0) * i.quantity, 0) || 0 : (order.item_price ?? 0))
+  const shippingFee = order.shipping_fee ?? 0
+  const shippingDiscount = order.shipping_discount ?? 0
+  const itemDiscount = order.item_discount ?? 0
+  const finalTotal = itemsTotal + shippingFee - shippingDiscount
 
   const BANK_ID   = process.env.NEXT_PUBLIC_BANK_ID ?? ''
   const BANK_ACCT = process.env.NEXT_PUBLIC_BANK_ACCOUNT ?? ''
@@ -100,7 +107,7 @@ export default async function InvoicePage({ params }: { params: { token: string 
   const isBankTransfer = order.payment_method === 'bank_transfer'
   const qrUrl = isBankTransfer && BANK_ID && BANK_ACCT
     ? `https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCT}-compact2.png` +
-      `?${total ? `amount=${total}&` : ''}addInfo=${encodeURIComponent(order.order_number)}&accountName=${encodeURIComponent(BANK_NAME)}`
+      `?${finalTotal ? `amount=${finalTotal}&` : ''}addInfo=${encodeURIComponent(order.order_number)}&accountName=${encodeURIComponent(BANK_NAME)}`
     : null
 
   const st = STATUS_STYLE[order.order_status] ?? { bg: '#f4f3f0', color: '#555' }
@@ -168,12 +175,33 @@ export default async function InvoicePage({ params }: { params: { token: string 
               </div>
             </div>
           ))}
+          
+          <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+            {(shippingFee > 0 || order.shipping_carrier) && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#555' }}>
+                <span>Phí vận chuyển ({CARRIER_LABEL[order.shipping_carrier] ?? order.shipping_carrier})</span>
+                <strong>{shippingFee > 0 ? fmtVND(shippingFee) : '0 ₫'}</strong>
+              </div>
+            )}
+            {shippingDiscount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626' }}>
+                <span>Giảm giá phí ship</span>
+                <strong>-{fmtVND(shippingDiscount)}</strong>
+              </div>
+            )}
+            {itemDiscount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626' }}>
+                <span>Khuyến mãi mặt hàng</span>
+                <strong>-{fmtVND(itemDiscount)}</strong>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Total */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f4f3f0', borderRadius: 10, padding: '14px 18px', margin: '20px 0 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f4f3f0', borderRadius: 10, padding: '14px 18px', margin: '16px 0' }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: '#555' }}>Tổng cộng</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#2a7a4b' }}>{fmtVND(total)}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#2a7a4b' }}>{fmtVND(finalTotal)}</div>
         </div>
 
         {/* Payment method */}
@@ -205,10 +233,10 @@ export default async function InvoicePage({ params }: { params: { token: string 
                   <span style={{ color: '#888', minWidth: 80 }}>Nội dung</span>
                   <strong style={{ color: '#1d4ed8' }}>{order.order_number}</strong>
                 </div>
-                {total && (
+                {finalTotal > 0 && (
                   <div style={{ display: 'flex', gap: 12 }}>
                     <span style={{ color: '#888', minWidth: 80 }}>Số tiền</span>
-                    <strong style={{ color: '#15803d', fontSize: 15 }}>{fmtVND(total)}</strong>
+                    <strong style={{ color: '#15803d', fontSize: 15 }}>{fmtVND(finalTotal)}</strong>
                   </div>
                 )}
               </div>

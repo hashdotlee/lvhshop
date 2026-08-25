@@ -1590,16 +1590,28 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
               <span className="inv-total-val">{fmtVND((printOrder.total_amount ?? printOrder.item_price ?? 0) + (printOrder.shipping_fee ?? 0) - (printOrder.shipping_discount ?? 0))}</span>
             </div>
 
-            {/* QR */}
-            {printOrder.payment_method === 'bank_transfer' && process.env.NEXT_PUBLIC_BANK_ID && (
-              <>
-                <div className="inv-divider" />
-                <div className="inv-bank-row"><span>Ngân hàng:</span><strong>{process.env.NEXT_PUBLIC_BANK_ID?.toUpperCase()} - {process.env.NEXT_PUBLIC_BANK_ACCOUNT}</strong></div>
-                <div className="inv-bank-row"><span>Chủ TK:</span><strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME}</strong></div>
-                <div className="inv-bank-row"><span>Nội dung:</span><strong>{printOrder.order_number}</strong></div>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={vietQRUrlForOrder(printOrder)} alt="QR" className="inv-qr-img" />
-              </>
+            {/* Payment Status */}
+            <div className="inv-divider" />
+            {printOrder.payment_status === 'verified' ? (
+              <div style={{ textAlign: 'center', marginTop: '2mm', marginBottom: '1mm' }}>
+                <div style={{ fontSize: '10pt', fontWeight: 800 }}>[ Đã thanh toán ]</div>
+                <div style={{ fontSize: '8pt', color: '#444', marginTop: '1mm' }}>
+                  {printOrder.payment_method === 'bank_transfer' ? 'Chuyển khoản' : 'COD'}
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: '8pt', color: '#444' }}>
+                <span>Thanh toán: </span>
+                <strong style={{ color: '#000' }}>
+                  {printOrder.payment_method === 'bank_transfer' ? 'Chuyển khoản' : 'COD — Thanh toán khi nhận hàng'}
+                </strong>
+                {printOrder.payment_method === 'bank_transfer' && (
+                  <div style={{ marginTop: '1mm', lineHeight: 1.4 }}>
+                    <div>Ngân hàng: <strong>{process.env.NEXT_PUBLIC_BANK_ID?.toUpperCase()} - {process.env.NEXT_PUBLIC_BANK_ACCOUNT}</strong></div>
+                    <div>Nội dung CK: <strong>{printOrder.order_number}</strong></div>
+                  </div>
+                )}
+              </div>
             )}
 
             <div className="inv-footer">Cảm ơn quý khách!</div>
