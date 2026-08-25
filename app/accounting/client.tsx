@@ -350,6 +350,16 @@ export default function AccountingClient() {
             </div>
           </div>
 
+          {/* Tax Method Explanation Note */}
+          <div className="acc-card acc-notice-banner no-print" style={{ background: '#fffbeb', borderColor: '#fde68a' }}>
+            <div style={{ fontWeight: 700, color: '#92400e', marginBottom: 4 }}>
+              💡 Phương pháp tính thuế trực tiếp trên Doanh thu (Khoản 2 Điều 4 & Phụ lục I Thông tư 40/2021/TT-BTC):
+            </div>
+            <div style={{ fontSize: 13, color: '#78350f' }}>
+              Do nguồn hàng đầu vào không có đầy đủ hóa đơn chứng từ, tiền thuế không tính trên lợi nhuận mà tính <strong>trực tiếp theo tỷ lệ % cố định trên tổng Doanh thu bán hàng</strong> (GTGT {(report.vatRate * 100).toFixed(1)}% + TNCN {(report.pitRate * 100).toFixed(1)}% đối với bán lẻ TMĐT).
+            </div>
+          </div>
+
           {/* Threshold Progress Bar Banner */}
           <div className="acc-card acc-threshold-banner no-print">
             <div className="acc-tb-header">
