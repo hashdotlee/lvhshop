@@ -20,7 +20,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { title, description, price, condition, category, type, phone, location, images, image_url, expected_date, posted_by, staff_id } = body
+  const { title, description, price, condition, category, type, phone, location, images, image_url, expected_date, posted_by, staff_id, discount_percent, discount_end_date } = body
   const isAdmin = checkAdmin(req)
   // Public users can only create buy requests; sell listings require admin
   if (type !== 'mua' && !isAdmin) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -41,6 +41,8 @@ export async function POST(req: NextRequest) {
       expected_date: (isAdmin && expected_date) || null,
       posted_by: isAdmin ? (posted_by || null) : null,
       staff_id: isAdmin ? (staff_id ? Number(staff_id) : null) : null,
+      discount_percent: isAdmin && discount_percent ? Number(discount_percent) : 0,
+      discount_end_date: isAdmin && discount_end_date ? discount_end_date : null,
     })
     .select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -61,7 +63,7 @@ export async function PATCH(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const body = await req.json()
-  const { id, title, description, price, cost_price, condition, category, type, phone, location, images, expected_date, posted_by, staff_id, sku, bin_location, status } = body
+  const { id, title, description, price, cost_price, condition, category, type, phone, location, images, expected_date, posted_by, staff_id, sku, bin_location, status, discount_percent, discount_end_date } = body
   if (!id || !title || !type) return NextResponse.json({ error: 'missing fields' }, { status: 400 })
   const db = adminClient()
   const imgs: string[] = Array.isArray(images) ? images : []
@@ -78,6 +80,8 @@ export async function PUT(req: NextRequest) {
     staff_id: staff_id ? Number(staff_id) : null,
     sku: sku || null,
     bin_location: bin_location || null,
+    discount_percent: discount_percent ? Number(discount_percent) : 0,
+    discount_end_date: discount_end_date || null,
   }
   if (status && ['available', 'sold', 'incoming', 'reserved'].includes(status)) {
     updateData.status = status

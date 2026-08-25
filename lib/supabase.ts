@@ -34,6 +34,9 @@ export type Item = {
   bin_location: string | null
   cost_price: number | null
   batch_id: number | null
+  // Discount fields
+  discount_percent?: number | null
+  discount_end_date?: string | null
 }
 
 export type InventoryBatch = {
@@ -111,4 +114,7 @@ export type Order = {
   updated_at: string
   items?: { title: string; price: number | null; order_code: string; images: string[] } | null
   order_items?: OrderLineItem[]
+  // Discount fields
+  shipping_discount?: number | null
+  item_discount?: number | null
 }

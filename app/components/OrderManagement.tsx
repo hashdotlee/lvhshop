@@ -94,6 +94,8 @@ const EMPTY_FORM = {
   newProductPrice: '',
   newProductCondition: 'Cũ - Còn tốt',
   newProductCategory: '',
+  item_discount: 0,
+  shipping_discount: 0,
 }
 
 // ─── Main Component ───────────────────────────────────────────────
@@ -143,7 +145,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   const [editOrderItems, setEditOrderItems] = useState<OrderItem[]>([])
 
   // Create-order cart state
-  const [createCartItems, setCreateCartItems] = useState<Array<{id?: number, title: string, price: number | null}>>([])
+  const [createCartItems, setCreateCartItems] = useState<Array<{id?: number, title: string, price: number | null, original_price?: number | null}>>([])
   const [createStagedItem, setCreateStagedItem] = useState<Item | null>(null)
   const [createStagedPrice, setCreateStagedPrice] = useState('')
 
@@ -261,7 +263,9 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
 
   function selectItem(item: Item) {
     setCreateStagedItem(item)
-    setCreateStagedPrice(item.price ? String(item.price) : '')
+    const isSale = item.discount_percent && item.discount_percent > 0 && item.discount_end_date && new Date(item.discount_end_date) > new Date()
+    const finalPrice = isSale && item.price ? item.price * (1 - item.discount_percent! / 100) : item.price
+    setCreateStagedPrice(finalPrice ? String(finalPrice) : '')
     setItemSearch(item.title)
     setSearchedItems([])
   }
@@ -270,7 +274,8 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     const title = createStagedItem?.title ?? itemSearch.trim()
     if (!title) return
     const price = createStagedPrice ? Number(createStagedPrice) : (createStagedItem?.price ?? null)
-    const newItem = { id: createStagedItem?.id, title, price }
+    const original_price = createStagedItem?.price ?? null
+    const newItem = { id: createStagedItem?.id, title, price, original_price }
     setCreateCartItems(prev => {
       const updated = [...prev, newItem]
       const total = updated.reduce((s, i) => s + (i.price ?? 0), 0)
@@ -298,6 +303,33 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     setItemSearch('')
     setSearchedItems([])
   }
+
+  useEffect(() => {
+    const idisc = createCartItems.reduce((acc, ci) => {
+      if (ci.original_price && ci.price && ci.original_price > ci.price) {
+        return acc + (ci.original_price - ci.price)
+      }
+      return acc
+    }, 0)
+    if (form.item_discount !== idisc) {
+      setForm(f => ({ ...f, item_discount: idisc }))
+    }
+  }, [createCartItems, form.item_discount])
+
+  useEffect(() => {
+    const itemsTotal = form.total_amount ? Number(form.total_amount) : 0
+    let sd = 0
+    if (form.payment_method === 'bank_transfer') {
+      if (itemsTotal >= 500000) sd = 50000
+      else if (itemsTotal >= 200000) sd = 20000
+    }
+    const sf = form.shipping_fee ? Number(form.shipping_fee) : 0
+    if (sd > sf) sd = sf
+
+    if (form.shipping_discount !== sd) {
+      setForm(f => ({ ...f, shipping_discount: sd }))
+    }
+  }, [form.payment_method, form.total_amount, form.shipping_fee, form.shipping_discount])
 
   // ── Create order ───────────────────────────────────────────────
   async function createOrder() {
@@ -348,6 +380,8 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
           total_amount: form.total_amount ? Number(form.total_amount) : null,
           fb_psid: form.fb_psid || null,
           created_by: form.created_by || 'admin',
+          item_discount: form.item_discount,
+          shipping_discount: form.shipping_discount,
         }),
       })
       if (!r.ok) { onToast('Lỗi tạo đơn hàng'); return }
@@ -1171,6 +1205,8 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   <input className="om-inp" type="number" placeholder="0" value={form.total_amount}
                     onChange={e => setForm(f => ({ ...f, total_amount: e.target.value }))} />
                   {form.total_amount && <span className="om-price-preview">{fmtVND(Number(form.total_amount))}</span>}
+                  {form.item_discount > 0 && <div style={{ fontSize: 11, color: '#dc2626', marginTop: 4 }}>KM Hàng: -{fmtVND(form.item_discount)}</div>}
+                  {form.shipping_discount > 0 && <div style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>KM Ship: -{fmtVND(form.shipping_discount)}</div>}
                 </div>
               </div>
 
@@ -1521,16 +1557,27 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
               </tbody>
             </table>
 
-            <div className="inv-total-row">
-              <span>TỔNG CỘNG</span>
-              <span className="inv-total-val">{fmtVND(printOrder.total_amount ?? printOrder.item_price)}</span>
-            </div>
-
-            {/* Shipping */}
+            {/* Shipping & Discounts */}
             <div className="inv-divider" />
             <div className="inv-shipping">
-              Vận chuyển: <strong>{CARRIER_LABEL[printOrder.shipping_carrier] || printOrder.shipping_carrier}</strong>
-              {printOrder.tracking_number && <span className="inv-tracking"> · Mã VĐ: {printOrder.tracking_number}</span>}
+              Phí ship ({CARRIER_LABEL[printOrder.shipping_carrier] || printOrder.shipping_carrier}): <strong style={{float:'right'}}>{fmtVND(printOrder.shipping_fee || 0)}</strong>
+              {printOrder.tracking_number && <div className="inv-tracking" style={{marginTop:2}}>Mã VĐ: {printOrder.tracking_number}</div>}
+            </div>
+            {(printOrder.shipping_discount ?? 0) > 0 && (
+              <div className="inv-shipping" style={{color:'#444'}}>
+                Giảm giá phí ship: <strong style={{float:'right'}}>-{fmtVND(printOrder.shipping_discount)}</strong>
+              </div>
+            )}
+            {(printOrder.item_discount ?? 0) > 0 && (
+              <div className="inv-shipping" style={{color:'#444'}}>
+                Khuyến mãi hàng: <strong style={{float:'right'}}>-{fmtVND(printOrder.item_discount)}</strong>
+              </div>
+            )}
+
+            <div className="inv-divider" />
+            <div className="inv-total-row">
+              <span>TỔNG CỘNG</span>
+              <span className="inv-total-val">{fmtVND((printOrder.total_amount ?? printOrder.item_price ?? 0) + (printOrder.shipping_fee ?? 0) - (printOrder.shipping_discount ?? 0))}</span>
             </div>
 
             {/* QR */}

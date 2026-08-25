@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { item_id, item_title, item_price, cart_items, customer_name, customer_phone, customer_address, customer_note, shipping_carrier, payment_method, total_amount, shipping_fee, is_free_shipping, fb_psid, fb_url, created_by, address_id } = body
+  const { item_id, item_title, item_price, cart_items, customer_name, customer_phone, customer_address, customer_note, shipping_carrier, payment_method, total_amount, shipping_fee, is_free_shipping, fb_psid, fb_url, created_by, address_id, shipping_discount, item_discount } = body
   if (!customer_name || !customer_phone || !customer_address || !payment_method) {
     return NextResponse.json({ error: 'missing required fields' }, { status: 400 })
   }
@@ -86,6 +86,8 @@ export async function POST(req: NextRequest) {
     is_free_shipping: is_free_shipping ?? false,
     fb_psid, created_by: created_by || (isAdmin ? 'admin' : 'customer'),
     address_id: address_id || null,
+    shipping_discount: shipping_discount ?? 0,
+    item_discount: item_discount ?? 0,
   }
   // New orders have no order_items yet — use base select to avoid schema cache issues
   let { data, error } = await db.from('orders').insert({ ...baseRow, fb_url: fb_url || null }).select(SELECT_BASE).single()

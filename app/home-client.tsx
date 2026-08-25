@@ -204,6 +204,7 @@ export default function HomeClient() {
     title:'', description:'', price:'', condition:'Mới', category:'',
     type:'ban' as 'ban'|'mua', phone:'', location:'', posted_by:'', staff_id:'',
     expected_date:'', sku:'', bin_location:'',
+    discount_percent:'', discount_end_date:'',
   })
   const [savingEdit, setSavingEdit]   = useState(false)
 
@@ -370,6 +371,8 @@ export default function HomeClient() {
       expected_date: item.expected_date ?? '',
       sku: item.sku ?? '',
       bin_location: item.bin_location ?? '',
+      discount_percent: item.discount_percent ? String(item.discount_percent) : '',
+      discount_end_date: item.discount_end_date ? new Date(new Date(item.discount_end_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
     })
   }
   async function saveEditItem() {
@@ -397,6 +400,8 @@ export default function HomeClient() {
           expected_date: editItemForm.expected_date || null,
           sku: editItemForm.sku || null,
           bin_location: editItemForm.bin_location || null,
+          discount_percent: editItemForm.discount_percent || null,
+          discount_end_date: editItemForm.discount_end_date ? new Date(editItemForm.discount_end_date).toISOString() : null,
         }),
       })
       if (!r.ok) { const err = await r.json(); showToast(`Lỗi: ${err.error ?? r.status}`); return }
@@ -1044,7 +1049,14 @@ export default function HomeClient() {
                             )}
                           </div>
                           <div className="item-footer">
-                            <div className="item-price">{fmtVND(g.rep.price)}</div>
+                            <div className="item-price">
+                              {g.rep.discount_percent && g.rep.discount_percent > 0 && g.rep.discount_end_date && new Date(g.rep.discount_end_date) > new Date() ? (
+                                <>
+                                  <span style={{ fontSize: 13, textDecoration: 'line-through', color: 'var(--muted)', marginRight: 6 }}>{fmtVND(g.rep.price)}</span>
+                                  <span style={{ color: '#dc2626' }}>{fmtVND(g.rep.price ? g.rep.price * (1 - g.rep.discount_percent / 100) : null)}</span>
+                                </>
+                              ) : fmtVND(g.rep.price)}
+                            </div>
                             {isAvail ? (
                               <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();addToCartAndToast(g.available[0]??g.rep)}}>+ Giỏ hàng</button>
                             ) : (
@@ -1079,6 +1091,9 @@ export default function HomeClient() {
                             ) : <span className="badge-avail">Còn hàng</span>}
                             {imgs.length>1 && <span className="badge-imgs">📷 {imgs.length}</span>}
                             {isAdmin && item.bin_location && <span className="badge-bin">📦 {item.bin_location}</span>}
+                            {item.discount_percent && item.discount_percent > 0 && item.discount_end_date && new Date(item.discount_end_date) > new Date() ? (
+                              <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>-{item.discount_percent}%</span>
+                            ) : null}
                           </div>
                           <div className="item-title">{item.title}</div>
                           <div className="item-desc">{item.description}</div>
@@ -1103,7 +1118,14 @@ export default function HomeClient() {
                           </div>
                         )}
                         <div className="item-footer">
-                          <div className="item-price">{fmtVND(item.price)}</div>
+                          <div className="item-price">
+                            {item.discount_percent && item.discount_percent > 0 && item.discount_end_date && new Date(item.discount_end_date) > new Date() ? (
+                              <>
+                                <span style={{ fontSize: 13, textDecoration: 'line-through', color: 'var(--muted)', marginRight: 6 }}>{fmtVND(item.price)}</span>
+                                <span style={{ color: '#dc2626' }}>{fmtVND(item.price ? item.price * (1 - item.discount_percent / 100) : null)}</span>
+                              </>
+                            ) : fmtVND(item.price)}
+                          </div>
                           {!isAdmin && item.status==='available' ? (
                             <button className="btn-order-quick" onClick={e=>{e.preventDefault();e.stopPropagation();addToCartAndToast(item)}}>+ Giỏ hàng</button>
                           ) : (
@@ -1173,6 +1195,12 @@ export default function HomeClient() {
               </div>
               <div className="fg"><div className="lbl">SKU</div>
                 <input className="inp" value={editItemForm.sku} onChange={e=>setEditItemForm(p=>({...p,sku:e.target.value.toUpperCase()}))}/>
+              </div>
+              <div className="fg"><div className="lbl">% Giảm giá</div>
+                <input className="inp" type="number" min="0" max="100" placeholder="0" value={editItemForm.discount_percent} onChange={e=>setEditItemForm(p=>({...p,discount_percent:e.target.value}))}/>
+              </div>
+              <div className="fg"><div className="lbl">Hạn sale</div>
+                <input className="inp" type="datetime-local" value={editItemForm.discount_end_date} onChange={e=>setEditItemForm(p=>({...p,discount_end_date:e.target.value}))}/>
               </div>
               <div className="fg"><div className="lbl">Vị trí thùng</div>
                 <input className="inp" value={editItemForm.bin_location} onChange={e=>setEditItemForm(p=>({...p,bin_location:e.target.value}))}/>
