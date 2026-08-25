@@ -496,30 +496,37 @@ export default function InventoryPage() {
       {/* Print labels overlay — Layout size A7 (74mm x 105mm) */}
       {printItems && (
         <div className="print-labels-container">
-          {printItems.map(item => (
-            <div key={item.id} className="print-label">
-              <div className="pl-header">
-                <div className="pl-shop">leviethoang<span>.shop</span></div>
-              </div>
-              <div className="pl-code-box">
-                <div className="pl-barcode">{item.order_code}</div>
-                {item.sku && <div className="pl-sku">SKU: {item.sku}</div>}
-              </div>
-              <div className="pl-content">
-                <div className="pl-title">{item.title}</div>
-                {item.condition && <div className="pl-cond">Tình trạng: {item.condition}</div>}
-              </div>
-              <div className="pl-meta-wrap">
-                <div className="pl-row">
-                  <span className="pl-bin">{item.bin_location ? `Thùng: ${item.bin_location}` : '—'}</span>
-                  <span className="pl-price">{fmtVND(item.price)}</span>
+          {printItems.map(item => {
+            const printedAt = new Date().toLocaleString('vi-VN', {
+              day: '2-digit', month: '2-digit', year: 'numeric',
+              hour: '2-digit', minute: '2-digit',
+            })
+            return (
+              <div key={item.id} className="print-label">
+                <div className="pl-header">
+                  <div className="pl-shop">leviethoang<span>.shop</span></div>
+                </div>
+                <div className="pl-code-box">
+                  <div className="pl-barcode">{item.order_code}</div>
+                  {item.sku && <div className="pl-sku">SKU: {item.sku}</div>}
+                </div>
+                <div className="pl-content">
+                  <div className="pl-title">{item.title}</div>
+                  {item.condition && <div className="pl-cond">Tình trạng: {item.condition}</div>}
+                  {item.description && <div className="pl-desc">{item.description}</div>}
+                </div>
+                <div className="pl-meta-wrap">
+                  <div className="pl-row">
+                    <span className="pl-price-label">Giá bán</span>
+                    <span className="pl-price">{fmtVND(item.price)}</span>
+                  </div>
+                </div>
+                <div className="pl-footer">
+                  leviethoang.shop · In lúc: {printedAt}
                 </div>
               </div>
-              <div className="pl-footer">
-                leviethoang.shop · Hàng chọn lọc
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -1673,6 +1680,12 @@ const printCSS = `
   .pl-cond {
     font-size: 7.5pt; color: #444; font-weight: 600; margin-bottom: 1mm;
   }
+  .pl-desc {
+    font-size: 7pt; color: #555; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-top: 1mm;
+  }
   .pl-meta-wrap {
     border-top: 1.5px solid #000;
     border-bottom: 1.5px solid #000;
@@ -1684,7 +1697,7 @@ const printCSS = `
     font-size: 8pt;
     display: flex; align-items: center; justify-content: space-between;
   }
-  .pl-bin { font-weight: 700; font-size: 8.5pt; color: #000; }
+  .pl-price-label { font-weight: 600; font-size: 8pt; color: #555; }
   .pl-price { font-weight: 900; font-size: 12pt; text-align: right; color: #000; }
   .pl-footer {
     text-align: center;
