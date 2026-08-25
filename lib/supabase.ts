@@ -97,12 +97,14 @@ export type Order = {
   customer_phone: string
   customer_address: string
   customer_note: string | null
-  shipping_carrier: string
+  shipping_carrier: string   // 'vnpost' | 'spx' | 'viettelpost' | 'other'
   tracking_number: string | null
   payment_method: 'cod' | 'bank_transfer'
   payment_status: 'pending' | 'verified' | 'failed'
   order_status: 'pending' | 'confirmed' | 'shipping' | 'delivered' | 'cancelled'
   total_amount: number | null
+  shipping_fee: number | null   // shipping fee shown to customer
+  is_free_shipping: boolean | null  // true = admin absorbs shipping
   fb_psid: string | null
   created_by: string | null
   created_at: string

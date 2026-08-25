@@ -55,6 +55,7 @@ function fmtDate(iso: string) {
 }
 
 const CARRIER_LABEL: Record<string, string> = {
+  vnpost: 'VNPost',
   spx: 'Shopee Express',
   viettelpost: 'ViettelPost',
   other: 'Khác',
@@ -81,6 +82,8 @@ const EMPTY_FORM = {
   customer_address: '',
   customer_note: '',
   shipping_carrier: 'spx',
+  shipping_fee: '' as string,
+  is_free_shipping: false,
   payment_method: 'cod',
   total_amount: '',
   fb_psid: '',
@@ -271,6 +274,8 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
           customer_address: form.customer_address,
           customer_note: form.customer_note || null,
           shipping_carrier: form.shipping_carrier,
+          shipping_fee: form.shipping_fee ? Number(form.shipping_fee) : 0,
+          is_free_shipping: form.is_free_shipping,
           payment_method: form.payment_method,
           total_amount: form.total_amount ? Number(form.total_amount) : null,
           fb_psid: form.fb_psid || null,
@@ -640,6 +645,22 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
           <button className="om-btn-ghost" onClick={exportCSV}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
             Xuất CSV
+          </button>
+          <button className="om-btn-ghost" title="Xuất file tạo đơn VNPost"
+            onClick={() => {
+              const a = document.createElement('a')
+              a.href = '/api/orders/export-carrier?carrier=vnpost'
+              a.click()
+            }}>
+            📦 VNPost
+          </button>
+          <button className="om-btn-ghost" title="Xuất file tạo đơn Shopee Express"
+            onClick={() => {
+              const a = document.createElement('a')
+              a.href = '/api/orders/export-carrier?carrier=spx'
+              a.click()
+            }}>
+            🚚 SPX
           </button>
           <a href="/accounting" className="om-btn-ghost" style={{ textDecoration: 'none', color: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             📊 Kế toán & Thuế
@@ -1032,13 +1053,26 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
             <div className="om-section">
               <div className="om-form-grid">
                 <div className="om-fg">
-                  <label className="om-lbl">Vận chuyển</label>
+                  <label className="om-lbl">Đơn vị vận chuyển</label>
                   <select className="om-inp" value={form.shipping_carrier}
                     onChange={e => setForm(f => ({ ...f, shipping_carrier: e.target.value }))}>
-                    <option value="spx">Shopee Express</option>
+                    <option value="spx">Shopee Express (SPX)</option>
+                    <option value="vnpost">VNPost</option>
                     <option value="viettelpost">ViettelPost</option>
                     <option value="other">Khác</option>
                   </select>
+                </div>
+                <div className="om-fg">
+                  <label className="om-lbl">Phí vận chuyển (VNĐ)</label>
+                  <input className="om-inp" type="number" placeholder="0"
+                    value={form.shipping_fee}
+                    disabled={form.is_free_shipping}
+                    onChange={e => setForm(f => ({ ...f, shipping_fee: e.target.value }))} />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={form.is_free_shipping}
+                      onChange={e => setForm(f => ({ ...f, is_free_shipping: e.target.checked, shipping_fee: e.target.checked ? '0' : f.shipping_fee }))} />
+                    Miễn phí vận chuyển
+                  </label>
                 </div>
                 <div className="om-fg">
                   <label className="om-lbl">Tổng tiền (VNĐ)</label>
@@ -1244,7 +1278,8 @@ export default function OrderManagement({ adminKey, onToast }: Props) {
                 <label className="om-lbl">Vận chuyển</label>
                 <select className="om-inp" value={editForm.shipping_carrier}
                   onChange={e => setEditForm(f => ({ ...f, shipping_carrier: e.target.value }))}>
-                  <option value="spx">Shopee Express</option>
+                  <option value="spx">Shopee Express (SPX)</option>
+                  <option value="vnpost">VNPost</option>
                   <option value="viettelpost">ViettelPost</option>
                   <option value="other">Khác</option>
                 </select>
