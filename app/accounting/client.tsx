@@ -5,7 +5,7 @@ import {
   computeTaxReport,
   EXPENSE_CATEGORY_LABELS,
   TAX_CATEGORIES,
-  TAX_EXEMPTION_THRESHOLD_ANNUAL,
+  TAX_THRESHOLD_PRESETS,
   type ExpenseEntry,
   type PeriodType,
   type TaxCalculationResult,
@@ -41,6 +41,7 @@ export default function AccountingClient() {
   const [categoryKey, setCategoryKey] = useState('retail')
   const [overrideVat, setOverrideVat] = useState<string>('')
   const [overridePit, setOverridePit] = useState<string>('')
+  const [thresholdAmount, setThresholdAmount] = useState<number>(1_000_000_000)
 
   // View tabs
   const [tab, setTab] = useState<'summary' | 'orders' | 'expenses' | 'declaration'>('summary')
@@ -171,7 +172,8 @@ export default function AccountingClient() {
     customEnd,
     categoryKey,
     customVat,
-    customPit
+    customPit,
+    thresholdAmount
   )
 
   // Export CSV
@@ -180,8 +182,9 @@ export default function AccountingClient() {
     const filename = `Bao_Cao_Thue_LVH_${periodLabelClean}.csv`
 
     let csvContent = '\uFEFF' // UTF-8 BOM for Excel
-    csvContent += 'BÁO CÁO DOANH THU VÀ THUẾ (THÔNG TƯ 40/2021/TT-BTC)\n'
+    csvContent += 'BÁO CÁO DOANH THU VÀ THUẾ (THÔNG TƯ 40/2021/TT-BTC & NĐ 141/2026/NĐ-CP)\n'
     csvContent += `Thời gian,${report.periodLabel}\n`
+    csvContent += `Ngưỡng miễn thuế áp dụng,${fmtVND(report.thresholdAmount)}/năm\n`
     csvContent += `Tổng số đơn hàng,${report.totalOrders}\n`
     csvContent += `Số đơn thành công,${report.deliveredOrdersCount}\n`
     csvContent += `Doanh thu phát sinh (VNĐ),${report.grossRevenue}\n`
@@ -304,8 +307,8 @@ export default function AccountingClient() {
             )}
 
             <div className="acc-control-row" style={{ marginTop: 14 }}>
-              <div className="acc-field" style={{ flex: 1 }}>
-                <label className="acc-control-label">Ngành nghề kinh doanh (Thông tư 40/2021/TT-BTC):</label>
+              <div className="acc-field" style={{ flex: 1.5 }}>
+                <label className="acc-control-label">Ngành nghề kinh doanh (TT 40/2021/TT-BTC):</label>
                 <select
                   className="acc-select"
                   value={categoryKey}
@@ -319,8 +322,23 @@ export default function AccountingClient() {
                 </select>
               </div>
 
-              <div className="acc-field" style={{ width: 140 }}>
-                <label className="acc-control-label">Tỷ lệ GTGT (%)</label>
+              <div className="acc-field" style={{ flex: 1.5 }}>
+                <label className="acc-control-label">Ngưỡng miễn thuế năm:</label>
+                <select
+                  className="acc-select"
+                  value={thresholdAmount}
+                  onChange={e => setThresholdAmount(Number(e.target.value))}
+                >
+                  {TAX_THRESHOLD_PRESETS.map(t => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="acc-field" style={{ width: 110 }}>
+                <label className="acc-control-label">GTGT (%)</label>
                 <input
                   className="acc-inp-sm"
                   placeholder={(TAX_CATEGORIES[categoryKey]?.vatRate * 100).toString()}
@@ -329,8 +347,8 @@ export default function AccountingClient() {
                 />
               </div>
 
-              <div className="acc-field" style={{ width: 140 }}>
-                <label className="acc-control-label">Tỷ lệ TNCN (%)</label>
+              <div className="acc-field" style={{ width: 110 }}>
+                <label className="acc-control-label">TNCN (%)</label>
                 <input
                   className="acc-inp-sm"
                   placeholder={(TAX_CATEGORIES[categoryKey]?.pitRate * 100).toString()}
@@ -356,7 +374,7 @@ export default function AccountingClient() {
               💡 Phương pháp tính thuế trực tiếp trên Doanh thu (Khoản 2 Điều 4 & Phụ lục I Thông tư 40/2021/TT-BTC):
             </div>
             <div style={{ fontSize: 13, color: '#78350f' }}>
-              Do nguồn hàng đầu vào không có đầy đủ hóa đơn chứng từ, tiền thuế không tính trên lợi nhuận mà tính <strong>trực tiếp theo tỷ lệ % cố định trên tổng Doanh thu bán hàng</strong> (GTGT {(report.vatRate * 100).toFixed(1)}% + TNCN {(report.pitRate * 100).toFixed(1)}% đối với bán lẻ TMĐT).
+              Do nguồn hàng đầu vào không có đầy đủ hóa đơn chứng từ, tiền thuế không tính trên lợi nhuận mà tính <strong>trực tiếp theo tỷ lệ % cố định trên tổng Doanh thu bán hàng</strong> (GTGT {(report.vatRate * 100).toFixed(1)}% + TNCN {(report.pitRate * 100).toFixed(1)}% đối với bán lẻ TMĐT). Doanh thu năm ≤ {fmtVND(report.thresholdAmount)} thuộc diện miễn thuế.
             </div>
           </div>
 
@@ -364,12 +382,12 @@ export default function AccountingClient() {
           <div className="acc-card acc-threshold-banner no-print">
             <div className="acc-tb-header">
               <div className="acc-tb-title">
-                Ngưỡng miễn thuế năm {new Date().getFullYear()}: <strong>100.000.000 VNĐ</strong>
+                Ngưỡng miễn thuế năm {new Date().getFullYear()}: <strong>{fmtVND(report.thresholdAmount)}</strong>
               </div>
               <div className={`acc-tb-badge${report.isExempt ? ' exempt' : ' taxable'}`}>
                 {report.isExempt
-                  ? '🛡️ Thuộc diện MIỄN THUẾ GTGT & TNCN (Doanh thu năm ≤ 100tr)'
-                  : '⚠️ ĐÃ VƯỢT NGƯỠNG MIỄN THUẾ (Phải nộp thuế GTGT & TNCN)'}
+                  ? `🛡️ Thuộc diện MIỄN THUẾ GTGT & TNCN (Doanh thu năm ≤ ${fmtVND(report.thresholdAmount)})`
+                  : `⚠️ ĐÃ VƯỢT NGƯỠNG MIỄN THUẾ (${fmtVND(report.thresholdAmount)}) - Phải nộp thuế GTGT & TNCN`}
               </div>
             </div>
             <div className="acc-tb-progress-wrap">
@@ -377,7 +395,7 @@ export default function AccountingClient() {
             </div>
             <div className="acc-tb-footer">
               <span>Doanh thu lũy kế năm: <strong>{fmtVND(report.annualRevenue)}</strong></span>
-              <span>Tiến độ: <strong>{report.thresholdProgressPct}%</strong></span>
+              <span>Tiến độ mốc miễn thuế: <strong>{report.thresholdProgressPct}%</strong></span>
             </div>
           </div>
 

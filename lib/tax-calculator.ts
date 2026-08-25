@@ -1,4 +1,4 @@
-// ─── Vietnam Tax Regulations Engine (Thông tư 40/2021/TT-BTC) ─────────────────
+// ─── Vietnam Tax Regulations Engine (Thông tư 40/2021/TT-BTC & Nghị định 141/2026/NĐ-CP) ─────
 
 export interface TaxCategoryConfig {
   key: string
@@ -34,8 +34,13 @@ export const TAX_CATEGORIES: Record<string, TaxCategoryConfig> = {
   },
 }
 
-// Ngưỡng doanh thu không phải nộp thuế GTGT & TNCN trong năm (100.000.000 VNĐ)
-export const TAX_EXEMPTION_THRESHOLD_ANNUAL = 100_000_000
+// Các ngưỡng miễn thuế quy định (Mới nhất 1 tỷ đồng/năm theo Nghị định 141/2026/NĐ-CP, hoặc 200 triệu / 500 triệu / 100 triệu)
+export const TAX_THRESHOLD_PRESETS = [
+  { value: 1_000_000_000, label: '1 Tỷ VNĐ / năm (Quy định mới nhất 2026 - NĐ 141/2026/NĐ-CP)' },
+  { value: 500_000_000, label: '500 Triệu VNĐ / năm' },
+  { value: 200_000_000, label: '200 Triệu VNĐ / năm' },
+  { value: 100_000_000, label: '100 Triệu VNĐ / năm (Quy định cũ TT 40/2021)' },
+]
 
 export interface ExpenseEntry {
   id: string | number
@@ -73,8 +78,9 @@ export interface TaxCalculationResult {
   totalTax: number             // Tổng nghĩa vụ thuế (GTGT + TNCN)
   netProfitAfterTax: number    // Lợi nhuận ròng thực tế
   annualRevenue: number        // Doanh thu lũy kế cả năm (để kiểm tra ngưỡng)
-  isExempt: boolean            // Thuộc diện miễn thuế do doanh thu năm <= 100tr
-  thresholdProgressPct: number // % tiến độ đạt ngưỡng 100tr năm
+  thresholdAmount: number      // Mức ngưỡng chịu thuế được chọn
+  isExempt: boolean            // Thuộc diện miễn thuế do doanh thu năm <= ngưỡng
+  thresholdProgressPct: number // % tiến độ đạt ngưỡng năm
 }
 
 export function getPeriodDateRange(period: PeriodType, customStart?: string, customEnd?: string): { start: Date; end: Date; label: string } {
@@ -153,7 +159,8 @@ export function computeTaxReport(
   customEnd?: string,
   categoryKey: string = 'retail',
   customVatRate?: number,
-  customPitRate?: number
+  customPitRate?: number,
+  thresholdAmount: number = 1_000_000_000
 ): TaxCalculationResult {
   const { start, end, label } = getPeriodDateRange(period, customStart, customEnd)
 
@@ -162,7 +169,7 @@ export function computeTaxReport(
   const vatRate = customVatRate !== undefined ? customVatRate : cat.vatRate
   const pitRate = customPitRate !== undefined ? customPitRate : cat.pitRate
 
-  // Calculate annual revenue to check threshold rule (100M VND / year)
+  // Calculate annual revenue to check threshold rule
   const currentYear = start.getFullYear()
   const annualStart = new Date(currentYear, 0, 1, 0, 0, 0, 0)
   const annualEnd = new Date(currentYear, 11, 31, 23, 59, 59, 999)
@@ -223,7 +230,7 @@ export function computeTaxReport(
     }
   }
 
-  const isExempt = annualRevenue <= TAX_EXEMPTION_THRESHOLD_ANNUAL
+  const isExempt = annualRevenue <= thresholdAmount
   const taxableRevenue = isExempt ? 0 : grossRevenue
 
   const vatAmount = Math.round(taxableRevenue * vatRate)
@@ -234,7 +241,7 @@ export function computeTaxReport(
   const netProfitBeforeTax = grossProfit - operatingExpenses
   const netProfitAfterTax = netProfitBeforeTax - totalTax
 
-  const thresholdProgressPct = Math.min(100, Math.round((annualRevenue / TAX_EXEMPTION_THRESHOLD_ANNUAL) * 100))
+  const thresholdProgressPct = Math.min(100, Math.round((annualRevenue / thresholdAmount) * 100))
 
   return {
     periodLabel: label,
@@ -253,6 +260,7 @@ export function computeTaxReport(
     totalTax,
     netProfitAfterTax,
     annualRevenue,
+    thresholdAmount,
     isExempt,
     thresholdProgressPct,
   }
