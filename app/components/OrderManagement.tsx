@@ -30,6 +30,10 @@ export type Order = {
   payment_status: 'pending' | 'verified' | 'failed'
   order_status: 'pending' | 'confirmed' | 'shipping' | 'delivered' | 'cancelled'
   total_amount: number | null
+  shipping_fee: number | null
+  is_free_shipping: boolean | null
+  shipping_discount: number | null
+  item_discount: number | null
   fb_psid: string | null
   fb_url: string | null
   share_token: string | null
