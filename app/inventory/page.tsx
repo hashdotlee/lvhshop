@@ -454,14 +454,94 @@ export default function InventoryPage() {
   }
 
   useEffect(() => {
-    if (!printItems) return
-    const timer = setTimeout(() => { window.print() }, 300)
-    const cleanup = () => setPrintItems(null)
-    window.addEventListener('afterprint', cleanup)
-    return () => {
-      clearTimeout(timer)
-      window.removeEventListener('afterprint', cleanup)
+    if (!printItems || printItems.length === 0) return
+
+    const printedAt = new Date().toLocaleString('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    })
+
+    const labelsHtml = printItems.map(item => `
+      <div class="print-label">
+        <div class="pl-header">
+          <div class="pl-shop">leviethoang<span>.shop</span></div>
+        </div>
+        <div class="pl-code-box">
+          <div class="pl-barcode">${item.order_code}</div>
+          ${item.sku ? `<div class="pl-sku">SKU: ${item.sku}</div>` : ''}
+        </div>
+        <div class="pl-content">
+          <div class="pl-title">${item.title}</div>
+          ${item.condition ? `<div class="pl-cond">T\u00ecnh tr\u1ea1ng: ${item.condition}</div>` : ''}
+          ${item.description ? `<div class="pl-desc">${item.description}</div>` : ''}
+        </div>
+        <div class="pl-meta-wrap">
+          <div class="pl-row">
+            <span class="pl-price-label">Gi\u00e1 b\u00e1n</span>
+            <span class="pl-price">${item.price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price) : 'Th\u01b0\u01a1ng l\u01b0\u1ee3ng'}</span>
+          </div>
+        </div>
+        <div class="pl-footer">
+          leviethoang.shop &middot; In l\u00fac: ${printedAt}
+        </div>
+      </div>
+    `).join('')
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Tem h\u00e0ng</title>
+  <style>
+    @page { size: 74mm 105mm; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 74mm; background: white; font-family: Arial, sans-serif; }
+    .print-label {
+      width: 74mm;
+      height: 105mm;
+      overflow: hidden;
+      padding: 4mm 5mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      page-break-after: always;
+      break-after: page;
     }
+    .pl-header { text-align: center; border-bottom: 1.5px solid #000; padding-bottom: 1.5mm; margin-bottom: 2mm; flex-shrink: 0; }
+    .pl-shop { font-size: 12pt; font-weight: 800; }
+    .pl-shop span { font-weight: 300; color: #555; }
+    .pl-code-box { text-align: center; background: #f8f8f8; border: 1px solid #000; border-radius: 3px; padding: 2mm 1mm; margin-bottom: 2mm; flex-shrink: 0; }
+    .pl-barcode { font-size: 15pt; font-weight: 900; letter-spacing: 2px; font-family: 'Courier New', monospace; line-height: 1.2; }
+    .pl-sku { font-size: 8pt; color: #333; font-weight: 700; margin-top: 1mm; font-family: monospace; }
+    .pl-content { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; overflow: hidden; min-height: 0; }
+    .pl-title { font-size: 9.5pt; font-weight: 700; line-height: 1.3; color: #000; margin-bottom: 1.5mm;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .pl-cond { font-size: 7.5pt; color: #444; font-weight: 600; margin-bottom: 1mm; }
+    .pl-desc { font-size: 7pt; color: #555; line-height: 1.3;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-top: 1mm; }
+    .pl-meta-wrap { border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; padding: 1.5mm 0; margin-bottom: 1.5mm; flex-shrink: 0; }
+    .pl-row { font-size: 8pt; display: flex; align-items: center; justify-content: space-between; }
+    .pl-price-label { font-weight: 600; font-size: 8pt; color: #555; }
+    .pl-price { font-weight: 900; font-size: 12pt; color: #000; }
+    .pl-footer { text-align: center; font-size: 7pt; color: #555; font-weight: 600; border-top: 1px dashed #ccc; padding-top: 1mm; flex-shrink: 0; }
+  </style>
+</head>
+<body>${labelsHtml}</body>
+</html>`
+
+    const win = window.open('', '_blank', 'width=400,height=500')
+    if (!win) { setPrintItems(null); return }
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    // Give browser time to render before printing
+    const timer = setTimeout(() => {
+      win.print()
+      win.close()
+      setPrintItems(null)
+    }, 400)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [printItems])
 
   function f(key: keyof typeof INIT_FORM, val: string) {
@@ -493,42 +573,6 @@ export default function InventoryPage() {
     <div style={S.page}>
       <style>{pageCSS + printCSS}</style>
 
-      {/* Print labels overlay — Layout size A7 (74mm x 105mm) */}
-      {printItems && (
-        <div className="print-labels-container">
-          {printItems.map(item => {
-            const printedAt = new Date().toLocaleString('vi-VN', {
-              day: '2-digit', month: '2-digit', year: 'numeric',
-              hour: '2-digit', minute: '2-digit',
-            })
-            return (
-              <div key={item.id} className="print-label">
-                <div className="pl-header">
-                  <div className="pl-shop">leviethoang<span>.shop</span></div>
-                </div>
-                <div className="pl-code-box">
-                  <div className="pl-barcode">{item.order_code}</div>
-                  {item.sku && <div className="pl-sku">SKU: {item.sku}</div>}
-                </div>
-                <div className="pl-content">
-                  <div className="pl-title">{item.title}</div>
-                  {item.condition && <div className="pl-cond">Tình trạng: {item.condition}</div>}
-                  {item.description && <div className="pl-desc">{item.description}</div>}
-                </div>
-                <div className="pl-meta-wrap">
-                  <div className="pl-row">
-                    <span className="pl-price-label">Giá bán</span>
-                    <span className="pl-price">{fmtVND(item.price)}</span>
-                  </div>
-                </div>
-                <div className="pl-footer">
-                  leviethoang.shop · In lúc: {printedAt}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
 
       {/* Header */}
       <header className="inv-header">
