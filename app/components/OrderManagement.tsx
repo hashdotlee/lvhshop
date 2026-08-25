@@ -53,7 +53,8 @@ type Props = {
 
 // ─── Helpers ──────────────────────────────────────────────────────
 function fmtVND(v: number | null | undefined) {
-  if (!v) return 'Thương lượng'
+  if (v == null) return 'Thương lượng'
+  if (v === 0) return '0 ₫'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v)
 }
 function fmtDate(iso: string) {
@@ -340,6 +341,10 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   async function createOrder() {
     if (!form.customer_name || !form.customer_phone || !form.customer_address) {
       onToast('Vui lòng nhập đầy đủ thông tin khách hàng')
+      return
+    }
+    if (form.shipping_fee === '' || form.shipping_fee == null) {
+      onToast('Vui lòng nhập phí vận chuyển (nhập 0 nếu miễn phí)')
       return
     }
     setSaving(true)

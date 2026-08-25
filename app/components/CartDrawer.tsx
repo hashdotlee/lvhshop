@@ -6,7 +6,8 @@ import OrderPopup from './OrderPopup'
 import type { OrderItem } from './OrderPopup'
 
 function fmtVND(v: number | null) {
-  if (!v) return 'Thương lượng'
+  if (v == null) return 'Thương lượng'
+  if (v === 0) return '0 ₫'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v)
 }
 

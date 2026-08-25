@@ -34,7 +34,8 @@ const CARRIER_LABEL: Record<string, string> = {
 }
 
 function fmtVND(v: number | null | undefined) {
-  if (!v) return 'Thương lượng'
+  if (v == null) return 'Thương lượng'
+  if (v === 0) return '0 ₫'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v)
 }
 function fmtDate(iso: string) {
