@@ -1559,16 +1559,19 @@ const omStyles = `
 .invoice-print-wrap{display:none}
 @page{size:74mm 105mm;margin:0}
 @media print{
+  html, body { width: 74mm !important; height: 105mm !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; background: white !important; }
   body *{visibility:hidden}
   .invoice-print-wrap{
     display:block!important;visibility:visible;
-    position:fixed;inset:0;z-index:9999;
+    position:absolute;left:0;top:0;z-index:9999;
     width:74mm;height:105mm;min-height:105mm;max-height:105mm;
     box-sizing:border-box;background:white;
     padding:4mm 5mm;
     font-family:'Be Vietnam Pro',Arial,Helvetica,sans-serif;font-size:8.5pt;color:#000;
-    line-height:1.3;page-break-after:always;break-after:page;
+    line-height:1.3;
     overflow:hidden;
+    margin:0;
+    page-break-inside:avoid;
   }
   .invoice-print-wrap *{visibility:visible}
 }
