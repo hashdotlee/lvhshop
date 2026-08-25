@@ -788,7 +788,15 @@ export default function HomeClient() {
 
         {/* ORDERS VIEW */}
         {isAdmin && adminView==='orders' && (
-          <OrderManagement adminKey={adminKey.current} onToast={showToast} initialSelectedItems={initialOrderItems} />
+          <OrderManagement
+            adminKey={adminKey.current}
+            onToast={showToast}
+            initialSelectedItems={initialOrderItems}
+            onOrderChange={() => {
+              fetchItems(true)
+              setInitialOrderItems([])
+            }}
+          />
         )}
 
         {/* LISTING VIEW */}

@@ -48,6 +48,7 @@ type Props = {
   adminKey: string
   onToast: (msg: string) => void
   initialSelectedItems?: { id: number, title: string, price: number | null }[]
+  onOrderChange?: () => void
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ const EMPTY_FORM = {
 }
 
 // ─── Main Component ───────────────────────────────────────────────
-export default function OrderManagement({ adminKey, onToast, initialSelectedItems }: Props) {
+export default function OrderManagement({ adminKey, onToast, initialSelectedItems, onOrderChange }: Props) {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -394,6 +395,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       setForm({ ...EMPTY_FORM })
       clearCreateCart()
       fetchOrders()
+      if (onOrderChange) onOrderChange()
     } catch {
       onToast('Không thể kết nối server')
     } finally {
@@ -429,6 +431,9 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
           await sendNotification(updated, notifType, psid)
         }
       }
+      if (newStatus && prevOrder && prevOrder.order_status !== newStatus) {
+        if (onOrderChange) onOrderChange()
+      }
     } catch {
       onToast('Không thể kết nối server')
     } finally {
@@ -447,6 +452,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       })
       setOrders(prev => prev.filter(o => o.id !== id))
       onToast('Đã xoá đơn hàng')
+      if (onOrderChange) onOrderChange()
     } catch {
       onToast('Không thể xoá đơn hàng')
     }
