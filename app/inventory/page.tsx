@@ -1576,24 +1576,46 @@ const printCSS = `
     margin: 0;
   }
   @media print {
-    body * { visibility: hidden; }
-    .print-labels-container {
-      display: block !important;
-      visibility: visible !important;
-      position: fixed; top: 0; left: 0; width: 100%; background: white;
+    html, body {
+      width: 74mm;
+      height: 105mm;
+      overflow: hidden;
+      margin: 0; padding: 0;
     }
-    .print-labels-container * { visibility: visible !important; }
+    body * { visibility: hidden; }
+    .print-labels-container,
+    .print-labels-container * {
+      visibility: visible !important;
+    }
+    .print-labels-container {
+      position: fixed !important;
+      top: 0 !important; left: 0 !important;
+      width: 74mm !important;
+      margin: 0 !important; padding: 0 !important;
+      background: white !important;
+      display: block !important;
+    }
+    .print-label {
+      width: 74mm !important;
+      height: 105mm !important;
+      min-height: unset !important;
+      max-height: 105mm !important;
+      overflow: hidden !important;
+      page-break-after: always;
+      break-after: page;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
   }
   .print-labels-container {
     display: none;
-    position: fixed; top: 0; left: 0; z-index: 99999;
-    background: white; width: 100%;
   }
   .print-label {
     width: 74mm;
     height: 105mm;
     min-height: 105mm;
     max-height: 105mm;
+    overflow: hidden;
     box-sizing: border-box;
     padding: 4mm 5mm;
     font-family: 'Be Vietnam Pro', Arial, sans-serif;
@@ -1610,6 +1632,7 @@ const printCSS = `
     border-bottom: 1.5px solid #000;
     padding-bottom: 1.5mm;
     margin-bottom: 2mm;
+    flex-shrink: 0;
   }
   .pl-shop {
     font-size: 12pt; font-weight: 800; letter-spacing: -0.3px;
@@ -1622,6 +1645,7 @@ const printCSS = `
     border-radius: 4px;
     padding: 2mm 1mm;
     margin-bottom: 2mm;
+    flex-shrink: 0;
   }
   .pl-barcode {
     font-size: 15pt; font-weight: 900; letter-spacing: 2px;
@@ -1636,33 +1660,37 @@ const printCSS = `
   .pl-content {
     flex: 1;
     display: flex; flex-direction: column; justify-content: flex-start;
+    overflow: hidden;
+    min-height: 0;
   }
   .pl-title {
-    font-size: 10pt; font-weight: 700; line-height: 1.35;
+    font-size: 9.5pt; font-weight: 700; line-height: 1.3;
     color: #000;
-    display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
     overflow: hidden;
-    margin-bottom: 2mm;
+    margin-bottom: 1.5mm;
   }
   .pl-cond {
-    font-size: 8pt; color: #444; font-weight: 600; margin-bottom: 1.5mm;
+    font-size: 7.5pt; color: #444; font-weight: 600; margin-bottom: 1mm;
   }
   .pl-meta-wrap {
     border-top: 1.5px solid #000;
     border-bottom: 1.5px solid #000;
-    padding: 2mm 0;
-    margin-bottom: 2mm;
+    padding: 1.5mm 0;
+    margin-bottom: 1.5mm;
+    flex-shrink: 0;
   }
   .pl-row {
-    font-size: 8.5pt;
+    font-size: 8pt;
     display: flex; align-items: center; justify-content: space-between;
   }
-  .pl-bin { font-weight: 700; font-size: 9pt; color: #000; }
-  .pl-price { font-weight: 900; font-size: 12.5pt; text-align: right; color: #000; }
+  .pl-bin { font-weight: 700; font-size: 8.5pt; color: #000; }
+  .pl-price { font-weight: 900; font-size: 12pt; text-align: right; color: #000; }
   .pl-footer {
     text-align: center;
-    font-size: 7.5pt; color: #555; font-weight: 600;
+    font-size: 7pt; color: #555; font-weight: 600;
     border-top: 1px dashed #ccc;
-    padding-top: 1.5mm;
+    padding-top: 1mm;
+    flex-shrink: 0;
   }
 `
