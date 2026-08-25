@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import type { Item } from '@/lib/supabase'
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -146,6 +146,58 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   const [createCartItems, setCreateCartItems] = useState<Array<{id?: number, title: string, price: number | null}>>([])
   const [createStagedItem, setCreateStagedItem] = useState<Item | null>(null)
   const [createStagedPrice, setCreateStagedPrice] = useState('')
+
+  const allCustomers = useMemo(() => {
+    const map = new Map<string, { name: string; phone: string; address: string; fb_psid: string }>()
+    for (const o of orders) {
+      if (!map.has(o.customer_phone)) {
+        map.set(o.customer_phone, {
+          name: o.customer_name,
+          phone: o.customer_phone,
+          address: o.customer_address,
+          fb_psid: o.fb_psid ?? ''
+        })
+      }
+    }
+    return Array.from(map.values())
+  }, [orders])
+
+  const [showNameDropdown, setShowNameDropdown] = useState(false)
+  const [showPhoneDropdown, setShowPhoneDropdown] = useState(false)
+  const [custSearchResults, setCustSearchResults] = useState<typeof allCustomers>([])
+
+  function handleCustomerSearch(val: string, type: 'name' | 'phone') {
+    if (type === 'name') setForm(f => ({ ...f, customer_name: val }))
+    else setForm(f => ({ ...f, customer_phone: val }))
+
+    if (!val) {
+      setShowNameDropdown(false)
+      setShowPhoneDropdown(false)
+      return
+    }
+    const q = val.toLowerCase()
+    const matches = allCustomers.filter(c => c.phone.includes(q) || c.name.toLowerCase().includes(q))
+    setCustSearchResults(matches.slice(0, 5))
+    if (type === 'name') {
+      setShowNameDropdown(true)
+      setShowPhoneDropdown(false)
+    } else {
+      setShowPhoneDropdown(true)
+      setShowNameDropdown(false)
+    }
+  }
+
+  function selectCustomer(c: typeof allCustomers[0]) {
+    setForm(f => ({
+      ...f,
+      customer_name: c.name,
+      customer_phone: c.phone,
+      customer_address: c.address || f.customer_address,
+      fb_psid: c.fb_psid || f.fb_psid,
+    }))
+    setShowNameDropdown(false)
+    setShowPhoneDropdown(false)
+  }
 
   // ── Fetch orders ───────────────────────────────────────────────
   async function fetchOrders() {
@@ -1042,15 +1094,39 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
             <div className="om-section">
               <div className="om-section-title">Thông tin khách hàng</div>
               <div className="om-form-grid">
-                <div className="om-fg">
+                <div className="om-fg" style={{ position: 'relative' }}>
                   <label className="om-lbl">Tên khách *</label>
                   <input className="om-inp" placeholder="Nguyễn Văn A" value={form.customer_name}
-                    onChange={e => setForm(f => ({ ...f, customer_name: e.target.value }))} />
+                    onChange={e => handleCustomerSearch(e.target.value, 'name')}
+                    onFocus={() => { if (form.customer_name) handleCustomerSearch(form.customer_name, 'name') }}
+                    onBlur={() => setTimeout(() => setShowNameDropdown(false), 200)} />
+                  {showNameDropdown && custSearchResults.length > 0 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid var(--border)', borderRadius: 6, zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
+                      {custSearchResults.map(c => (
+                        <div key={c.phone} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }} onClick={() => selectCustomer(c)}>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{c.name} - {c.phone}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.address}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="om-fg">
+                <div className="om-fg" style={{ position: 'relative' }}>
                   <label className="om-lbl">SĐT *</label>
                   <input className="om-inp" placeholder="09xxxxxxxx" value={form.customer_phone}
-                    onChange={e => setForm(f => ({ ...f, customer_phone: e.target.value }))} />
+                    onChange={e => handleCustomerSearch(e.target.value, 'phone')}
+                    onFocus={() => { if (form.customer_phone) handleCustomerSearch(form.customer_phone, 'phone') }}
+                    onBlur={() => setTimeout(() => setShowPhoneDropdown(false), 200)} />
+                  {showPhoneDropdown && custSearchResults.length > 0 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid var(--border)', borderRadius: 6, zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
+                      {custSearchResults.map(c => (
+                        <div key={c.phone} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }} onClick={() => selectCustomer(c)}>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{c.phone} - {c.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.address}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="om-fg om-fg-full">
                   <label className="om-lbl">Địa chỉ giao hàng *</label>

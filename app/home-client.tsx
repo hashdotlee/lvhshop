@@ -173,16 +173,6 @@ export default function HomeClient() {
   const [buyForm, setBuyForm]           = useState({ title:'', description:'', price:'', condition:'Mới', category:'', phone:'', location:'' })
   const [submittingBuy, setSubmittingBuy] = useState(false)
 
-  const [nlText, setNlText]           = useState('')
-  const [analyzing, setAnalyzing]     = useState(false)
-  const [preview, setPreview]         = useState<Partial<Item>|null>(null)
-  const [publishing, setPublishing]   = useState(false)
-
-  // multi-image state
-  const [imgFiles, setImgFiles]       = useState<File[]>([])
-  const [imgPreviews, setImgPreviews] = useState<string[]>([])
-  const [uploading, setUploading]     = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   // lightbox
   const [lbImages, setLbImages]       = useState<string[]>([])
@@ -328,104 +318,7 @@ export default function HomeClient() {
     showToast('Đã đăng xuất')
   }
 
-  // ── images ────────────────────────────────────────────────────
-  async function handleImgs(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = Array.from(e.target.files ?? []).filter(f => f.size <= 8*1024*1024)
-    if (raw.length < (e.target.files?.length ?? 0)) showToast('Một số ảnh vượt 8MB, đã bỏ qua')
-    const compressed = await Promise.all(raw.map(f => compressToWebP(f)))
-    const newFiles = [...imgFiles, ...compressed].slice(0, 8)
-    setImgFiles(newFiles)
-    setImgPreviews(newFiles.map(f => URL.createObjectURL(f)))
-    if (fileRef.current) fileRef.current.value = ''
-  }
 
-  async function addImageFiles(newFiles: File[]) {
-    const valid = newFiles.filter(f => f.type.startsWith('image/') && f.size <= 8*1024*1024)
-    if (!valid.length) return
-    const compressed = await Promise.all(valid.map(f => compressToWebP(f)))
-    const merged = [...imgFiles, ...compressed].slice(0, 8)
-    setImgFiles(merged)
-    setImgPreviews(merged.map(f => URL.createObjectURL(f)))
-  }
-
-  // Paste from clipboard
-  useEffect(() => {
-    function onPaste(e: ClipboardEvent) {
-      if (!preview) return
-      const items = Array.from(e.clipboardData?.items ?? [])
-      const imageItems = items.filter(i => i.type.startsWith('image/'))
-      if (!imageItems.length) return
-      e.preventDefault()
-      const files = imageItems.map(i => i.getAsFile()).filter(Boolean) as File[]
-      addImageFiles(files)
-      showToast(`Đã dán ${files.length} ảnh từ clipboard`)
-    }
-    window.addEventListener('paste', onPaste)
-    return () => window.removeEventListener('paste', onPaste)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview, imgFiles])
-  function removeImgAt(i: number) {
-    setImgFiles(p => p.filter((_,j) => j!==i))
-    setImgPreviews(p => p.filter((_,j) => j!==i))
-  }
-  function clearImgs() { setImgFiles([]); setImgPreviews([]) }
-
-  // ── analyze ───────────────────────────────────────────────────
-  async function analyze() {
-    if (!nlText.trim()) return
-    setAnalyzing(true)
-    try {
-      const r = await fetch('/api/analyze', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ text: nlText }),
-      })
-      const d = await r.json()
-      if (!r.ok || d.error) {
-        showToast(`Lỗi AI: ${d.error ?? r.status}`)
-        return
-      }
-      if (!d.title && !d.description) {
-        showToast('AI không trích xuất được thông tin, thử lại hoặc nhập thủ công')
-        return
-      }
-      setPreview({
-        title:'', description:'', price:null, condition:'Cũ - Còn tốt',
-        category:'', type:'ban', phone:'', location:'', images:[],
-        status:'available', expected_date: null,
-        ...d
-      })
-    } catch (e) {
-      console.error(e)
-      showToast('Không thể kết nối server')
-    } finally { setAnalyzing(false) }
-  }
-
-  // ── publish ───────────────────────────────────────────────────
-  async function publish() {
-    if (!preview) return
-    setPublishing(true)
-    let images: string[] = []
-    try {
-      if (imgFiles.length > 0) {
-        setUploading(true)
-        const form = new FormData()
-        imgFiles.forEach(f => form.append('files', f))
-        form.append('adminKey', adminKey.current)
-        const ur = await fetch('/api/upload', { method:'POST', body: form })
-        if (ur.ok) { images = (await ur.json()).urls ?? [] }
-        else showToast('Upload ảnh thất bại')
-        setUploading(false)
-      }
-      const r = await fetch('/api/items', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','x-admin-key': adminKey.current},
-        body: JSON.stringify({ ...preview, images }),
-      })
-      if (!r.ok) { showToast('Lỗi đăng tin'); return }
-      setPreview(null); setNlText(''); clearImgs(); showToast('Đã đăng tin!')
-      fetchItems()
-    } finally { setPublishing(false); setUploading(false) }
-  }
 
   // ── sold ──────────────────────────────────────────────────────
   async function markSold() {
@@ -605,21 +498,21 @@ export default function HomeClient() {
 
   const filtered = items.filter(i => {
     const typeOk = i.type===typeFilter
-    const condOk = condFilter==='all' || i.condition.startsWith(condFilter)
-    const statOk = statusFilter==='all' ? true
+    const condOk = isAdmin || condFilter==='all' || i.condition.startsWith(condFilter)
+    const statOk = isAdmin || statusFilter==='all' ? true
       : statusFilter==='available' ? (i.status==='available' || i.status==='incoming')
       : i.status===statusFilter
-    const catOk = categoryFilter==='all' || i.category===categoryFilter
+    const catOk = isAdmin || categoryFilter==='all' || i.category===categoryFilter
     const q = searchQuery.trim().toLowerCase()
     const searchOk = !q || i.title.toLowerCase().includes(q) || (i.order_code??'').toLowerCase().includes(q) || (i.sku??'').toLowerCase().includes(q)
     const p = i.price ?? 0
-    const priceOk = priceRange==='all' ? true
+    const priceOk = isAdmin || priceRange==='all' ? true
       : priceRange==='under1m' ? p < 1_000_000
       : priceRange==='1to5m'   ? (p >= 1_000_000 && p <= 5_000_000)
       : priceRange==='5to10m'  ? (p >= 5_000_000 && p <= 10_000_000)
       : p > 10_000_000
-    const binOk   = binFilter === 'all' || i.bin_location === binFilter
-    const batchOk = batchFilter === null || i.batch_id === batchFilter
+    const binOk   = isAdmin || binFilter === 'all' || i.bin_location === binFilter
+    const batchOk = isAdmin || batchFilter === null || i.batch_id === batchFilter
     return typeOk && condOk && statOk && catOk && searchOk && priceOk && binOk && batchOk
   })
 
@@ -896,141 +789,14 @@ export default function HomeClient() {
         {/* LISTING VIEW */}
         {(!isAdmin || adminView==='listing') && (
           <>
-            {/* Admin input */}
-            {isAdmin && (
-              <div className="input-section">
-                <div className="input-label">Nhập đơn hàng</div>
-                <textarea placeholder="VD: Bán Sony WH-1000XM5 màu đen, 3 tháng, fullbox, 4 triệu, LH 0912345678..."
-                  value={nlText} onChange={e=>setNlText(e.target.value)}
-                  onKeyDown={e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey))analyze()}} rows={3} />
-                {analyzing && <div className="processing"><div className="spinner"/>AI đang phân tích...</div>}
-
-                {preview && !analyzing && (
-                  <div className="preview-card">
-                    {/* Multi-image upload */}
-                    <div>
-                      <div className="lbl" style={{marginBottom:8}}>
-                        Ảnh sản phẩm <span style={{fontWeight:400,color:'var(--muted)'}}>({imgPreviews.length}/8)</span>
-                        <span className="paste-hint">· Ctrl+V để dán ảnh</span>
-                      </div>
-                      <div className="img-grid">
-                        {imgPreviews.map((src,i) => (
-                          <div key={i} className="img-thumb-wrap">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={src} alt="" className="img-thumb"/>
-                            <button className="img-remove" onClick={()=>removeImgAt(i)}>✕</button>
-                          </div>
-                        ))}
-                        {imgPreviews.length < 8 && (
-                          <label className="img-add-btn" title="Chọn file hoặc Ctrl+V để paste">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 5v14M5 12h14"/></svg>
-                            <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleImgs} style={{display:'none'}}/>
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="preview-grid">
-                      <div className="fg full"><div className="lbl">Tên sản phẩm</div>
-                        <input className="inp" value={preview.title??''} onChange={e=>setPreview(p=>({...p,title:e.target.value}))}/>
-                      </div>
-                      <div className="fg full"><div className="lbl">Mô tả</div>
-                        <input className="inp" value={preview.description??''} onChange={e=>setPreview(p=>({...p,description:e.target.value}))}/>
-                      </div>
-                      <div className="fg"><div className="lbl">Giá (VNĐ)</div>
-                        <input className="inp" type="number" min="0" step="1000" placeholder="0"
-                          value={preview.price??''} onChange={e=>setPreview(p=>({...p,price:e.target.value?Number(e.target.value):null}))}/>
-                        <span className="price-preview">{fmtVND(preview.price)}</span>
-                      </div>
-                      <div className="fg"><div className="lbl">Tình trạng</div>
-                        <select className="inp" value={preview.condition??''} onChange={e=>setPreview(p=>({...p,condition:e.target.value}))}>
-                          {['Mới','Cũ - Như mới','Cũ - Còn tốt','Cũ - Có lỗi nhỏ'].map(c=><option key={c}>{c}</option>)}
-                        </select>
-                      </div>
-                      <div className="fg"><div className="lbl">Danh mục</div>
-                        <input className="inp" value={preview.category??''} onChange={e=>setPreview(p=>({...p,category:e.target.value}))}/>
-                      </div>
-                      <div className="fg"><div className="lbl">Loại</div>
-                        <select className="inp" value={preview.type??'ban'} onChange={e=>setPreview(p=>({...p,type:e.target.value as 'ban'|'mua'}))}>
-                          <option value="ban">Bán</option><option value="mua">Tìm mua</option>
-                        </select>
-                      </div>
-                      <div className="fg"><div className="lbl">SĐT liên hệ</div>
-                        <input className="inp" value={preview.phone??''} onChange={e=>setPreview(p=>({...p,phone:e.target.value}))}/>
-                      </div>
-                      <div className="fg"><div className="lbl">Địa điểm</div>
-                        <input className="inp" value={preview.location??''} onChange={e=>setPreview(p=>({...p,location:e.target.value}))}/>
-                      </div>
-                      <div className="fg"><div className="lbl">Người đăng</div>
-                        <select className="inp"
-                          value={preview.staff_id ?? ''}
-                          onChange={e => {
-                            const id = e.target.value ? Number(e.target.value) : null
-                            const staff = staffList.find(s => s.id === id)
-                            setPreview(p => ({...p, staff_id: id, posted_by: staff?.name ?? null}))
-                          }}>
-                          <option value="">— Chọn người đăng —</option>
-                          {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                      </div>
-
-                      {/* Incoming toggle + expected date */}
-                      <div className="fg full">
-                        <label className="incoming-toggle">
-                          <input type="checkbox"
-                            checked={!!preview.expected_date}
-                            onChange={e => setPreview(p => ({
-                              ...p,
-                              expected_date: e.target.checked
-                                ? new Date(Date.now() + 7*24*60*60*1000).toISOString().split('T')[0]
-                                : null
-                            }))}
-                          />
-                          <span className="incoming-toggle-label">
-                            <span className="badge-incoming" style={{fontSize:11}}>Sắp về</span>
-                            Hàng chưa có, sắp nhập về
-                          </span>
-                        </label>
-                        {preview.expected_date && (
-                          <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
-                            <label className="lbl" style={{margin:0,whiteSpace:'nowrap'}}>Ngày dự kiến về</label>
-                            <input className="inp" type="date" style={{flex:1}}
-                              value={preview.expected_date??''}
-                              min={new Date().toISOString().split('T')[0]}
-                              onChange={e=>setPreview(p=>({...p,expected_date:e.target.value||null}))}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="preview-actions">
-                      <button className="btn-ghost" onClick={()=>{setPreview(null);setNlText('');clearImgs()}}>Hủy</button>
-                      <button className="btn-green" onClick={publish} disabled={publishing}>
-                        {uploading?`Upload ${imgFiles.length} ảnh...`:publishing?'Đang đăng...':'Đăng tin →'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {!preview && !analyzing && (
-                  <div className="input-actions">
-                    <span className="hint">Nhập tự nhiên · Ctrl+Enter phân tích</span>
-                    <button className="btn-dark" onClick={analyze} disabled={!nlText.trim()}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                      Phân tích
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Daily quiz banner — only for public (non-admin) visitors */}
             {!isAdmin && <DailyQuizBanner />}
 
             {/* 3-column layout: filter | listing | featured ads */}
-            <div className="page-layout">
+            <div className={`page-layout ${isAdmin ? 'page-layout-admin' : ''}`}>
 
               {/* LEFT SIDEBAR - Filters */}
+              {!isAdmin && (
               <aside className="sidebar-left">
                 <div className="sidebar-search">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
@@ -1088,6 +854,7 @@ export default function HomeClient() {
                   </div>
                 )}
               </aside>
+              )}
 
               {/* CENTER - Listings grid */}
               <div className="content-area">
@@ -1096,11 +863,17 @@ export default function HomeClient() {
                     {typeFilter==='ban' ? 'Đang rao bán' : 'Cần tìm mua'}
                     <span style={{fontWeight:400,fontSize:12,textTransform:'none',letterSpacing:0,color:'var(--muted)',marginLeft:6}}>{filtered.length} tin</span>
                   </div>
-                  {!isAdmin && (
+                  {!isAdmin ? (
                     <button className="btn-request-buy" onClick={()=>setShowBuyForm(true)}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
                       Đăng tìm mua
                     </button>
+                  ) : (
+                    <div className="sidebar-search" style={{ margin: 0, width: 300 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                      <input placeholder="Tìm tên, mã hàng..." value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} />
+                      {searchQuery && <button className="sidebar-search-clear" onClick={()=>setSearchQuery('')}>✕</button>}
+                    </div>
                   )}
                 </div>
 
@@ -1141,7 +914,7 @@ export default function HomeClient() {
                   </div>
                 )}
 
-                {categories.length > 0 && (
+                {categories.length > 0 && !isAdmin && (
                   <div className="cat-tag-bar">
                     <button className={`cat-tag${categoryFilter==='all'?' active':''}`} onClick={()=>setCategoryFilter('all')}>Tất cả</button>
                     {categories.map(cat=>(
@@ -1731,6 +1504,7 @@ main{width:100%;padding:24px 28px}
 
 /* PAGE LAYOUT - 2 columns */
 .page-layout{display:grid;grid-template-columns:220px 1fr;gap:20px;align-items:start}
+.page-layout.page-layout-admin{grid-template-columns:1fr}
 
 /* LEFT SIDEBAR */
 .sidebar-left{position:sticky;top:70px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:0}
@@ -1767,8 +1541,8 @@ main{width:100%;padding:24px 28px}
 /* Admin Table */
 .admin-items-table-wrap { width: 100%; overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 24px; }
 .admin-items-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
-.admin-items-table th { padding: 12px 16px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--bg); white-space: nowrap; }
-.admin-items-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.admin-items-table th { padding: 8px 12px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); background: var(--bg); white-space: nowrap; }
+.admin-items-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .admin-items-table tr:last-child td { border-bottom: none; }
 .admin-items-table tr:hover { background: var(--bg); }
 .admin-items-table .row-sold td { opacity: 0.6; }
