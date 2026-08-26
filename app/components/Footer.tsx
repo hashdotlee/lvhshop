@@ -12,9 +12,9 @@ export default function Footer() {
             Chuyên hàng Nhật độc lạ, đồ nội địa tuyển chọn và các sản phẩm tiêu dùng thiết yếu với giá tốt nhất.
           </p>
           <div style={{ fontSize: 13, color: '#a3a199' }}>
-            <strong>Hotline:</strong> 098.765.4321<br />
-            <strong>Email:</strong> admin@leviethoang.shop<br />
-            <strong>Địa chỉ:</strong> 123 Đường Số 1, Phường 2, Quận 3, TP.HCM
+            <strong>Hotline:</strong> 092.845.3008<br />
+            <strong>Email:</strong> hashdotlee@gmail.com<br />
+            <strong>Địa chỉ:</strong> Số 55, ngõ 521 đường Cổ Nhuế, Đông Ngạc, Hà Nội
           </div>
         </div>
 
