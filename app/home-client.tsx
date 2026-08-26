@@ -283,11 +283,12 @@ export default function HomeClient() {
 
     // Supabase auth: restore session & listen for changes
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setSupaUser({ email: user.email ?? '', name: user.user_metadata?.full_name ?? user.email ?? '' })
+      if (user) checkUserStatus(user)
     })
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_e, session) => {
       const u = session?.user
-      setSupaUser(u ? { email: u.email ?? '', name: u.user_metadata?.full_name ?? u.email ?? '' } : null)
+      if (u) checkUserStatus(u)
+      else setSupaUser(null)
     })
 
     // Auto-reload every 5s for buyers
@@ -301,6 +302,29 @@ export default function HomeClient() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function checkUserStatus(user: any) {
+    const { data } = await supabase.from('user_profiles').select('status').eq('id', user.id).single()
+    if (data && data.status !== 'approved') {
+      await supabase.auth.signOut()
+      setUserAuthError('Tài khoản của bạn đang chờ Admin duyệt.')
+      setShowUserAuth(true)
+      setUserAuthMode('login')
+      return
+    }
+    const name = user.user_metadata?.full_name ?? user.email ?? ''
+    const email = user.email?.replace('@lvhshop.internal', '') ?? ''
+    setSupaUser({ email, name })
+  }
+
+  function parseAuthInput(input: string) {
+    const isPhone = /^[0-9\+\s]+$/.test(input)
+    if (isPhone) {
+      const cleanPhone = input.replace(/\s/g, '')
+      return { email: `${cleanPhone}@lvhshop.internal`, phone: cleanPhone }
+    }
+    return { email: input, phone: null }
+  }
 
   // ── auth ──────────────────────────────────────────────────────
   async function tryLogin() {
@@ -475,26 +499,50 @@ export default function HomeClient() {
     setUserAuthMode(mode); setUserAuthForm({ name:'', email:'', password:'' }); setUserAuthError(''); setShowUserAuth(true)
   }
   async function supaSignIn() {
-    if (!userAuthForm.email || !userAuthForm.password) { setUserAuthError('Nhập email và mật khẩu'); return }
+    if (!userAuthForm.email || !userAuthForm.password) { setUserAuthError('Nhập email/SĐT và mật khẩu'); return }
     setUserAuthLoading(true); setUserAuthError('')
-    const { data, error } = await supabase.auth.signInWithPassword({ email: userAuthForm.email, password: userAuthForm.password })
+    
+    const { email } = parseAuthInput(userAuthForm.email)
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: userAuthForm.password })
+    
+    if (error) { 
+      setUserAuthError(error.message === 'Invalid login credentials' ? 'Email/SĐT hoặc mật khẩu không đúng' : error.message)
+      setUserAuthLoading(false)
+      return 
+    }
+    
+    if (data.session) {
+      const { data: profile } = await supabase.from('user_profiles').select('status').eq('id', data.user.id).single()
+      if (profile && profile.status !== 'approved') {
+        await supabase.auth.signOut()
+        setUserAuthError('Tài khoản của bạn đang chờ Admin duyệt.')
+        setUserAuthLoading(false)
+        return
+      }
+    }
+
     setUserAuthLoading(false)
-    if (error) { setUserAuthError(error.message === 'Invalid login credentials' ? 'Email hoặc mật khẩu không đúng' : error.message); return }
-    const name = data.user?.user_metadata?.full_name ?? data.user?.email ?? ''
+    const name = data.user?.user_metadata?.full_name ?? data.user?.email?.replace('@lvhshop.internal', '') ?? ''
     showToast(`Chào ${name}!`); setShowUserAuth(false)
   }
   async function supaSignUp() {
     if (!userAuthForm.name.trim()) { setUserAuthError('Nhập họ tên'); return }
-    if (!userAuthForm.email)       { setUserAuthError('Nhập email'); return }
+    if (!userAuthForm.email)       { setUserAuthError('Nhập email hoặc SĐT'); return }
     if (userAuthForm.password.length < 6) { setUserAuthError('Mật khẩu tối thiểu 6 ký tự'); return }
     setUserAuthLoading(true); setUserAuthError('')
+    
+    const { email, phone } = parseAuthInput(userAuthForm.email)
     const { error } = await supabase.auth.signUp({
-      email: userAuthForm.email, password: userAuthForm.password,
-      options: { data: { full_name: userAuthForm.name } },
+      email, password: userAuthForm.password,
+      options: { data: { full_name: userAuthForm.name, phone } },
     })
+    
     setUserAuthLoading(false)
-    if (error) { setUserAuthError(error.message); return }
-    showToast('Đăng ký thành công!'); setShowUserAuth(false)
+    if (error) { 
+      setUserAuthError(error.message === 'User already registered' ? 'Email/SĐT này đã được đăng ký' : error.message)
+      return 
+    }
+    showToast('Đăng ký thành công! Vui lòng chờ duyệt.'); setShowUserAuth(false)
   }
   async function supaSignOut() {
     await supabase.auth.signOut(); showToast('Đã đăng xuất')
@@ -1431,8 +1479,8 @@ export default function HomeClient() {
                   <input className="inp" placeholder="Nguyễn Văn A" autoFocus={userAuthMode==='signup'}
                     value={userAuthForm.name} onChange={e=>setUserAuthForm(f=>({...f,name:e.target.value}))} /></div>
               )}
-              <div><label className="lbl">Email</label>
-                <input className="inp" type="email" placeholder="email@example.com" autoFocus={userAuthMode==='login'}
+              <div><label className="lbl">Email hoặc Số điện thoại</label>
+                <input className="inp" placeholder="email@example.com hoặc 09xxxxxxxx" autoFocus={userAuthMode==='login'}
                   value={userAuthForm.email} onChange={e=>setUserAuthForm(f=>({...f,email:e.target.value}))}
                   onKeyDown={e=>e.key==='Enter'&&(userAuthMode==='login'?supaSignIn():supaSignUp())} /></div>
               <div><label className="lbl">Mật khẩu</label>

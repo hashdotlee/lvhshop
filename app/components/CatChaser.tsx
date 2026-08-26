@@ -83,27 +83,27 @@ export default function CatChaser() {
           aria-hidden="true"
         >
           {/* ── Left ear ── triangle: tip above circle, bases merge into head */}
-          <polygon points="18,82 40,3 66,66" fill="#111"/>
+          <polygon points="18,82 40,3 66,66" fill="#fff" stroke="#e8e6e1" strokeWidth="1"/>
 
           {/* ── Right ear ── */}
-          <polygon points="94,66 120,3 142,82" fill="#111"/>
+          <polygon points="94,66 120,3 142,82" fill="#fff" stroke="#e8e6e1" strokeWidth="1"/>
 
           {/* ── Head ── large circle centred below viewBox → peeking arc */}
-          <circle cx="80" cy="110" r="82" fill="#111"/>
+          <circle cx="80" cy="110" r="82" fill="#fff" stroke="#e8e6e1" strokeWidth="1"/>
 
           {/* ── Whiskers ── extend beyond SVG bounds (overflow:visible) */}
-          <line x1="4"   y1="68" x2="-20" y2="63" stroke="#555" strokeWidth="1.2" strokeLinecap="round"/>
-          <line x1="4"   y1="76" x2="-22" y2="75" stroke="#555" strokeWidth="1.2" strokeLinecap="round"/>
-          <line x1="156" y1="68" x2="180" y2="63" stroke="#555" strokeWidth="1.2" strokeLinecap="round"/>
-          <line x1="156" y1="76" x2="182" y2="75" stroke="#555" strokeWidth="1.2" strokeLinecap="round"/>
+          <line x1="4"   y1="68" x2="-20" y2="63" stroke="#999" strokeWidth="1.2" strokeLinecap="round"/>
+          <line x1="4"   y1="76" x2="-22" y2="75" stroke="#999" strokeWidth="1.2" strokeLinecap="round"/>
+          <line x1="156" y1="68" x2="180" y2="63" stroke="#999" strokeWidth="1.2" strokeLinecap="round"/>
+          <line x1="156" y1="76" x2="182" y2="75" stroke="#999" strokeWidth="1.2" strokeLinecap="round"/>
 
           {/* ── Left eye ── */}
-          <circle cx={EL.cx} cy={EL.cy} r={ER_W} fill="white"/>
+          <circle cx={EL.cx} cy={EL.cy} r={ER_W} fill="white" stroke="#e8e6e1" strokeWidth="1.5"/>
           <circle ref={lpRef}  cx={EL.cx} cy={EL.cy} r={pr}            fill="#111"/>
           <circle ref={ls1Ref} cx={EL.cx + 6} cy={EL.cy - 6} r={pr * 0.33} fill="white"/>
 
           {/* ── Right eye ── */}
-          <circle cx={ER.cx} cy={ER.cy} r={ER_W} fill="white"/>
+          <circle cx={ER.cx} cy={ER.cy} r={ER_W} fill="white" stroke="#e8e6e1" strokeWidth="1.5"/>
           <circle ref={rpRef}  cx={ER.cx} cy={ER.cy} r={pr}            fill="#111"/>
           <circle ref={rs1Ref} cx={ER.cx + 6} cy={ER.cy - 6} r={pr * 0.33} fill="white"/>
 
