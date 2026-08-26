@@ -1693,8 +1693,14 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
             <div className="inv-divider" />
 
             {/* Customer */}
-            <div className="inv-customer-name">{printOrder.customer_name} · {printOrder.customer_phone}</div>
-            <div className="inv-customer-addr">{printOrder.customer_address}</div>
+            <div className="inv-customer-name">
+              {printOrder.customer_name ? (printOrder.customer_name.split(' ').length > 1 ? printOrder.customer_name.split(' ')[0] + ' *** ' + printOrder.customer_name.split(' ').pop() : printOrder.customer_name.charAt(0) + '***') : ''} 
+              {' · '} 
+              {printOrder.customer_phone ? printOrder.customer_phone.substring(0, 3) + '****' + printOrder.customer_phone.substring(printOrder.customer_phone.length - 3) : ''}
+            </div>
+            <div className="inv-customer-addr">
+              {printOrder.customer_address ? '***, ' + (printOrder.customer_address.split(',').pop()?.trim() || '') : ''}
+            </div>
             {printOrder.customer_note && <div className="inv-customer-note">"{printOrder.customer_note}"</div>}
 
             <div className="inv-divider" />
