@@ -93,6 +93,7 @@ const EMPTY_FORM = {
   is_free_shipping: false,
   payment_method: 'cod',
   total_amount: '',
+  tracking_number: '',
   fb_psid: '',
   created_by: '',
   showNewProduct: false,
@@ -409,6 +410,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
           customer_address: form.customer_address,
           customer_note: form.customer_note || null,
           shipping_carrier: form.shipping_carrier,
+          tracking_number: form.tracking_number || null,
           shipping_fee: form.shipping_fee ? Number(form.shipping_fee) : 0,
           is_free_shipping: form.is_free_shipping,
           payment_method: form.payment_method,
@@ -509,6 +511,37 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       URL.revokeObjectURL(objUrl)
     } catch {
       onToast('Không thể xuất file')
+    }
+  }
+
+  // ── Bulk Export All Carriers ─────────────────────────────────────
+  async function exportAllCarriers() {
+    const targetOrders = selectedOrderIds.size > 0 
+      ? filteredOrders.filter(o => selectedOrderIds.has(o.id))
+      : filteredOrders.filter(o => ['pending', 'confirmed', 'shipping'].includes(o.order_status))
+      
+    if (targetOrders.length === 0) {
+      onToast('Không có đơn hàng nào để xuất')
+      return
+    }
+
+    const vnpostIds = targetOrders.filter(o => o.shipping_carrier === 'vnpost').map(o => o.id)
+    const spxIds = targetOrders.filter(o => o.shipping_carrier === 'spx').map(o => o.id)
+
+    let exported = 0
+    if (vnpostIds.length > 0) {
+      await exportCarrier('vnpost', vnpostIds)
+      exported++
+    }
+    if (spxIds.length > 0) {
+      await exportCarrier('spx', spxIds)
+      exported++
+    }
+
+    if (exported === 0) {
+      onToast('Không có đơn hàng VNPost hoặc SPX nào để xuất')
+    } else {
+      onToast(`Đã xuất ${exported} file giao hàng`)
     }
   }
 
@@ -823,13 +856,9 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
             Xuất CSV
           </button>
-          <button className="om-btn-ghost" title="Xuất file VNPost (tất cả đơn đang xử lý, hoặc các đơn đã chọn)"
-            onClick={() => exportCarrier('vnpost', selectedOrderIds.size > 0 ? Array.from(selectedOrderIds) : undefined)}>
-            📦 VNPost{selectedOrderIds.size > 0 ? ` (${selectedOrderIds.size})` : ''}
-          </button>
-          <button className="om-btn-ghost" title="Xuất file SPX (tất cả đơn đang xử lý, hoặc các đơn đã chọn)"
-            onClick={() => exportCarrier('spx', selectedOrderIds.size > 0 ? Array.from(selectedOrderIds) : undefined)}>
-            🚚 SPX{selectedOrderIds.size > 0 ? ` (${selectedOrderIds.size})` : ''}
+          <button className="om-btn-ghost" title="Tự động phân loại và xuất file Excel giao hàng (VNPost & SPX)"
+            onClick={exportAllCarriers}>
+            📦 Tạo file giao hàng{selectedOrderIds.size > 0 ? ` (${selectedOrderIds.size})` : ''}
           </button>
           <a href="/accounting" className="om-btn-ghost" style={{ textDecoration: 'none', color: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             📊 Kế toán & Thuế
@@ -1300,6 +1329,11 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                     <option value="viettelpost">ViettelPost</option>
                     <option value="other">Khác</option>
                   </select>
+                </div>
+                <div className="om-fg">
+                  <label className="om-lbl">Mã vận đơn (nếu có)</label>
+                  <input className="om-inp" placeholder="Nhập tracking..." value={form.tracking_number}
+                    onChange={e => setForm(f => ({ ...f, tracking_number: e.target.value }))} />
                 </div>
                 <div className="om-fg">
                   <label className="om-lbl">Phí vận chuyển (VNĐ)</label>
