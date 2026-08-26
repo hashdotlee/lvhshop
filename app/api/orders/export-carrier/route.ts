@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     shipping_fee: number | null
     is_free_shipping: boolean | null
     payment_method: 'cod' | 'bank_transfer'
-    order_items?: Array<{ item_title: string }>
+    order_items?: Array<{ item_title: string; quantity: number; item_price: number | null }>
   }>
 
   const rows: OrderExportRow[] = orders.map((o) => {
@@ -81,6 +81,11 @@ export async function GET(req: NextRequest) {
       is_free_shipping: o.is_free_shipping,
       payment_method: o.payment_method,
       customer_note: o.customer_note,
+      raw_items: o.order_items?.map(i => ({
+        title: i.item_title,
+        quantity: i.quantity,
+        price: i.item_price,
+      })),
     }
   })
 

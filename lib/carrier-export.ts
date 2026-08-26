@@ -80,6 +80,7 @@ export interface OrderExportRow {
   is_free_shipping: boolean | null
   payment_method: 'cod' | 'bank_transfer'
   customer_note?: string | null
+  raw_items?: Array<{ title: string; quantity: number; price: number | null }>
 }
 
 /** Return text of richText cell or plain string */
@@ -135,7 +136,16 @@ export async function generateVNPostExcel(orders: OrderExportRow[]): Promise<Uin
 
     const gtgt: string[] = []
     if (cod > 0) gtgt.push('GTG021') // Phát hàng thu tiền COD
-    if (order.total_amount && order.total_amount > 0) gtgt.push('GTG008') // Khai giá
+
+    let vnpostItemsStr = order.item_title
+    if (order.raw_items && order.raw_items.length > 0) {
+      vnpostItemsStr = order.raw_items.map(it => {
+        const q = it.quantity || 1
+        const w = 200 // Khối lượng mặc định 200gr mỗi món
+        const p = it.price || 0
+        return `${it.title}^${q}^${w}^${p}`
+      }).join('|')
+    }
 
     const row = ws.getRow(rowNum)
     row.getCell(1).value = idx + 1           // STT
@@ -143,13 +153,13 @@ export async function generateVNPostExcel(orders: OrderExportRow[]): Promise<Uin
     row.getCell(3).value = order.customer_phone
     row.getCell(4).value = order.customer_address
     row.getCell(6).value = order.order_number
-    row.getCell(7).value = order.item_title
+    row.getCell(7).value = vnpostItemsStr    // Danh sách hàng hóa
     row.getCell(8).value = 200               // Default weight (gram)
     row.getCell(13).value = 'LHH02'          // Loại hàng: Hàng thông thường
     row.getCell(14).value = 'CTN009 - Thương mại điện tử đồng giá: Tiêu chuẩn TMĐT ĐG'
     row.getCell(15).value = gtgt.join(';')   // Dịch vụ cộng thêm (GTGT)
     row.getCell(16).value = cod > 0 ? cod : '' // COD (0 = không thu hộ)
-    row.getCell(17).value = order.total_amount ?? '' // Số tiền khai giá
+    row.getCell(17).value = ''               // Không dùng cột Số tiền khai giá
     row.getCell(26).value = '2 - Gửi hàng tại bưu cục'
     row.getCell(27).value = order.customer_note || ''
     row.commit()
