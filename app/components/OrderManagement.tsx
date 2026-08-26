@@ -131,6 +131,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     payment_method: Order['payment_method']
     tracking_number: string
     shipping_carrier: string
+    shipping_fee: string
     fb_psid: string
   }>({
     order_status: 'pending',
@@ -138,6 +139,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     payment_method: 'cod',
     tracking_number: '',
     shipping_carrier: 'spx',
+    shipping_fee: '',
     fb_psid: '',
   })
 
@@ -174,18 +176,16 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   const [showPhoneDropdown, setShowPhoneDropdown] = useState(false)
   const [custSearchResults, setCustSearchResults] = useState<typeof allCustomers>([])
 
-  function handleCustomerSearch(val: string, type: 'name' | 'phone') {
-    if (type === 'name') setForm(f => ({ ...f, customer_name: val }))
-    else setForm(f => ({ ...f, customer_phone: val }))
-
-    if (!val) {
-      setShowNameDropdown(false)
-      setShowPhoneDropdown(false)
-      return
+  function handleCustomerSearch(val: string, type: 'name' | 'phone', isFocus = false) {
+    if (!isFocus) {
+      if (type === 'name') setForm(f => ({ ...f, customer_name: val }))
+      else setForm(f => ({ ...f, customer_phone: val }))
     }
-    const q = val.toLowerCase()
-    const matches = allCustomers.filter(c => c.phone.includes(q) || c.name.toLowerCase().includes(q))
-    setCustSearchResults(matches.slice(0, 5))
+
+    const q = val.trim().toLowerCase()
+    const matches = q ? allCustomers.filter(c => c.phone.includes(q) || c.name.toLowerCase().includes(q)) : allCustomers
+    setCustSearchResults(matches.slice(0, 15))
+    
     if (type === 'name') {
       setShowNameDropdown(true)
       setShowPhoneDropdown(false)
@@ -555,6 +555,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       payment_method: order.payment_method,
       tracking_number: order.tracking_number ?? '',
       shipping_carrier: order.shipping_carrier,
+      shipping_fee: order.shipping_fee != null ? String(order.shipping_fee) : '',
       fb_psid: order.fb_psid ?? '',
     })
     setEditOrderItems(order.order_items ?? [])
@@ -738,6 +739,16 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   }
 
   // ─────────────────────────────────────────────────────────────
+  const editItemsTotal = editOrder ? (editOrderItems.reduce((acc, oi) => acc + (oi.item_price ?? 0) * oi.quantity, 0) || (editOrder.item_price ?? 0)) : 0
+  const editSf = editForm.shipping_fee ? Number(editForm.shipping_fee) : 0
+  let editSd = 0
+  if (editForm.payment_method === 'bank_transfer') {
+    if (editItemsTotal >= 500000) editSd = 50000
+    else if (editItemsTotal >= 200000) editSd = 20000
+  }
+  if (editSd > editSf) editSd = editSf
+  const editFinalTotal = editOrder ? (editItemsTotal + editSf - editSd - (editOrder.item_discount ?? 0)) : 0
+
   return (
     <>
       <style>{omStyles}</style>
@@ -1147,7 +1158,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   <label className="om-lbl">Tên khách *</label>
                   <input className="om-inp" placeholder="Nguyễn Văn A" value={form.customer_name}
                     onChange={e => handleCustomerSearch(e.target.value, 'name')}
-                    onFocus={() => { if (form.customer_name) handleCustomerSearch(form.customer_name, 'name') }}
+                    onFocus={() => handleCustomerSearch(form.customer_name, 'name', true)}
                     onBlur={() => setTimeout(() => setShowNameDropdown(false), 200)} />
                   {showNameDropdown && custSearchResults.length > 0 && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid var(--border)', borderRadius: 6, zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
@@ -1164,7 +1175,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   <label className="om-lbl">SĐT *</label>
                   <input className="om-inp" placeholder="09xxxxxxxx" value={form.customer_phone}
                     onChange={e => handleCustomerSearch(e.target.value, 'phone')}
-                    onFocus={() => { if (form.customer_phone) handleCustomerSearch(form.customer_phone, 'phone') }}
+                    onFocus={() => handleCustomerSearch(form.customer_phone, 'phone', true)}
                     onBlur={() => setTimeout(() => setShowPhoneDropdown(false), 200)} />
                   {showPhoneDropdown && custSearchResults.length > 0 && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid var(--border)', borderRadius: 6, zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
@@ -1432,6 +1443,11 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                 <input className="om-inp" placeholder="Nhập mã tracking..." value={editForm.tracking_number}
                   onChange={e => setEditForm(f => ({ ...f, tracking_number: e.target.value }))} />
               </div>
+              <div className="om-fg">
+                <label className="om-lbl">Phí vận chuyển</label>
+                <input className="om-inp" type="number" placeholder="0" value={editForm.shipping_fee}
+                  onChange={e => setEditForm(f => ({ ...f, shipping_fee: e.target.value }))} />
+              </div>
               <div className="om-fg om-fg-full">
                 <label className="om-lbl">Phương thức thanh toán</label>
                 <div className="om-radio-group">
@@ -1445,18 +1461,19 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   ))}
                 </div>
               </div>
-              {editForm.payment_method === 'bank_transfer' && editOrder.total_amount && process.env.NEXT_PUBLIC_BANK_ID && (
+              {editForm.payment_method === 'bank_transfer' && process.env.NEXT_PUBLIC_BANK_ID && (
                 <div className="om-fg om-fg-full">
                   <div className="om-bank-info" style={{ marginTop: 0 }}>
                     <div className="om-bank-details">
                       <div className="om-bank-row"><span className="om-bank-key">Ngân hàng</span><span className="om-bank-val">{process.env.NEXT_PUBLIC_BANK_ID?.toUpperCase()}</span></div>
                       <div className="om-bank-row"><span className="om-bank-key">Số TK</span><span className="om-bank-val">{process.env.NEXT_PUBLIC_BANK_ACCOUNT}</span></div>
-                      <div className="om-bank-row"><span className="om-bank-key">Số tiền</span><span className="om-bank-val" style={{ color: 'var(--green)', fontWeight: 700 }}>{fmtVND(editOrder.total_amount)}</span></div>
+                      <div className="om-bank-row"><span className="om-bank-key">Số tiền</span><span className="om-bank-val" style={{ color: 'var(--green)', fontWeight: 700 }}>{fmtVND(editFinalTotal)}</span></div>
                       <div className="om-bank-row"><span className="om-bank-key">Nội dung</span><span className="om-bank-val">{editOrder.order_number}</span></div>
+                      {editSd > 0 && <div className="om-bank-row"><span className="om-bank-key">Giảm ship</span><span className="om-bank-val" style={{ color: '#dc2626' }}>-{fmtVND(editSd)}</span></div>}
                     </div>
                     <div className="om-qr-wrap">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={vietQRUrlForOrder({ ...editOrder, payment_method: 'bank_transfer' })} alt="QR" className="om-qr-img" />
+                      <img src={vietQRUrlForOrder({ ...editOrder, payment_method: 'bank_transfer', total_amount: editItemsTotal, shipping_fee: editSf, shipping_discount: editSd })} alt="QR" className="om-qr-img" />
                     </div>
                   </div>
                 </div>
@@ -1493,14 +1510,28 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
 
             <div className="om-modal-actions">
               <button className="om-btn-ghost" onClick={() => setEditOrder(null)}>Hủy</button>
-              <button className="om-btn-primary" onClick={() => updateOrder(editOrder.id, {
-                order_status: editForm.order_status,
-                payment_status: editForm.payment_status,
-                payment_method: editForm.payment_method,
-                tracking_number: editForm.tracking_number || null,
-                shipping_carrier: editForm.shipping_carrier,
-                fb_psid: editForm.fb_psid || null,
-              })} disabled={saving}>
+              <button className="om-btn-primary" onClick={() => {
+                const editItemsTotal = editOrderItems.reduce((acc, oi) => acc + (oi.item_price ?? 0) * oi.quantity, 0) || (editOrder.item_price ?? 0)
+                const editSf = editForm.shipping_fee ? Number(editForm.shipping_fee) : 0
+                let editSd = 0
+                if (editForm.payment_method === 'bank_transfer') {
+                  if (editItemsTotal >= 500000) editSd = 50000
+                  else if (editItemsTotal >= 200000) editSd = 20000
+                }
+                if (editSd > editSf) editSd = editSf
+
+                updateOrder(editOrder.id, {
+                  order_status: editForm.order_status,
+                  payment_status: editForm.payment_status,
+                  payment_method: editForm.payment_method,
+                  tracking_number: editForm.tracking_number || null,
+                  shipping_carrier: editForm.shipping_carrier,
+                  shipping_fee: editSf,
+                  shipping_discount: editSd,
+                  total_amount: editItemsTotal, // ensure total_amount stays accurate
+                  fb_psid: editForm.fb_psid || null,
+                })
+              }} disabled={saving}>
                 {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </div>

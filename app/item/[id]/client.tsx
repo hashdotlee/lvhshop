@@ -118,6 +118,14 @@ export default function ItemDetailClient({ item }: { item: Item }) {
   })
   const [sellSaving, setSellSaving] = useState(false)
 
+  // Customer search state
+  const [custSearch, setCustSearch] = useState('')
+  const [custResults, setCustResults] = useState<Array<{id: number; name: string; phone: string; address: string | null; note: string | null; order_count: number}>>([])
+  const [custSearching, setCustSearching] = useState(false)
+  const [custDropOpen, setCustDropOpen] = useState(false)
+  const [custMode, setCustMode] = useState<'search' | 'new'>('search')
+  const custSearchTimer = useRef<ReturnType<typeof setTimeout>>()
+
   // Cart state
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
   const [cartCount, setCartCount] = useState(0)
@@ -132,6 +140,41 @@ export default function ItemDetailClient({ item }: { item: Item }) {
     if (!isAdmin) return
     fetch('/api/staff').then(r => r.json()).then(d => { if (Array.isArray(d)) setStaffList(d) })
   }, [isAdmin])
+
+  function searchCustomers(q: string) {
+    clearTimeout(custSearchTimer.current)
+    if (!q.trim()) { setCustResults([]); setCustDropOpen(false); return }
+    setCustSearching(true)
+    custSearchTimer.current = setTimeout(async () => {
+      try {
+        const r = await fetch('/api/customers', { headers: { 'x-admin-key': adminKey.current } })
+        if (r.ok) {
+          const all = await r.json()
+          const lower = q.toLowerCase()
+          const filtered = all.filter((c: {name: string; phone: string}) =>
+            c.name?.toLowerCase().includes(lower) || c.phone?.includes(q)
+          ).slice(0, 8)
+          setCustResults(filtered)
+          setCustDropOpen(filtered.length > 0)
+        }
+      } finally {
+        setCustSearching(false)
+      }
+    }, 280)
+  }
+
+  function selectCustomer(c: {name: string; phone: string; address: string | null; note: string | null}) {
+    setSellForm(f => ({
+      ...f,
+      customer_name: c.name ?? '',
+      customer_phone: c.phone ?? '',
+      customer_address: c.address ?? '',
+      customer_note: c.note ?? '',
+    }))
+    setCustSearch(c.name + (c.phone ? ` · ${c.phone}` : ''))
+    setCustDropOpen(false)
+    setCustMode('new') // switch to form view so user can see/edit the prefilled data
+  }
 
   function showToast(m: string) {
     setToast(m)
@@ -512,7 +555,11 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                 <div className="admin-actions">
                   {(isAvailable || isIncoming) && (
                     <button className="btn-admin-sold" onClick={() => {
-                      setSellForm(f => ({ ...f, total_amount: item.price?.toString() ?? '' }))
+                      setSellForm(f => ({ ...f, total_amount: item.price?.toString() ?? '', customer_name: '', customer_phone: '', customer_address: '', customer_note: '', fb_url: '' }))
+                      setCustMode('search')
+                      setCustSearch('')
+                      setCustResults([])
+                      setCustDropOpen(false)
                       setSellOpen(true)
                     }}>✓ Đánh dấu đã bán</button>
                   )}
@@ -657,46 +704,132 @@ export default function ItemDetailClient({ item }: { item: Item }) {
               <strong>{item.title}</strong>
               {item.price && <span style={{ color: '#2a7a4b', fontWeight: 700, marginLeft: 8 }}>{fmtVND(item.price)}</span>}
             </div>
-            <div className="edit-grid">
-              <div className="edit-field">
-                <label className="lbl">Tên khách *</label>
-                <input className="inp" placeholder="Nguyễn Văn A" value={sellForm.customer_name}
-                  onChange={e => setSellForm(f => ({ ...f, customer_name: e.target.value }))} />
+
+            {/* ── Customer selector ── */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span className="lbl" style={{ margin: 0 }}>Khách hàng</span>
+                <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+                  <button
+                    className={custMode === 'search' ? 'cust-tab cust-tab-active' : 'cust-tab'}
+                    onClick={() => { setCustMode('search'); setCustSearch(''); setCustResults([]); setCustDropOpen(false) }}
+                  >🔍 Tìm khách cũ</button>
+                  <button
+                    className={custMode === 'new' ? 'cust-tab cust-tab-active' : 'cust-tab'}
+                    onClick={() => { setCustMode('new'); setSellForm(f => ({ ...f, customer_name: '', customer_phone: '', customer_address: '', customer_note: '' })) }}
+                  >✏️ Nhập mới</button>
+                </div>
               </div>
-              <div className="edit-field">
-                <label className="lbl">SĐT *</label>
-                <input className="inp" placeholder="09xxxxxxxx" value={sellForm.customer_phone}
-                  onChange={e => setSellForm(f => ({ ...f, customer_phone: e.target.value }))} />
-              </div>
-              <div className="edit-field edit-field-full">
-                <label className="lbl">Địa chỉ *</label>
-                <input className="inp" placeholder="Số nhà, đường, quận, tỉnh..." value={sellForm.customer_address}
-                  onChange={e => setSellForm(f => ({ ...f, customer_address: e.target.value }))} />
-              </div>
-              <div className="edit-field">
-                <label className="lbl">Giá bán (VNĐ)</label>
-                <input className="inp" type="number" value={sellForm.total_amount}
-                  onChange={e => setSellForm(f => ({ ...f, total_amount: e.target.value }))} />
-              </div>
-              <div className="edit-field">
-                <label className="lbl">Thanh toán</label>
-                <select className="inp" value={sellForm.payment_method}
-                  onChange={e => setSellForm(f => ({ ...f, payment_method: e.target.value }))}>
-                  <option value="cod">COD</option>
-                  <option value="bank_transfer">Chuyển khoản</option>
-                </select>
-              </div>
-              <div className="edit-field edit-field-full">
-                <label className="lbl">Facebook URL khách (tuỳ chọn)</label>
-                <input className="inp" placeholder="https://facebook.com/username" value={sellForm.fb_url}
-                  onChange={e => setSellForm(f => ({ ...f, fb_url: e.target.value }))} />
-              </div>
-              <div className="edit-field edit-field-full">
-                <label className="lbl">Ghi chú</label>
-                <input className="inp" placeholder="Ghi chú thêm..." value={sellForm.customer_note}
-                  onChange={e => setSellForm(f => ({ ...f, customer_note: e.target.value }))} />
-              </div>
+
+              {custMode === 'search' && (
+                <div style={{ position: 'relative' }}>
+                  <input
+                    className="inp"
+                    placeholder="Tìm theo tên hoặc SĐT..."
+                    value={custSearch}
+                    onChange={e => { setCustSearch(e.target.value); searchCustomers(e.target.value) }}
+                    onFocus={() => custResults.length > 0 && setCustDropOpen(true)}
+                    autoComplete="off"
+                  />
+                  {custSearching && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: 'var(--muted)' }}>⏳</span>}
+                  {custDropOpen && custResults.length > 0 && (
+                    <div className="cust-dropdown">
+                      {custResults.map(c => (
+                        <div key={c.id} className="cust-item" onClick={() => selectCustomer(c)}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 600, fontSize: 14 }}>{c.name}</span>
+                            {c.order_count > 0 && <span className="cust-badge">{c.order_count} đơn</span>}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                            📞 {c.phone}{c.address ? ` · 📍 ${c.address}` : ''}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {custSearch && !custSearching && custResults.length === 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6, textAlign: 'center', padding: '8px 0' }}>
+                      Không tìm thấy khách cũ. <button className="lnk" onClick={() => setCustMode('new')}>Nhập mới →</button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* ── Customer form (prefilled or blank) ── */}
+            {custMode === 'new' && (
+              <div className="edit-grid">
+                <div className="edit-field">
+                  <label className="lbl">Tên khách *</label>
+                  <input className="inp" placeholder="Nguyễn Văn A" value={sellForm.customer_name}
+                    onChange={e => setSellForm(f => ({ ...f, customer_name: e.target.value }))} />
+                </div>
+                <div className="edit-field">
+                  <label className="lbl">SĐT *</label>
+                  <input className="inp" placeholder="09xxxxxxxx" value={sellForm.customer_phone}
+                    onChange={e => setSellForm(f => ({ ...f, customer_phone: e.target.value }))} />
+                </div>
+                <div className="edit-field edit-field-full">
+                  <label className="lbl">Địa chỉ *</label>
+                  <input className="inp" placeholder="Số nhà, đường, quận, tỉnh..." value={sellForm.customer_address}
+                    onChange={e => setSellForm(f => ({ ...f, customer_address: e.target.value }))} />
+                </div>
+                <div className="edit-field">
+                  <label className="lbl">Giá bán (VNĐ)</label>
+                  <input className="inp" type="number" value={sellForm.total_amount}
+                    onChange={e => setSellForm(f => ({ ...f, total_amount: e.target.value }))} />
+                </div>
+                <div className="edit-field">
+                  <label className="lbl">Thanh toán</label>
+                  <select className="inp" value={sellForm.payment_method}
+                    onChange={e => setSellForm(f => ({ ...f, payment_method: e.target.value }))}>
+                    <option value="cod">COD</option>
+                    <option value="bank_transfer">Chuyển khoản</option>
+                  </select>
+                </div>
+                <div className="edit-field edit-field-full">
+                  <label className="lbl">Facebook URL khách (tuỳ chọn)</label>
+                  <input className="inp" placeholder="https://facebook.com/username" value={sellForm.fb_url}
+                    onChange={e => setSellForm(f => ({ ...f, fb_url: e.target.value }))} />
+                </div>
+                <div className="edit-field edit-field-full">
+                  <label className="lbl">Ghi chú</label>
+                  <input className="inp" placeholder="Ghi chú thêm..." value={sellForm.customer_note}
+                    onChange={e => setSellForm(f => ({ ...f, customer_note: e.target.value }))} />
+                </div>
+              </div>
+            )}
+
+            {/* ── Order fields shown in search mode too ── */}
+            {custMode === 'search' && sellForm.customer_name && (
+              <>
+                <div style={{ background: '#edf7f2', border: '1px solid #b7e4c7', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13 }}>
+                  <div style={{ fontWeight: 600 }}>✓ {sellForm.customer_name}</div>
+                  <div style={{ color: 'var(--muted)', marginTop: 2 }}>📞 {sellForm.customer_phone}{sellForm.customer_address ? ` · 📍 ${sellForm.customer_address}` : ''}</div>
+                </div>
+                <div className="edit-grid">
+                  <div className="edit-field">
+                    <label className="lbl">Giá bán (VNĐ)</label>
+                    <input className="inp" type="number" value={sellForm.total_amount}
+                      onChange={e => setSellForm(f => ({ ...f, total_amount: e.target.value }))} />
+                  </div>
+                  <div className="edit-field">
+                    <label className="lbl">Thanh toán</label>
+                    <select className="inp" value={sellForm.payment_method}
+                      onChange={e => setSellForm(f => ({ ...f, payment_method: e.target.value }))}>
+                      <option value="cod">COD</option>
+                      <option value="bank_transfer">Chuyển khoản</option>
+                    </select>
+                  </div>
+                  <div className="edit-field edit-field-full">
+                    <label className="lbl">Ghi chú</label>
+                    <input className="inp" placeholder="Ghi chú thêm..." value={sellForm.customer_note}
+                      onChange={e => setSellForm(f => ({ ...f, customer_note: e.target.value }))} />
+                  </div>
+                </div>
+              </>
+            )}
+
             <div className="modal-actions" style={{ marginTop: 16 }}>
               <button className="btn-ghost" onClick={() => setSellOpen(false)}>Hủy</button>
               <button className="btn-admin-sold" onClick={handleSell} disabled={sellSaving} style={{ padding: '9px 20px' }}>
@@ -873,6 +1006,17 @@ main{max-width:1000px;margin:0 auto;padding:40px 24px}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 .btn-ghost{background:none;border:1px solid var(--border);padding:7px 16px;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;color:var(--muted)}
 .btn-ghost:hover{border-color:var(--accent);color:var(--text)}
+
+/* Customer search */
+.cust-tab{background:none;border:1px solid var(--border);padding:5px 10px;border-radius:6px;font-family:inherit;font-size:12px;cursor:pointer;color:var(--muted);transition:all .15s}
+.cust-tab:hover{border-color:var(--accent);color:var(--text)}
+.cust-tab-active{background:var(--accent);color:white!important;border-color:var(--accent)!important}
+.cust-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;overflow:hidden}
+.cust-item{padding:10px 12px;cursor:pointer;transition:background .1s;border-bottom:1px solid var(--border)}
+.cust-item:last-child{border-bottom:none}
+.cust-item:hover{background:var(--tag-bg)}
+.cust-badge{background:#edf7f2;color:var(--green);font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px}
+.lnk{background:none;border:none;font-family:inherit;font-size:12px;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline;font-weight:500}
 
 @media(max-width:700px){
   main{padding:24px 16px}
