@@ -11,25 +11,21 @@ export default function RefundPolicy() {
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>1. Điều kiện áp dụng</h3>
-        <p>Theo các điều khoản và điều kiện được quy định trong Chính sách Trả hàng và Hoàn tiền này, người mua có quyền yêu cầu trả hàng và hoàn tiền trong các trường hợp sau:</p>
+        <p>Tất cả các mặt hàng giao cho khách phải đúng với mô tả lúc chốt đơn. Trong trường hợp hàng hoá không đúng mô tả hoặc bị nứt vỡ, hư hỏng trong quá trình vận chuyển, quý khách có 2 lựa chọn xử lý sau đây:</p>
         <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <li>Sản phẩm bị lỗi hoặc bị hư hại trong quá trình vận chuyển.</li>
-          <li>Người bán giao sai sản phẩm cho người mua (VD: sai kích cỡ, sai màu sắc...).</li>
-          <li>Sản phẩm người mua nhận được khác biệt một cách rõ rệt so với thông tin mà người bán cung cấp trong mục mô tả sản phẩm.</li>
+          <li><strong>Lựa chọn 1:</strong> Trả lại hàng, hoàn tiền. Người bán sẽ chịu toàn bộ chi phí vận chuyển chiều trả hàng.</li>
+          <li><strong>Lựa chọn 2:</strong> Giảm giá cho đơn hàng đó tuỳ theo thoả thuận giữa hai bên để khách hàng giữ lại sản phẩm.</li>
         </ul>
-        <p>Lưu ý: Do đặc thù các sản phẩm đồ cũ (hàng 2nd), chúng tôi đã mô tả kỹ tình trạng hiện tại của sản phẩm. Quý khách vui lòng kiểm tra kỹ hình ảnh và mô tả trước khi đặt hàng. Chúng tôi không chấp nhận trả hàng với lý do "không ưng ý" đối với các mặt hàng đồ cũ đã được mô tả đúng hiện trạng.</p>
+        <p>Lưu ý: Do đặc thù các sản phẩm đồ cũ (hàng 2nd), chúng tôi đã mô tả kỹ tình trạng hiện tại của sản phẩm. Quý khách vui lòng kiểm tra kỹ hình ảnh và mô tả trước khi chốt đơn. Chúng tôi không chấp nhận trả hàng với lý do "không ưng ý" đối với các mặt hàng đồ cũ đã được giao đúng hiện trạng và mô tả.</p>
 
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>2. Thời gian đổi trả</h3>
-        <p>Quý khách cần thông báo yêu cầu đổi trả và gửi trả sản phẩm trong vòng <strong>3 ngày</strong> kể từ ngày nhận hàng (căn cứ theo thời gian cập nhật trên hệ thống vận chuyển).</p>
+        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>2. Thời gian thông báo</h3>
+        <p>Quý khách cần kiểm tra hàng và thông báo yêu cầu khiếu nại (đổi trả / hoàn tiền / giảm giá) cho chúng tôi ngay khi nhận hàng hoặc trong vòng tối đa <strong>3 ngày</strong> kể từ ngày nhận hàng (căn cứ theo thời gian cập nhật trên hệ thống vận chuyển).</p>
 
         <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>3. Trạng thái của hàng trả lại</h3>
-        <p>Để hạn chế các rắc rối phát sinh, người mua vui lòng gửi trả sản phẩm bao gồm toàn bộ phụ kiện đi kèm, hóa đơn VAT, tem phiếu bảo hành... nếu có. Sản phẩm phải trong tình trạng nguyên vẹn như khi nhận hàng, chưa qua sử dụng, chưa giặt ủi.</p>
+        <p>Nếu chọn phương án trả hàng, người mua vui lòng đóng gói kỹ lưỡng và gửi trả sản phẩm bao gồm toàn bộ phụ kiện đi kèm (nếu có). Sản phẩm phải trong tình trạng nguyên vẹn như khi nhận hàng (ngoài các lỗi hư hỏng đã báo cáo), chưa qua sử dụng thêm.</p>
 
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>4. Phí vận chuyển hàng trả lại</h3>
-        <p>Trong trường hợp lỗi thuộc về phía người bán (giao sai hàng, hàng lỗi kỹ thuật), chúng tôi sẽ chịu toàn bộ chi phí vận chuyển chiều trả hàng.</p>
-
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>5. Hoàn tiền</h3>
-        <p>Chúng tôi sẽ tiến hành hoàn tiền cho người mua khi chúng tôi xác nhận đã nhận được Hàng trả lại. Quá trình hoàn tiền thường mất từ 1 - 3 ngày làm việc thông qua chuyển khoản ngân hàng.</p>
+        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>4. Hoàn tiền</h3>
+        <p>Chúng tôi sẽ tiến hành hoàn tiền cho người mua ngay khi xác nhận tình trạng lỗi từ hình ảnh/video cung cấp hoặc sau khi chúng tôi nhận lại được Hàng trả lại. Quá trình hoàn tiền thực hiện thông qua chuyển khoản ngân hàng.</p>
       </div>
     </div>
   )

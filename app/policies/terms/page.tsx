@@ -1,33 +1,38 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Quy định chung & Điều khoản',
+  title: 'Chính sách mua hàng & Quy định chung',
 }
 
 export default function TermsPolicy() {
   return (
     <div style={{ background: '#fff', border: '1px solid #e8e6e1', borderRadius: 12, padding: '32px 40px' }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Quy định chung & Điều khoản</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Chính sách mua hàng & Quy định chung</h1>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <p>Chào mừng bạn đến với <strong>leviethoang.shop</strong>. Bằng việc sử dụng trang web này, bạn đồng ý tuân thủ và bị ràng buộc bởi các điều khoản và điều kiện sử dụng dưới đây. Vui lòng đọc kỹ các điều khoản này trước khi thực hiện mua hàng.</p>
-        
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>1. Hướng dẫn sử dụng web</h3>
-        <p>Khi vào web của chúng tôi, khách hàng phải đảm bảo đủ 18 tuổi, hoặc truy cập dưới sự giám sát của cha mẹ hay người giám hộ hợp pháp. Khách hàng đảm bảo có đầy đủ hành vi dân sự để thực hiện các giao dịch mua bán hàng hóa theo quy định hiện hành của pháp luật Việt Nam.</p>
-        <p>Nghiêm cấm sử dụng bất kỳ phần nào của trang web này với mục đích thương mại hoặc nhân danh bất kỳ đối tác thứ ba nào nếu không được chúng tôi cho phép bằng văn bản.</p>
+        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>1. Quy định về số lượng và giá cả</h3>
+        <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <li>Nếu bài đăng không ghi thêm số lượng thì mỗi món hàng chỉ có 1 đơn vị duy nhất.</li>
+          <li>Quý khách vui lòng <strong>không trả giá thêm</strong>. Nếu muốn mua được giá rẻ hơn, quý khách có thể đợi vào các đợt giảm giá, xả hàng của shop.</li>
+        </ul>
 
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>2. Ý kiến khách hàng</h3>
-        <p>Tất cả nội dung trang web và ý kiến phê bình của quý khách đều là tài sản của chúng tôi. Nếu chúng tôi phát hiện bất kỳ thông tin giả mạo nào, chúng tôi sẽ khóa tài khoản của quý khách ngay lập tức hoặc áp dụng các biện pháp khác theo quy định của pháp luật Việt Nam.</p>
+        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>2. Quy định "Chốt đơn"</h3>
+        <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <li>Khách bình luận hoặc nhắn tin để chốt đơn. Thời gian chốt đơn sẽ tính theo thời điểm bình luận hoặc nhắn tin hiện trên hệ thống.</li>
+          <li><strong>Nguyên tắc ưu tiên:</strong> Khách chốt trước sẽ được ưu tiên trước. Nếu khách đó không mua nữa, cơ hội mua hàng sẽ được nhường lại cho khách chốt sau theo đúng thứ tự thời gian.</li>
+        </ul>
 
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>3. Chấp nhận đơn hàng và giá cả</h3>
-        <p>Chúng tôi có quyền từ chối hoặc hủy đơn hàng của quý khách vì bất kỳ lý do gì liên quan đến lỗi kỹ thuật, hệ thống một cách khách quan vào bất kỳ lúc nào.</p>
-        <p>Chúng tôi cam kết sẽ cung cấp thông tin giá cả chính xác nhất cho người tiêu dùng. Tuy nhiên, đôi lúc vẫn có sai sót xảy ra, ví dụ như trường hợp giá sản phẩm không hiển thị chính xác trên trang web hoặc sai giá, tùy theo từng trường hợp chúng tôi sẽ liên hệ hướng dẫn hoặc thông báo hủy đơn hàng đó cho quý khách.</p>
+        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>3. Trách nhiệm giao hàng & Huỷ đơn</h3>
+        <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <li>Sau khi chốt đơn thành công, người bán cam kết bàn giao đúng hàng cho đơn vị vận chuyển chậm nhất là <strong>3 ngày</strong>.</li>
+          <li>Sau thời hạn 3 ngày mà hàng chưa được gửi đi, khách hàng có quyền huỷ đơn bất cứ lúc nào và được hoàn lại toàn bộ tiền cọc (nếu có).</li>
+        </ul>
 
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>4. Thay đổi thông tin</h3>
-        <p>Chúng tôi giữ quyền thay đổi, chỉnh sửa, thêm hoặc lược bỏ bất kỳ phần nào trong Quy định và Điều khoản sử dụng này vào bất cứ lúc nào. Các thay đổi có hiệu lực ngay khi được đăng trên trang web mà không cần thông báo trước.</p>
-
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>5. Giải quyết tranh chấp</h3>
-        <p>Bất kỳ tranh cãi, khiếu nại hoặc tranh chấp phát sinh từ hoặc liên quan đến giao dịch tại <strong>leviethoang.shop</strong> hoặc các Quy định và Điều khoản này đều sẽ được giải quyết bằng hình thức thương lượng, hòa giải, trọng tài và/hoặc Tòa án theo Luật bảo vệ Người tiêu dùng Chương 4 về Giải quyết tranh chấp.</p>
+        <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>4. Quy định giữ đơn & Thanh toán</h3>
+        <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <li><strong>Dồn đơn (giữ đơn):</strong> Khách muốn dồn nhiều đơn để gửi 1 lần vui lòng chuyển khoản trước. Trong vòng 2 ngày nếu không chuyển khoản, shop sẽ tự động đi đơn COD hoặc xả đơn (huỷ đơn) tuỳ theo thoả thuận.</li>
+          <li>Khách muốn đi đơn COD ngay không cần phải đặt cọc trước.</li>
+        </ul>
       </div>
     </div>
   )
