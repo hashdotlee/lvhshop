@@ -157,8 +157,16 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   const [createStagedItem, setCreateStagedItem] = useState<Item | null>(null)
   const [createStagedPrice, setCreateStagedPrice] = useState('')
 
+  // Customers fetched from DB (bảng customers)
+  const [dbCustomers, setDbCustomers] = useState<Array<{ name: string; phone: string; address: string; fb_psid: string; order_count?: number }>>([])
+
   const allCustomers = useMemo(() => {
+    // Start with DB customers as base
     const map = new Map<string, { name: string; phone: string; address: string; fb_psid: string }>()
+    for (const c of dbCustomers) {
+      if (c.phone) map.set(c.phone, { name: c.name, phone: c.phone, address: c.address ?? '', fb_psid: c.fb_psid ?? '' })
+    }
+    // Merge from orders (may have fresher fb_psid)
     for (const o of orders) {
       if (!map.has(o.customer_phone)) {
         map.set(o.customer_phone, {
@@ -167,10 +175,14 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
           address: o.customer_address,
           fb_psid: o.fb_psid ?? ''
         })
+      } else if (o.fb_psid) {
+        // Update fb_psid if order has one
+        const existing = map.get(o.customer_phone)!
+        if (!existing.fb_psid) map.set(o.customer_phone, { ...existing, fb_psid: o.fb_psid })
       }
     }
     return Array.from(map.values())
-  }, [orders])
+  }, [orders, dbCustomers])
 
   const [showNameDropdown, setShowNameDropdown] = useState(false)
   const [showPhoneDropdown, setShowPhoneDropdown] = useState(false)
@@ -221,8 +233,20 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     }
   }
 
+  // ── Fetch customers from DB ────────────────────────────────────
+  async function fetchDbCustomers() {
+    try {
+      const r = await fetch('/api/customers', { headers: { 'x-admin-key': adminKey } })
+      if (r.ok) {
+        const d = await r.json()
+        if (Array.isArray(d)) setDbCustomers(d)
+      }
+    } catch { /* silent */ }
+  }
+
   useEffect(() => {
     fetchOrders()
+    fetchDbCustomers()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1161,13 +1185,21 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                     onFocus={() => handleCustomerSearch(form.customer_name, 'name', true)}
                     onBlur={() => setTimeout(() => setShowNameDropdown(false), 200)} />
                   {showNameDropdown && custSearchResults.length > 0 && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid var(--border)', borderRadius: 6, zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
-                      {custSearchResults.map(c => (
-                        <div key={c.phone} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }} onClick={() => selectCustomer(c)}>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{c.name} - {c.phone}</div>
-                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.address}</div>
-                        </div>
-                      ))}
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid var(--border)', borderRadius: 6, zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: 220, overflowY: 'auto', marginTop: 4 }}>
+                      {custSearchResults.map(c => {
+                        const dbC = dbCustomers.find(d => d.phone === c.phone)
+                        return (
+                          <div key={c.phone} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => selectCustomer(c)}>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{c.name} · {c.phone}</div>
+                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.address || 'Chưa có địa chỉ'}</div>
+                            </div>
+                            {dbC && dbC.order_count != null && dbC.order_count > 0 && (
+                              <span style={{ background: '#edf7f2', color: '#2a7a4b', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, flexShrink: 0, marginLeft: 8 }}>{dbC.order_count} đơn</span>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -1178,13 +1210,21 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                     onFocus={() => handleCustomerSearch(form.customer_phone, 'phone', true)}
                     onBlur={() => setTimeout(() => setShowPhoneDropdown(false), 200)} />
                   {showPhoneDropdown && custSearchResults.length > 0 && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid var(--border)', borderRadius: 6, zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
-                      {custSearchResults.map(c => (
-                        <div key={c.phone} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }} onClick={() => selectCustomer(c)}>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{c.phone} - {c.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.address}</div>
-                        </div>
-                      ))}
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid var(--border)', borderRadius: 6, zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: 220, overflowY: 'auto', marginTop: 4 }}>
+                      {custSearchResults.map(c => {
+                        const dbC = dbCustomers.find(d => d.phone === c.phone)
+                        return (
+                          <div key={c.phone} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => selectCustomer(c)}>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{c.phone} · {c.name}</div>
+                              <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.address || 'Chưa có địa chỉ'}</div>
+                            </div>
+                            {dbC && dbC.order_count != null && dbC.order_count > 0 && (
+                              <span style={{ background: '#edf7f2', color: '#2a7a4b', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, flexShrink: 0, marginLeft: 8 }}>{dbC.order_count} đơn</span>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
