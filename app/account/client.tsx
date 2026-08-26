@@ -48,46 +48,91 @@ export default function AccountClient() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setSupaUser({
-          id: session.user.id,
-          email: session.user.email ?? '',
-          name: session.user.user_metadata?.full_name ?? session.user.email ?? '',
-          fb_url: session.user.user_metadata?.fb_url ?? '',
-        })
+        checkUserStatus(session.user)
+      } else {
+        setChecking(false)
       }
-      setChecking(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session?.user) {
-        setSupaUser({
-          id: session.user.id,
-          email: session.user.email ?? '',
-          name: session.user.user_metadata?.full_name ?? session.user.email ?? '',
-          fb_url: session.user.user_metadata?.fb_url ?? '',
-        })
+        checkUserStatus(session.user)
       } else {
         setSupaUser(null)
+        setChecking(false)
       }
     })
     return () => subscription.unsubscribe()
   }, [])
 
+  async function checkUserStatus(user: any) {
+    const { data } = await supabase.from('user_profiles').select('status').eq('id', user.id).single()
+    if (data && data.status !== 'approved') {
+      await supabase.auth.signOut()
+      setAuthError('Tài khoản của bạn đang chờ Admin duyệt.')
+      setChecking(false)
+      return
+    }
+    setSupaUser({
+      id: user.id,
+      email: user.email?.replace('@lvhshop.internal', '') ?? '',
+      name: user.user_metadata?.full_name ?? user.email ?? '',
+      fb_url: user.user_metadata?.fb_url ?? '',
+    })
+    setChecking(false)
+  }
+
+  function parseAuthInput(input: string) {
+    const isPhone = /^[0-9\+\s]+$/.test(input)
+    if (isPhone) {
+      const cleanPhone = input.replace(/\s/g, '')
+      return { email: `${cleanPhone}@lvhshop.internal`, phone: cleanPhone }
+    }
+    return { email: input, phone: null }
+  }
+
   async function handleSignIn() {
+    if (!authForm.email.trim()) { setAuthError('Vui lòng nhập email hoặc SĐT'); return }
     setAuthLoading(true); setAuthError('')
-    const { error } = await supabase.auth.signInWithPassword({ email: authForm.email, password: authForm.password })
+    const { email } = parseAuthInput(authForm.email)
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: authForm.password })
+    
+    if (error) {
+      setAuthError(error.message === 'Invalid login credentials' ? 'Email/SĐT hoặc mật khẩu không đúng' : error.message)
+      setAuthLoading(false)
+      return
+    }
+    
+    if (data.session) {
+      const { data: profile } = await supabase.from('user_profiles').select('status').eq('id', data.user.id).single()
+      if (profile && profile.status !== 'approved') {
+        await supabase.auth.signOut()
+        setAuthError('Tài khoản của bạn đang chờ Admin duyệt.')
+      }
+    }
     setAuthLoading(false)
-    if (error) setAuthError(error.message === 'Invalid login credentials' ? 'Email hoặc mật khẩu không đúng' : error.message)
   }
 
   async function handleSignUp() {
     if (!authForm.name.trim()) { setAuthError('Vui lòng nhập họ tên'); return }
+    if (!authForm.email.trim()) { setAuthError('Vui lòng nhập email hoặc SĐT'); return }
     setAuthLoading(true); setAuthError('')
-    const { error } = await supabase.auth.signUp({
-      email: authForm.email, password: authForm.password,
-      options: { data: { full_name: authForm.name } },
+    
+    const { email, phone } = parseAuthInput(authForm.email)
+    const { data, error } = await supabase.auth.signUp({
+      email, password: authForm.password,
+      options: { data: { full_name: authForm.name, phone } },
     })
     setAuthLoading(false)
-    if (error) setAuthError(error.message)
+    
+    if (error) {
+      setAuthError(error.message === 'User already registered' ? 'Email/SĐT này đã được đăng ký' : error.message)
+      return
+    }
+    
+    if (data.user) {
+      setAuthError('Đăng ký thành công! Vui lòng chờ Admin duyệt tài khoản.')
+      setAuthMode('login')
+    }
   }
 
   if (checking) return null
@@ -188,8 +233,8 @@ function AuthBox({ mode, setMode, form, setForm, onLogin, onSignup, loading, err
             </div>
           )}
           <div className="ac-field">
-            <label className="ac-label">Email</label>
-            <input className="ac-input" type="email" placeholder="email@example.com" value={form.email} onChange={set('email')}
+            <label className="ac-label">Email hoặc Số điện thoại</label>
+            <input className="ac-input" placeholder="email@example.com hoặc 09xxxxxxxx" value={form.email} onChange={set('email')}
               onKeyDown={e => e.key === 'Enter' && submit()} />
           </div>
           <div className="ac-field">
@@ -253,7 +298,7 @@ function ProfileTab({ user, onNameChange, onFbUrlChange }: {
         <div className="ac-card-title">Thông tin tài khoản</div>
         <div className="ac-field-row">
           <div className="ac-field">
-            <label className="ac-label">Email</label>
+            <label className="ac-label">Tài khoản (Email / SĐT)</label>
             <input className="ac-input" value={user.email} disabled style={{ opacity: .6 }} />
           </div>
           <div className="ac-field">

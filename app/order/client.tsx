@@ -32,17 +32,12 @@ export default function OrderClient() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        const name = session.user.user_metadata?.full_name ?? session.user.email ?? ''
-        setSupaUser({ email: session.user.email ?? '', name, fb_url: session.user.user_metadata?.fb_url ?? '' })
-        fetchAddresses(session.access_token)
-        setStep('form')
+        checkUserStatus(session.user, session.access_token)
       }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        const name = session.user.user_metadata?.full_name ?? session.user.email ?? ''
-        setSupaUser({ email: session.user.email ?? '', name, fb_url: session.user.user_metadata?.fb_url ?? '' })
-        fetchAddresses(session.access_token)
+        checkUserStatus(session.user, session.access_token)
       } else {
         setSupaUser(null)
         setSavedAddresses([])
@@ -50,6 +45,29 @@ export default function OrderClient() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  async function checkUserStatus(user: any, jwt: string) {
+    const { data } = await supabase.from('user_profiles').select('status').eq('id', user.id).single()
+    if (data && data.status !== 'approved') {
+      await supabase.auth.signOut()
+      setAuthError('Tài khoản của bạn đang chờ Admin duyệt.')
+      return
+    }
+    const name = user.user_metadata?.full_name ?? user.email ?? ''
+    const email = user.email?.replace('@lvhshop.internal', '') ?? ''
+    setSupaUser({ email, name, fb_url: user.user_metadata?.fb_url ?? '' })
+    fetchAddresses(jwt)
+    setStep('form')
+  }
+
+  function parseAuthInput(input: string) {
+    const isPhone = /^[0-9\+\s]+$/.test(input)
+    if (isPhone) {
+      const cleanPhone = input.replace(/\s/g, '')
+      return { email: `${cleanPhone}@lvhshop.internal`, phone: cleanPhone }
+    }
+    return { email: input, phone: null }
+  }
 
   async function fetchAddresses(jwt?: string) {
     if (!jwt) {
@@ -69,10 +87,29 @@ export default function OrderClient() {
   }
 
   async function handleSignIn() {
+    if (!authForm.email || !authForm.password) { setAuthError('Nhập email/SĐT và mật khẩu'); return }
     setAuthLoading(true); setAuthError('')
-    const { data, error } = await supabase.auth.signInWithPassword({ email: authForm.email, password: authForm.password })
+    
+    const { email } = parseAuthInput(authForm.email)
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: authForm.password })
+    
+    if (error) {
+      setAuthError(error.message === 'Invalid login credentials' ? 'Email/SĐT hoặc mật khẩu không đúng' : error.message)
+      setAuthLoading(false)
+      return
+    }
+    
+    if (data.session) {
+      const { data: profile } = await supabase.from('user_profiles').select('status').eq('id', data.user.id).single()
+      if (profile && profile.status !== 'approved') {
+        await supabase.auth.signOut()
+        setAuthError('Tài khoản của bạn đang chờ Admin duyệt.')
+        setAuthLoading(false)
+        return
+      }
+    }
+    
     setAuthLoading(false)
-    if (error) { setAuthError(error.message); return }
     await fetchAddresses(data.session?.access_token)
     setStep('form')
     window.scrollTo(0, 0)
@@ -80,16 +117,23 @@ export default function OrderClient() {
 
   async function handleSignUp() {
     if (!authForm.name.trim()) { setAuthError('Vui lòng nhập họ tên'); return }
+    if (!authForm.email)       { setAuthError('Vui lòng nhập email hoặc SĐT'); return }
     setAuthLoading(true); setAuthError('')
+    
+    const { email, phone } = parseAuthInput(authForm.email)
     const { data: signUpData, error } = await supabase.auth.signUp({
-      email: authForm.email, password: authForm.password,
-      options: { data: { full_name: authForm.name } },
+      email, password: authForm.password,
+      options: { data: { full_name: authForm.name, phone } },
     })
     setAuthLoading(false)
-    if (error) { setAuthError(error.message); return }
-    await fetchAddresses(signUpData.session?.access_token)
-    setStep('form')
-    window.scrollTo(0, 0)
+    if (error) {
+      setAuthError(error.message === 'User already registered' ? 'Email/SĐT này đã được đăng ký' : error.message)
+      return
+    }
+    if (signUpData.user) {
+      setAuthError('Đăng ký thành công! Vui lòng chờ Admin duyệt tài khoản.')
+      setAuthMode('login')
+    }
   }
 
   async function saveNewAddr() {
@@ -196,8 +240,8 @@ export default function OrderClient() {
                   </div>
                 )}
                 <div className="ord-field">
-                  <label className="ord-label">Email</label>
-                  <input className="ord-input" type="email" placeholder="email@example.com" value={authForm.email}
+                  <label className="ord-label">Email hoặc Số điện thoại</label>
+                  <input className="ord-input" placeholder="email@example.com hoặc 09xxxxxxxx" value={authForm.email}
                     onChange={e => setAuthForm(f => ({ ...f, email: e.target.value }))} />
                 </div>
                 <div className="ord-field">

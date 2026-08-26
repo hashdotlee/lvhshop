@@ -62,16 +62,40 @@ export default function OrderPopup({ open, onClose, item, items, onSuccess }: Pr
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setSupaUser({ email: user.email ?? '', name: user.user_metadata?.full_name ?? user.email ?? '' })
-      setAuthChecked(true)
+      if (user) checkUserStatus(user)
+      else setAuthChecked(true)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       const u = session?.user
-      setSupaUser(u ? { email: u.email ?? '', name: u.user_metadata?.full_name ?? u.email ?? '' } : null)
-      setAuthChecked(true)
+      if (u) checkUserStatus(u)
+      else {
+        setSupaUser(null)
+        setAuthChecked(true)
+      }
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  async function checkUserStatus(user: any) {
+    const { data } = await supabase.from('user_profiles').select('status').eq('id', user.id).single()
+    if (data && data.status !== 'approved') {
+      await supabase.auth.signOut()
+      setAuthError('Tài khoản của bạn đang chờ Admin duyệt.')
+      setAuthChecked(true)
+      return
+    }
+    setSupaUser({ email: user.email?.replace('@lvhshop.internal', '') ?? '', name: user.user_metadata?.full_name ?? user.email ?? '' })
+    setAuthChecked(true)
+  }
+
+  function parseAuthInput(input: string) {
+    const isPhone = /^[0-9\+\s]+$/.test(input)
+    if (isPhone) {
+      const cleanPhone = input.replace(/\s/g, '')
+      return { email: `${cleanPhone}@lvhshop.internal`, phone: cleanPhone }
+    }
+    return { email: input, phone: null }
+  }
 
   useEffect(() => {
     if (!open) {
@@ -171,24 +195,45 @@ export default function OrderPopup({ open, onClose, item, items, onSuccess }: Pr
   }
 
   async function signIn() {
-    if (!authForm.email || !authForm.password) { setAuthError('Nhập email và mật khẩu'); return }
+    if (!authForm.email || !authForm.password) { setAuthError('Nhập email/SĐT và mật khẩu'); return }
     setAuthLoading(true); setAuthError('')
-    const { error } = await supabase.auth.signInWithPassword({ email: authForm.email, password: authForm.password })
+    const { email } = parseAuthInput(authForm.email)
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: authForm.password })
+    if (error) {
+      setAuthError(error.message === 'Invalid login credentials' ? 'Email/SĐT hoặc mật khẩu không đúng' : error.message)
+      setAuthLoading(false)
+      return
+    }
+    if (data.session) {
+      const { data: profile } = await supabase.from('user_profiles').select('status').eq('id', data.user.id).single()
+      if (profile && profile.status !== 'approved') {
+        await supabase.auth.signOut()
+        setAuthError('Tài khoản của bạn đang chờ Admin duyệt.')
+      }
+    }
     setAuthLoading(false)
-    if (error) setAuthError(error.message === 'Invalid login credentials' ? 'Email hoặc mật khẩu không đúng' : error.message)
   }
 
   async function signUp() {
     if (!authForm.name.trim())        { setAuthError('Nhập họ tên'); return }
-    if (!authForm.email)              { setAuthError('Nhập email'); return }
+    if (!authForm.email)              { setAuthError('Nhập email hoặc SĐT'); return }
     if (authForm.password.length < 6) { setAuthError('Mật khẩu tối thiểu 6 ký tự'); return }
     setAuthLoading(true); setAuthError('')
-    const { error } = await supabase.auth.signUp({
-      email: authForm.email, password: authForm.password,
-      options: { data: { full_name: authForm.name } },
+    
+    const { email, phone } = parseAuthInput(authForm.email)
+    const { data, error } = await supabase.auth.signUp({
+      email, password: authForm.password,
+      options: { data: { full_name: authForm.name, phone } },
     })
     setAuthLoading(false)
-    if (error) setAuthError(error.message)
+    if (error) {
+      setAuthError(error.message === 'User already registered' ? 'Email/SĐT này đã được đăng ký' : error.message)
+      return
+    }
+    if (data.user) {
+      setAuthError('Đăng ký thành công! Vui lòng chờ duyệt.')
+      setAuthMode('login')
+    }
   }
 
   function connectFacebook() {
@@ -318,8 +363,8 @@ export default function OrderPopup({ open, onClose, item, items, onSuccess }: Pr
                   </div>
                 )}
                 <div>
-                  <label className="lbl">Email</label>
-                  <input className="inp" type="email" placeholder="email@example.com" autoFocus={authMode === 'login'} value={authForm.email}
+                  <label className="lbl">Email hoặc Số điện thoại</label>
+                  <input className="inp" placeholder="email@example.com hoặc 09xxxxxxxx" autoFocus={authMode === 'login'} value={authForm.email}
                     onChange={e => setAuthForm(f => ({ ...f, email: e.target.value }))}
                     onKeyDown={e => e.key === 'Enter' && (authMode === 'login' ? signIn() : signUp())} />
                 </div>
