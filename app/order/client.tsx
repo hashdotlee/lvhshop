@@ -54,7 +54,7 @@ export default function OrderClient() {
       return
     }
     const name = user.user_metadata?.full_name ?? user.email ?? ''
-    const email = user.email?.replace('@lvhshop.internal', '') ?? ''
+    const email = user.email?.replace('@lvhshop.net', '') ?? ''
     setSupaUser({ email, name, fb_url: user.user_metadata?.fb_url ?? '' })
     fetchAddresses(jwt)
     setStep('form')
@@ -64,7 +64,7 @@ export default function OrderClient() {
     const isPhone = /^[0-9\+\s]+$/.test(input)
     if (isPhone) {
       const cleanPhone = input.replace(/\s/g, '')
-      return { email: `${cleanPhone}@lvhshop.internal`, phone: cleanPhone }
+      return { email: `${cleanPhone}@lvhshop.net`, phone: cleanPhone }
     }
     return { email: input, phone: null }
   }

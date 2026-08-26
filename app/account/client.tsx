@@ -74,7 +74,7 @@ export default function AccountClient() {
     }
     setSupaUser({
       id: user.id,
-      email: user.email?.replace('@lvhshop.internal', '') ?? '',
+      email: user.email?.replace('@lvhshop.net', '') ?? '',
       name: user.user_metadata?.full_name ?? user.email ?? '',
       fb_url: user.user_metadata?.fb_url ?? '',
     })
@@ -85,7 +85,7 @@ export default function AccountClient() {
     const isPhone = /^[0-9\+\s]+$/.test(input)
     if (isPhone) {
       const cleanPhone = input.replace(/\s/g, '')
-      return { email: `${cleanPhone}@lvhshop.internal`, phone: cleanPhone }
+      return { email: `${cleanPhone}@lvhshop.net`, phone: cleanPhone }
     }
     return { email: input, phone: null }
   }

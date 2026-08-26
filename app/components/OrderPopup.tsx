@@ -84,7 +84,7 @@ export default function OrderPopup({ open, onClose, item, items, onSuccess }: Pr
       setAuthChecked(true)
       return
     }
-    setSupaUser({ email: user.email?.replace('@lvhshop.internal', '') ?? '', name: user.user_metadata?.full_name ?? user.email ?? '' })
+    setSupaUser({ email: user.email?.replace('@lvhshop.net', '') ?? '', name: user.user_metadata?.full_name ?? user.email ?? '' })
     setAuthChecked(true)
   }
 
@@ -92,7 +92,7 @@ export default function OrderPopup({ open, onClose, item, items, onSuccess }: Pr
     const isPhone = /^[0-9\+\s]+$/.test(input)
     if (isPhone) {
       const cleanPhone = input.replace(/\s/g, '')
-      return { email: `${cleanPhone}@lvhshop.internal`, phone: cleanPhone }
+      return { email: `${cleanPhone}@lvhshop.net`, phone: cleanPhone }
     }
     return { email: input, phone: null }
   }

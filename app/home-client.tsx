@@ -313,7 +313,7 @@ export default function HomeClient() {
       return
     }
     const name = user.user_metadata?.full_name ?? user.email ?? ''
-    const email = user.email?.replace('@lvhshop.internal', '') ?? ''
+    const email = user.email?.replace('@lvhshop.net', '') ?? ''
     setSupaUser({ email, name })
   }
 
@@ -321,7 +321,7 @@ export default function HomeClient() {
     const isPhone = /^[0-9\+\s]+$/.test(input)
     if (isPhone) {
       const cleanPhone = input.replace(/\s/g, '')
-      return { email: `${cleanPhone}@lvhshop.internal`, phone: cleanPhone }
+      return { email: `${cleanPhone}@lvhshop.net`, phone: cleanPhone }
     }
     return { email: input, phone: null }
   }
@@ -522,7 +522,7 @@ export default function HomeClient() {
     }
 
     setUserAuthLoading(false)
-    const name = data.user?.user_metadata?.full_name ?? data.user?.email?.replace('@lvhshop.internal', '') ?? ''
+    const name = data.user?.user_metadata?.full_name ?? data.user?.email?.replace('@lvhshop.net', '') ?? ''
     showToast(`Chào ${name}!`); setShowUserAuth(false)
   }
   async function supaSignUp() {
