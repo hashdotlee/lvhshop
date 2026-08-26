@@ -48,6 +48,8 @@ export const metadata: Metadata = {
   },
 }
 
+import Footer from './components/Footer'
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi">
@@ -55,13 +57,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600&display=swap" rel="stylesheet" />
       </head>
-      <body>
+      <body style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', margin: 0 }}>
         <GoogleAnalytics />
         <GoogleAdSense />
         <FacebookPixel />
         <FacebookSDK />
         <CatChaser />
         {children}
+        <Footer />
       </body>
     </html>
   )
