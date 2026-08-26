@@ -110,7 +110,7 @@ function cellText(val: ExcelJS.CellValue): string {
  *  26: Hình thức gửi hàng (*) → 2 - Gửi hàng tại bưu cục
  */
 export async function generateVNPostExcel(orders: OrderExportRow[]): Promise<Uint8Array> {
-  const templatePath = path.join(process.cwd(), 'docs', 'Mẫu_TN1.xlsx')
+  const templatePath = path.join(process.cwd(), 'docs', 'mau_tn1.xlsx')
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.readFile(templatePath)
 
