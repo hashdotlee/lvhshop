@@ -116,6 +116,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   const [editOrder, setEditOrder] = useState<Order | null>(null)
   const [printOrder, setPrintOrder] = useState<Order | null>(null)
   const [saving, setSaving] = useState(false)
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<number>>(new Set())
 
   // Create form
   const [form, setForm] = useState({ ...EMPTY_FORM })
@@ -487,6 +488,30 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     }
   }
 
+  // ── Export carrier file ────────────────────────────────────────
+  async function exportCarrier(carrier: 'vnpost' | 'spx', ids?: number[]) {
+    let url = `/api/orders/export-carrier?carrier=${carrier}`
+    if (ids && ids.length > 0) url += `&ids=${ids.join(',')}`
+    try {
+      const r = await fetch(url, { headers: { 'x-admin-key': adminKey } })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        onToast(`Lỗi xuất file: ${d.error ?? r.status}`)
+        return
+      }
+      const blob = await r.blob()
+      const objUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objUrl
+      const ext = 'xlsx'
+      a.download = `${carrier}_orders_${new Date().toISOString().slice(0, 10)}.${ext}`
+      a.click()
+      URL.revokeObjectURL(objUrl)
+    } catch {
+      onToast('Không thể xuất file')
+    }
+  }
+
   // ── Export CSV ─────────────────────────────────────────────────
   function exportCSV() {
     const headers = ['Mã đơn', 'Sản phẩm', 'Khách hàng', 'SĐT', 'Địa chỉ', 'Ghi chú', 'Vận chuyển', 'Mã vận đơn', 'TT Thanh toán', 'TT Đơn', 'Tổng tiền', 'Ngày tạo']
@@ -798,21 +823,13 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
             Xuất CSV
           </button>
-          <button className="om-btn-ghost" title="Xuất file tạo đơn VNPost"
-            onClick={() => {
-              const a = document.createElement('a')
-              a.href = '/api/orders/export-carrier?carrier=vnpost'
-              a.click()
-            }}>
-            📦 VNPost
+          <button className="om-btn-ghost" title="Xuất file VNPost (tất cả đơn đang xử lý, hoặc các đơn đã chọn)"
+            onClick={() => exportCarrier('vnpost', selectedOrderIds.size > 0 ? Array.from(selectedOrderIds) : undefined)}>
+            📦 VNPost{selectedOrderIds.size > 0 ? ` (${selectedOrderIds.size})` : ''}
           </button>
-          <button className="om-btn-ghost" title="Xuất file tạo đơn Shopee Express"
-            onClick={() => {
-              const a = document.createElement('a')
-              a.href = '/api/orders/export-carrier?carrier=spx'
-              a.click()
-            }}>
-            🚚 SPX
+          <button className="om-btn-ghost" title="Xuất file SPX (tất cả đơn đang xử lý, hoặc các đơn đã chọn)"
+            onClick={() => exportCarrier('spx', selectedOrderIds.size > 0 ? Array.from(selectedOrderIds) : undefined)}>
+            🚚 SPX{selectedOrderIds.size > 0 ? ` (${selectedOrderIds.size})` : ''}
           </button>
           <a href="/accounting" className="om-btn-ghost" style={{ textDecoration: 'none', color: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             📊 Kế toán & Thuế
@@ -979,6 +996,11 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
           </button>
         ))}
         <button className="om-btn-ghost om-btn-refresh" onClick={fetchOrders}>↻</button>
+        {selectedOrderIds.size > 0 && (
+          <button className="om-btn-ghost" style={{ color: 'var(--muted)', fontSize: 12 }} onClick={() => setSelectedOrderIds(new Set())}>
+            Bỏ chọn tất cả ({selectedOrderIds.size})
+          </button>
+        )}
       </div>
 
       {/* ── Table ── */}
@@ -994,6 +1016,17 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
           <table className="om-table">
             <thead>
               <tr>
+                <th style={{ width: 36, textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    title="Chọn tất cả"
+                    checked={filteredOrders.length > 0 && filteredOrders.every(o => selectedOrderIds.has(o.id))}
+                    onChange={e => {
+                      if (e.target.checked) setSelectedOrderIds(new Set(filteredOrders.map(o => o.id)))
+                      else setSelectedOrderIds(new Set())
+                    }}
+                  />
+                </th>
                 <th>Mã đơn</th>
                 <th>Sản phẩm</th>
                 <th>Khách hàng</th>
@@ -1007,7 +1040,21 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
             </thead>
             <tbody>
               {filteredOrders.map(order => (
-                <tr key={order.id}>
+                <tr key={order.id} className={selectedOrderIds.has(order.id) ? 'om-row-selected' : ''}>
+                  <td style={{ textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedOrderIds.has(order.id)}
+                      onChange={e => {
+                        setSelectedOrderIds(prev => {
+                          const next = new Set(prev)
+                          if (e.target.checked) next.add(order.id)
+                          else next.delete(order.id)
+                          return next
+                        })
+                      }}
+                    />
+                  </td>
                   <td>
                     <code className="om-order-code">{order.order_number}</code>
                   </td>
@@ -1810,6 +1857,8 @@ const omStyles = `
 .om-table td{padding:11px 13px;border-bottom:1px solid var(--border,#e8e6e1);vertical-align:top}
 .om-table tr:last-child td{border-bottom:none}
 .om-table tr:hover td{background:#fdfcfb}
+.om-row-selected td{background:#f0f4ff!important}
+.om-row-selected:hover td{background:#e8effe!important}
 .om-order-code{background:var(--tag-bg,#f0efe9);padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace;color:var(--muted,#8c8982)}
 .om-td-product{max-width:180px}
 .om-product-title{font-weight:500;font-size:13px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}

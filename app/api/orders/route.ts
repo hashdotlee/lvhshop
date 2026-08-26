@@ -178,14 +178,18 @@ export async function PATCH(req: NextRequest) {
 
   // Sync inventory based on order status transition
   if (newOrderStatus && newOrderStatus !== oldOrderStatus) {
-    const isActive = (s: string) => !['cancelled', 'delivered'].includes(s)
     let newItemStatus: string | null = null
-    if (newOrderStatus === 'delivered') {
-      newItemStatus = 'sold'                                   // any → delivered
-    } else if (newOrderStatus === 'cancelled' && isActive(oldOrderStatus)) {
-      newItemStatus = 'available'                              // active → cancelled
-    } else if (isActive(newOrderStatus) && !isActive(oldOrderStatus)) {
-      newItemStatus = 'reserved'                               // cancelled/delivered → reactivated
+    if (newOrderStatus === 'confirmed') {
+      newItemStatus = 'sold'                                   // pending/any → confirmed = đã bán
+    } else if (newOrderStatus === 'delivered') {
+      newItemStatus = 'sold'                                   // shipping → delivered (vẫn sold, keep)
+    } else if (newOrderStatus === 'cancelled') {
+      // Only revert to available if it was not already delivered
+      if (oldOrderStatus !== 'delivered') {
+        newItemStatus = 'available'                            // any active → cancelled = mở lại
+      }
+    } else if (newOrderStatus === 'pending' && (oldOrderStatus === 'cancelled')) {
+      newItemStatus = 'reserved'                               // cancelled → re-open = đang giữ lại
     }
     if (newItemStatus) {
       const { data: orderItems } = await db.from('order_items').select('item_id').eq('order_id', id)
