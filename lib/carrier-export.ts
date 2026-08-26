@@ -143,7 +143,7 @@ export async function generateVNPostExcel(orders: OrderExportRow[]): Promise<Uin
     row.getCell(8).value = 200               // Default weight (gram)
     row.getCell(13).value = 'LHH01'          // Loại hàng
     row.getCell(14).value = 'CTN009 - Thương mại điện tử đồng giá: Tiêu chuẩn TMĐT ĐG'
-    row.getCell(15).value = ''               // Không dùng GTGT
+    row.getCell(15).value = cod > 0 ? 'Phát hàng thu tiền COD' : '' // Dịch vụ cộng thêm
     row.getCell(16).value = cod > 0 ? cod : '' // COD (0 = không thu hộ)
     row.getCell(26).value = '2 - Gửi hàng tại bưu cục'
     row.getCell(27).value = order.customer_note || ''
