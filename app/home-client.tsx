@@ -552,8 +552,8 @@ export default function HomeClient() {
 
   const filtered = items.filter(i => {
     const typeOk = i.type===typeFilter
-    const condOk = isAdmin || condFilter==='all' || i.condition.startsWith(condFilter)
-    const statOk = isAdmin || statusFilter==='all' ? true
+    const condOk = condFilter==='all' || i.condition.startsWith(condFilter)
+    const statOk = statusFilter==='all' ? true
       : statusFilter==='available' ? (i.status==='available' || i.status==='incoming')
       : i.status===statusFilter
     const catOk = isAdmin || categoryFilter==='all' || i.category===categoryFilter
@@ -675,18 +675,6 @@ export default function HomeClient() {
           <div className="logo-tagline"><span className="tag-jp">🇯🇵 Săn hàng Nhật</span><span className="tag-sep">—</span><span className="tag-gen">Hàng chọn lọc · Giá chuẩn</span></div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
-          {/* display controls */}
-          <div className="disp-ctrl">
-            {(['sm','md','lg'] as FontSize[]).map(fs => (
-              <button key={fs} className={`disp-btn${fontSize===fs?' disp-active':''}`} onClick={()=>pickFont(fs)}>
-                {FS_LABEL[fs]}
-              </button>
-            ))}
-            <span className="disp-sep"/>
-            <button className="disp-btn disp-btn-theme" onClick={toggleDark} title={darkMode?'Chế độ sáng':'Chế độ tối'}>
-              {darkMode ? '☀️' : '🌙'}
-            </button>
-          </div>
           {isAdmin ? (
             <>
               <button className={`tab-btn${adminView==='listing'?' tab-active':''}`} onClick={()=>switchAdminView('listing')}>Tin đăng</button>
@@ -706,8 +694,6 @@ export default function HomeClient() {
             <nav style={{display:'flex',alignItems:'center',gap:4}}>
               <button className={typeFilter==='ban'?'active':''} onClick={()=>setTypeFilter('ban')}>🏷️ Bán</button>
               <button className={typeFilter==='mua'?'active':''} onClick={()=>setTypeFilter('mua')}>🔍 Tìm mua</button>
-              <a href="/blog" className="nav-blog-link">Blog</a>
-              <a href="/game" className="nav-blog-link">🎮 Game</a>
               {supaUser ? (
                 <a href="/account" className="nav-user-chip">
                   <span className="nav-user-avatar">{supaUser.name[0].toUpperCase()}</span>
@@ -854,6 +840,16 @@ export default function HomeClient() {
             {/* Daily quiz banner — only for public (non-admin) visitors */}
             {!isAdmin && <DailyQuizBanner />}
 
+            {/* DISCOUNT MARQUEE */}
+            {items.some(i => i.discount_percent && i.discount_percent > 0 && i.discount_end_date && new Date(i.discount_end_date) > new Date()) && (
+              <div style={{ background: 'var(--red)', color: 'white', padding: '6px 0', overflow: 'hidden', whiteSpace: 'nowrap', marginBottom: 16 }}>
+                <div style={{ display: 'inline-block', animation: 'marquee 20s linear infinite', fontWeight: 600, fontSize: 14 }}>
+                  🔥 HOT SALE: Đang có sản phẩm giảm giá! Nhanh tay kẻo lỡ! 🔥
+                  {items.filter(i => i.discount_percent && i.discount_percent > 0 && i.discount_end_date && new Date(i.discount_end_date) > new Date()).slice(0,5).map(i => ` • ${i.title} (-${i.discount_percent}%)`).join('')}
+                </div>
+              </div>
+            )}
+
             {/* 3-column layout: filter | listing | featured ads */}
             <div className={`page-layout ${isAdmin ? 'page-layout-admin' : ''}`}>
 
@@ -987,6 +983,11 @@ export default function HomeClient() {
 
                 {isAdmin ? (
                   <div className="admin-items-table-wrap">
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                      <button className={`tab-btn${statusFilter==='available'?' tab-active':''}`} onClick={()=>setStatusFilter('available')}>✅ Còn hàng</button>
+                      <button className={`tab-btn${statusFilter==='sold'?' tab-active':''}`} onClick={()=>setStatusFilter('sold')}>🏷 Đã bán</button>
+                      <button className={`tab-btn${statusFilter==='all'?' tab-active':''}`} onClick={()=>setStatusFilter('all')}>📋 Tất cả</button>
+                    </div>
                     {selectedItemIds.length > 0 && (
                       <div className="bulk-action-bar">
                         <span>Đã chọn {selectedItemIds.length} mặt hàng</span>
@@ -1501,6 +1502,25 @@ export default function HomeClient() {
 
 
       {toast && <div className="toast">{toast}</div>}
+
+      {/* FOOTER */}
+      <footer style={{ marginTop: 40, borderTop: '1px solid var(--border)', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', gap: 16 }}>
+          <a href="/blog" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Blog</a>
+          <a href="/game" style={{ color: 'var(--muted)', textDecoration: 'none' }}>🎮 Game</a>
+        </div>
+        <div className="disp-ctrl">
+          {(['sm','md','lg'] as FontSize[]).map(fs => (
+            <button key={fs} className={`disp-btn${fontSize===fs?' disp-active':''}`} onClick={()=>pickFont(fs)}>
+              {FS_LABEL[fs]}
+            </button>
+          ))}
+          <span className="disp-sep"/>
+          <button className="disp-btn disp-btn-theme" onClick={toggleDark} title={darkMode?'Chế độ sáng':'Chế độ tối'}>
+            {darkMode ? '☀️' : '🌙'}
+          </button>
+        </div>
+      </footer>
     </>
   )
 }
@@ -1516,6 +1536,7 @@ const styles = `
 body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6}
 
 /* AUTH */
+@keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
 .auth-gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;padding:24px}
 .auth-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 32px;width:100%;max-width:360px;animation:fadeIn .25s ease}
 .auth-logo{font-size:15px;font-weight:600;margin-bottom:28px}

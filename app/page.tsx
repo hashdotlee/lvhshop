@@ -15,7 +15,7 @@ function db() {
 async function getAvailableItems(): Promise<Item[]> {
   const { data } = await db()
     .from('items')
-    .select('id,title,description,price,condition,category,type,location,images,image_url,status,created_at,order_code')
+    .select('id,title,description,price,condition,category,type,location,images,image_url,status,created_at,order_code,discount_percent,discount_end_date')
     .eq('status', 'available')
     .order('created_at', { ascending: false })
     .limit(100)

@@ -108,7 +108,7 @@ function cellText(val: ExcelJS.CellValue): string {
  *  13: Loại hàng (*) → LHH01
  *  14: Dịch vụ chuyển phát (*) → CTN009
  *  16: Số tiền thu hộ (VNĐ) → COD amount (0 if bank transfer)
- *  26: Hình thức gửi hàng (*) → 2 - Gửi hàng tại bưu cục
+ *  26: Hình thức gửi hàng (*) → 1 - Thu gom tận nơi
  */
 export async function generateVNPostExcel(orders: OrderExportRow[]): Promise<Uint8Array> {
   const templatePath = path.join(process.cwd(), 'docs', 'mau_tn1.xlsx')
@@ -160,7 +160,7 @@ export async function generateVNPostExcel(orders: OrderExportRow[]): Promise<Uin
     row.getCell(15).value = gtgt.join(';')   // Dịch vụ cộng thêm (GTGT)
     row.getCell(16).value = cod > 0 ? cod : '' // COD (0 = không thu hộ)
     row.getCell(17).value = ''               // Không dùng cột Số tiền khai giá
-    row.getCell(26).value = '2 - Gửi hàng tại bưu cục'
+    row.getCell(26).value = '1 - Thu gom tận nơi'
     row.getCell(27).value = order.customer_note || ''
     row.commit()
   })

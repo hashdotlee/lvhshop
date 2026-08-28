@@ -37,6 +37,7 @@ export type Order = {
   fb_psid: string | null
   fb_url: string | null
   share_token: string | null
+  is_exported?: boolean | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -542,7 +543,54 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       onToast('Không có đơn hàng VNPost hoặc SPX nào để xuất')
     } else {
       onToast(`Đã xuất ${exported} file giao hàng`)
+      setTimeout(fetchOrders, 1000)
     }
+  }
+
+  // ── Bulk Actions ────────────────────────────────────────────────
+  async function bulkUpdateStatus(newStatus: string) {
+    if (!newStatus) return
+    const ids = Array.from(selectedOrderIds)
+    setSaving(true)
+    try {
+      await Promise.all(ids.map(id => 
+        fetch('/api/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey }, body: JSON.stringify({ id, order_status: newStatus }) })
+      ))
+      onToast(`Đã chuyển trạng thái ${ids.length} đơn`)
+      fetchOrders()
+      if (onOrderChange) onOrderChange()
+      setSelectedOrderIds(new Set())
+    } catch { onToast('Lỗi khi cập nhật') }
+    finally { setSaving(false) }
+  }
+
+  async function bulkUpdatePayment(newPayment: string) {
+    if (!newPayment) return
+    const ids = Array.from(selectedOrderIds)
+    setSaving(true)
+    try {
+      await Promise.all(ids.map(id => 
+        fetch('/api/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey }, body: JSON.stringify({ id, payment_status: newPayment }) })
+      ))
+      onToast(`Đã cập nhật thanh toán ${ids.length} đơn`)
+      fetchOrders()
+      setSelectedOrderIds(new Set())
+    } catch { onToast('Lỗi khi cập nhật') }
+    finally { setSaving(false) }
+  }
+
+  async function bulkUpdateExport(is_exported: boolean) {
+    const ids = Array.from(selectedOrderIds)
+    setSaving(true)
+    try {
+      await Promise.all(ids.map(id => 
+        fetch('/api/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey }, body: JSON.stringify({ id, is_exported }) })
+      ))
+      onToast(`Đã ${is_exported ? 'đánh dấu xuất' : 'bỏ đánh dấu'} ${ids.length} đơn`)
+      fetchOrders()
+      setSelectedOrderIds(new Set())
+    } catch { onToast('Lỗi khi cập nhật') }
+    finally { setSaving(false) }
   }
 
   // ── Export CSV ─────────────────────────────────────────────────
@@ -1015,20 +1063,40 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
 
       {/* ── Status filter chips ── */}
       <div className="om-filter-bar">
-        {(['all', 'pending', 'confirmed', 'shipping', 'delivered', 'cancelled'] as const).map(s => (
-          <button
-            key={s}
-            className={`om-chip${statusFilter === s ? ' om-chip-active' : ''} om-chip-${s}`}
-            onClick={() => setStatusFilter(s)}
-          >
-            {s === 'all' ? 'Tất cả' : ORDER_STATUS_LABEL[s]}
-          </button>
-        ))}
-        <button className="om-btn-ghost om-btn-refresh" onClick={fetchOrders}>↻</button>
-        {selectedOrderIds.size > 0 && (
-          <button className="om-btn-ghost" style={{ color: 'var(--muted)', fontSize: 12 }} onClick={() => setSelectedOrderIds(new Set())}>
-            Bỏ chọn tất cả ({selectedOrderIds.size})
-          </button>
+        {selectedOrderIds.size === 0 ? (
+          <>
+            {(['all', 'pending', 'confirmed', 'shipping', 'delivered', 'cancelled'] as const).map(s => (
+              <button
+                key={s}
+                className={`om-chip${statusFilter === s ? ' om-chip-active' : ''} om-chip-${s}`}
+                onClick={() => setStatusFilter(s)}
+              >
+                {s === 'all' ? 'Tất cả' : ORDER_STATUS_LABEL[s]}
+              </button>
+            ))}
+            <button className="om-btn-ghost om-btn-refresh" onClick={fetchOrders}>↻</button>
+          </>
+        ) : (
+          <div style={{display:'flex', gap: 8, alignItems:'center', background:'var(--tag-bg, #f0efe9)', padding:'4px 8px', borderRadius: 8}}>
+            <span style={{fontWeight:600, fontSize:13, marginRight:8}}>Đã chọn {selectedOrderIds.size} đơn</span>
+            <select className="om-inp" style={{width:'auto', padding:'4px 8px'}} onChange={(e) => bulkUpdateStatus(e.target.value)} value="" disabled={saving}>
+              <option value="">Chuyển trạng thái...</option>
+              <option value="confirmed">Đã xác nhận</option>
+              <option value="shipping">Đang giao</option>
+              <option value="delivered">Đã giao</option>
+              <option value="cancelled">Đã hủy</option>
+            </select>
+            <select className="om-inp" style={{width:'auto', padding:'4px 8px'}} onChange={(e) => bulkUpdatePayment(e.target.value)} value="" disabled={saving}>
+              <option value="">Thanh toán...</option>
+              <option value="verified">Đã TT</option>
+              <option value="pending">Chờ TT</option>
+            </select>
+            <button className="om-btn-ghost" style={{padding:'4px 8px'}} onClick={() => bulkUpdateExport(true)} disabled={saving}>Đánh dấu Đã xuất</button>
+            <button className="om-btn-ghost" style={{padding:'4px 8px'}} onClick={() => bulkUpdateExport(false)} disabled={saving}>Bỏ dấu xuất</button>
+            <button className="om-btn-ghost" style={{ color: 'var(--muted)', fontSize: 12, marginLeft:'auto' }} onClick={() => setSelectedOrderIds(new Set())}>
+              Bỏ chọn
+            </button>
+          </div>
         )}
       </div>
 
@@ -1117,7 +1185,10 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   <td>
                     <div style={{ fontSize: 12 }}>{CARRIER_LABEL[order.shipping_carrier] || order.shipping_carrier}</div>
                     {order.tracking_number && (
-                      <code style={{ fontSize: 10, color: 'var(--muted)' }}>{order.tracking_number}</code>
+                      <code style={{ fontSize: 10, color: 'var(--muted)', display: 'block' }}>{order.tracking_number}</code>
+                    )}
+                    {order.is_exported && (
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#059669', background: '#d1fae5', display: 'inline-block', padding: '1px 4px', borderRadius: 4, marginTop: 2 }}>Đã xuất file</div>
                     )}
                   </td>
                   <td style={{ whiteSpace: 'nowrap', color: 'var(--muted)', fontSize: 12 }}>{fmtDate(order.created_at)}</td>

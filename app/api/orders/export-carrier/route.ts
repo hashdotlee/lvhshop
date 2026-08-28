@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const orders = (data ?? []) as Array<{
+    id: number
     order_number: string
     customer_name: string
     customer_phone: string
@@ -106,6 +107,12 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     console.error('Excel generation error:', e)
     return NextResponse.json({ error: 'Không thể tạo file Excel' }, { status: 500 })
+  }
+
+  // Mark orders as exported
+  const orderIds = orders.map(o => o.id)
+  if (orderIds.length > 0) {
+    await db.from('orders').update({ is_exported: true }).in('id', orderIds)
   }
 
   return new NextResponse(new Uint8Array(buffer), {

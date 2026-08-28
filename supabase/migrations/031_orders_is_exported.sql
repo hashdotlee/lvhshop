@@ -1,0 +1,1 @@
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_exported BOOLEAN DEFAULT false;
