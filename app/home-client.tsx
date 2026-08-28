@@ -1111,7 +1111,7 @@ export default function HomeClient() {
                               {g.rep.discount_percent && g.rep.discount_percent > 0 && g.rep.discount_end_date && new Date(g.rep.discount_end_date) > new Date() ? (
                                 <>
                                   <span style={{ fontSize: 13, textDecoration: 'line-through', color: 'var(--muted)', marginRight: 6 }}>{fmtVND(g.rep.price)}</span>
-                                  <span style={{ color: '#dc2626' }}>{fmtVND(g.rep.price ? g.rep.price * (1 - g.rep.discount_percent / 100) : null)}</span>
+                                  <span style={{ color: '#dc2626' }}>{fmtVND(g.rep.price ? g.rep.price * (1 - g.rep.discount_percent! / 100) : null)}</span>
                                 </>
                               ) : fmtVND(g.rep.price)}
                             </div>
@@ -1180,7 +1180,7 @@ export default function HomeClient() {
                             {item.discount_percent && item.discount_percent > 0 && item.discount_end_date && new Date(item.discount_end_date) > new Date() ? (
                               <>
                                 <span style={{ fontSize: 13, textDecoration: 'line-through', color: 'var(--muted)', marginRight: 6 }}>{fmtVND(item.price)}</span>
-                                <span style={{ color: '#dc2626' }}>{fmtVND(item.price ? item.price * (1 - item.discount_percent / 100) : null)}</span>
+                                <span style={{ color: '#dc2626' }}>{fmtVND(item.price ? item.price * (1 - item.discount_percent! / 100) : null)}</span>
                               </>
                             ) : fmtVND(item.price)}
                           </div>
