@@ -815,16 +815,16 @@ export default function HomeClient() {
             {!isAdmin && <DailyQuizBanner />}
 
             {/* DISCOUNT MARQUEE */}
-            <div className="discount-marquee">
             {items.some(i => ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()) && (
-              <div className="discount-marquee-inner">
-                <span className="marquee-text">
-                  🔥 HOT SALE: Đang có sản phẩm giảm giá! 
-                  {items.filter(i => ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()).slice(0,5).map(i => ` • ${i.title} (-${i.discount_amount && i.discount_amount > 0 ? (i.discount_amount / 1000) + 'k' : i.discount_percent + '%'})`).join('')}
-                </span> 
+              <div className="discount-marquee">
+                <div className="discount-marquee-inner">
+                  <span className="marquee-text">
+                    🔥 HOT SALE: Đang có sản phẩm giảm giá! 
+                    {items.filter(i => ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()).slice(0,5).map(i => ` • ${i.title} (-${i.discount_amount && i.discount_amount > 0 ? (i.discount_amount / 1000) + 'k' : i.discount_percent + '%'})`).join('')}
+                  </span> 
+                </div>
               </div>
             )}
-            </div>
 
             {/* 3-column layout: filter | listing | featured ads */}
             <div className={`page-layout ${isAdmin ? 'page-layout-admin' : ''}`}>
@@ -1499,6 +1499,9 @@ body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--te
 
 /* AUTH */
 @keyframes marquee { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+.discount-marquee { background: var(--red); color: white; padding: 6px 0; overflow: hidden; white-space: nowrap; margin-bottom: 16px; display: flex; align-items: center; }
+.discount-marquee-inner { display: inline-block; animation: marquee 20s linear infinite; }
+.marquee-text { font-weight: 600; font-size: 14px; }
 .auth-gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;padding:24px}
 .auth-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px 32px;width:100%;max-width:360px;animation:fadeIn .25s ease}
 .auth-logo{font-size:15px;font-weight:600;margin-bottom:28px}
