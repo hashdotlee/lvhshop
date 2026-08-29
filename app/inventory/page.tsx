@@ -104,6 +104,7 @@ export default function InventoryPage() {
   const [editingItem, setEditingItem] = useState<Item | null>(null)
   const [editItemForm, setEditItemForm] = useState({ title: '', sku: '', description: '', condition: 'Mới', category: '', price: '', cost_price: '', bin_location: '', status: 'available' })
   const [editItemSubmitting, setEditItemSubmitting] = useState(false)
+  const [deletingItem, setDeletingItem] = useState(false)
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [toast, setToast] = useState('')
@@ -451,6 +452,23 @@ export default function InventoryPage() {
       showToast('Đã cập nhật sản phẩm')
     } catch { showToast('Lỗi kết nối server') }
     finally { setEditItemSubmitting(false) }
+  }
+
+  async function deleteItem(id: number) {
+    if (!confirm('Bạn có chắc chắn muốn xóa mặt hàng này?')) return
+    setDeletingItem(true)
+    try {
+      const r = await fetch('/api/items', {
+        method: 'DELETE',
+        headers: { 'x-admin-key': adminKey.current, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (!r.ok) { const err = await r.json(); showToast(`Lỗi: ${err.error ?? r.status}`); return }
+      setSelectedBatch(prev => prev ? { ...prev, items: (prev.items ?? []).filter(i => i.id !== id) } : prev)
+      setEditingItem(null)
+      showToast('Đã xóa mặt hàng')
+    } catch (e: any) { showToast(`Lỗi: ${e.message}`) }
+    finally { setDeletingItem(false) }
   }
 
   useEffect(() => {
@@ -1200,15 +1218,20 @@ export default function InventoryPage() {
                 {editItemForm.price && <div style={S.pricePreview}>{fmtVND(Number(editItemForm.price))}</div>}
               </div>
             </div>
-            <div className="inv-modal-actions" style={{ marginTop: 16 }}>
-              <button style={S.btnGhost} onClick={() => setEditingItem(null)}>Hủy</button>
-              <button
-                style={{ ...S.btnGreen, opacity: editItemSubmitting ? 0.5 : 1 }}
-                onClick={submitEditItem}
-                disabled={editItemSubmitting}
-              >
-                {editItemSubmitting ? 'Đang lưu...' : '✓ Lưu thay đổi'}
+            <div className="inv-modal-actions" style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between' }}>
+              <button style={{ ...S.btnGhost, color: '#e05252' }} onClick={() => deleteItem(editingItem.id)} disabled={deletingItem}>
+                {deletingItem ? 'Đang xóa...' : '🗑️ Xóa'}
               </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button style={S.btnGhost} onClick={() => setEditingItem(null)}>Hủy</button>
+                <button
+                  style={{ ...S.btnGreen, opacity: editItemSubmitting ? 0.5 : 1 }}
+                  onClick={submitEditItem}
+                  disabled={editItemSubmitting}
+                >
+                  {editItemSubmitting ? 'Đang lưu...' : '✓ Lưu thay đổi'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
