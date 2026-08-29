@@ -180,6 +180,7 @@ export default function HomeClient() {
     discount_percent:'', discount_amount:'', discount_end_date:'',
   })
   const [savingEdit, setSavingEdit]   = useState(false)
+  const [deletingItem, setDeletingItem] = useState(false)
 
   const [supaUser, setSupaUser]       = useState<{email:string;name:string}|null>(null)
   const [showUserAuth, setShowUserAuth] = useState(false)
@@ -410,6 +411,23 @@ export default function HomeClient() {
       showToast(`Đã cập nhật · ${updated.order_code}`)
     } catch { showToast('Lỗi kết nối server') }
     finally { setSavingEdit(false) }
+  }
+
+  async function deleteItem(id: number) {
+    if (!confirm('Bạn có chắc chắn muốn xóa mặt hàng này? Hành động này không thể hoàn tác.')) return
+    setDeletingItem(true)
+    try {
+      const r = await fetch('/api/items', {
+        method: 'DELETE',
+        headers: { 'x-admin-key': adminKey.current, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (!r.ok) { const err = await r.json(); showToast(`Lỗi: ${err.error ?? r.status}`); return }
+      setItems(prev => prev.filter(i => i.id !== id))
+      setEditItem(null)
+      showToast('Đã xóa mặt hàng')
+    } catch (e: any) { showToast(`Lỗi: ${e.message}`) }
+    finally { setDeletingItem(false) }
   }
 
   // ── customers ─────────────────────────────────────────────────
@@ -1267,11 +1285,16 @@ export default function HomeClient() {
                 )}
               </div>
             </div>
-            <div className="preview-actions" style={{marginTop:16}}>
-              <button className="btn-ghost" onClick={()=>setEditItem(null)}>Hủy</button>
-              <button className="btn-green" onClick={saveEditItem} disabled={savingEdit}>
-                {savingEdit?'Đang lưu...':'✓ Lưu thay đổi'}
+            <div className="preview-actions" style={{marginTop:16, display: 'flex', justifyContent: 'space-between'}}>
+              <button className="btn-cancel" onClick={() => deleteItem(editItem.id)} disabled={deletingItem}>
+                {deletingItem ? 'Đang xóa...' : '🗑️ Xóa'}
               </button>
+              <div style={{display: 'flex', gap: 8}}>
+                <button className="btn-ghost" onClick={()=>setEditItem(null)}>Hủy</button>
+                <button className="btn-green" onClick={saveEditItem} disabled={savingEdit}>
+                  {savingEdit?'Đang lưu...':'✓ Lưu thay đổi'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
