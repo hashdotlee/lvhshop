@@ -815,12 +815,12 @@ export default function HomeClient() {
             {!isAdmin && <DailyQuizBanner />}
 
             {/* DISCOUNT MARQUEE */}
-            {items.some(i => ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()) && (
+            {items.some(i => i.status !== 'sold' && ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()) && (
               <div className="discount-marquee">
                 <div className="discount-marquee-inner">
                   <span className="marquee-text">
                     🔥 HOT SALE: Đang có sản phẩm giảm giá! 
-                    {items.filter(i => ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()).slice(0,5).map(i => ` • ${i.title} (-${i.discount_amount && i.discount_amount > 0 ? (i.discount_amount / 1000) + 'k' : i.discount_percent + '%'})`).join('')}
+                    {items.filter(i => i.status !== 'sold' && ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()).slice(0,5).map(i => ` • ${i.title} (-${i.discount_amount && i.discount_amount > 0 ? (i.discount_amount / 1000) + 'k' : i.discount_percent + '%'})`).join('')}
                   </span> 
                 </div>
               </div>
