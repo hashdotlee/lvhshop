@@ -348,11 +348,7 @@ export default function HomeClient() {
     setItems(prev => prev.map(i => i.id===item.id ? {...i,status:'incoming'} : i))
     showToast(`Đánh dấu sắp về · ${item.order_code}`)
   }
-  async function deleteItem(id: number) {
-    if (!confirm('Xoá tin này?')) return
-    await fetch('/api/items', { method:'DELETE', headers:{'Content-Type':'application/json','x-admin-key':adminKey.current}, body: JSON.stringify({ id }) })
-    setItems(prev => prev.filter(i => i.id!==id)); showToast('Đã xoá tin')
-  }
+
   function openEditItem(item: Item) {
     setEditItem(item)
     setEditItemForm({
