@@ -106,39 +106,11 @@ function Lightbox({ images, startIdx, onClose }: { images: string[]; startIdx: n
   )
 }
 
-type FontSize = 'sm' | 'md' | 'lg'
-const FS_ZOOM: Record<FontSize, string> = { sm: '0.9', md: '1', lg: '1.12' }
-const FS_LABEL: Record<FontSize, string> = { sm: 'Nhỏ', md: 'Vừa', lg: 'Lớn' }
+
 
 // ─── Main ────────────────────────────────────────────────────────
 export default function HomeClient() {
-  const [fontSize, setFontSize] = useState<FontSize>('md')
-  const [darkMode, setDarkMode] = useState(false)
 
-  useEffect(() => {
-    const fs = (localStorage.getItem('lvh_fs') ?? 'md') as FontSize
-    const dm = localStorage.getItem('lvh_dark') === '1'
-    setFontSize(fs)
-    setDarkMode(dm)
-    applyDisplay(fs, dm)
-  }, [])
-
-  function applyDisplay(fs: FontSize, dm: boolean) {
-    const html = document.documentElement
-    html.classList.toggle('dark', dm)
-    html.style.zoom = FS_ZOOM[fs]
-  }
-  function pickFont(fs: FontSize) {
-    setFontSize(fs)
-    localStorage.setItem('lvh_fs', fs)
-    applyDisplay(fs, darkMode)
-  }
-  function toggleDark() {
-    const next = !darkMode
-    setDarkMode(next)
-    localStorage.setItem('lvh_dark', next ? '1' : '0')
-    applyDisplay(fontSize, next)
-  }
 
   const [isAdmin, setIsAdmin]         = useState(false)
   const [showAuth, setShowAuth]       = useState(false)
@@ -205,7 +177,7 @@ export default function HomeClient() {
     title:'', description:'', price:'', condition:'Mới', category:'',
     type:'ban' as 'ban'|'mua', phone:'', location:'', posted_by:'', staff_id:'',
     expected_date:'', sku:'', bin_location:'',
-    discount_percent:'', discount_end_date:'',
+    discount_percent:'', discount_amount:'', discount_end_date:'',
   })
   const [savingEdit, setSavingEdit]   = useState(false)
 
@@ -397,7 +369,8 @@ export default function HomeClient() {
       sku: item.sku ?? '',
       bin_location: item.bin_location ?? '',
       discount_percent: item.discount_percent ? String(item.discount_percent) : '',
-      discount_end_date: item.discount_end_date ? new Date(new Date(item.discount_end_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
+      discount_amount: item.discount_amount ? String(item.discount_amount) : '',
+      discount_end_date: item.discount_end_date ? new Date(new Date(item.discount_end_date).getTime() + 7 * 3600 * 1000).toISOString().slice(0, 16) : '',
     })
   }
   async function saveEditItem() {
@@ -426,7 +399,8 @@ export default function HomeClient() {
           sku: editItemForm.sku || null,
           bin_location: editItemForm.bin_location || null,
           discount_percent: editItemForm.discount_percent || null,
-          discount_end_date: editItemForm.discount_end_date ? new Date(editItemForm.discount_end_date).toISOString() : null,
+          discount_amount: editItemForm.discount_amount || null,
+          discount_end_date: editItemForm.discount_end_date ? new Date(editItemForm.discount_end_date + '+07:00').toISOString() : null,
         }),
       })
       if (!r.ok) { const err = await r.json(); showToast(`Lỗi: ${err.error ?? r.status}`); return }
@@ -841,14 +815,16 @@ export default function HomeClient() {
             {!isAdmin && <DailyQuizBanner />}
 
             {/* DISCOUNT MARQUEE */}
-            {items.some(i => i.discount_percent && i.discount_percent > 0 && i.discount_end_date && new Date(i.discount_end_date) > new Date()) && (
-              <div style={{ background: 'var(--red)', color: 'white', padding: '6px 0', overflow: 'hidden', whiteSpace: 'nowrap', marginBottom: 16 }}>
-                <div style={{ display: 'inline-block', animation: 'marquee 20s linear infinite', fontWeight: 600, fontSize: 14 }}>
-                  🔥 HOT SALE: Đang có sản phẩm giảm giá! Nhanh tay kẻo lỡ! 🔥
-                  {items.filter(i => i.discount_percent && i.discount_percent > 0 && i.discount_end_date && new Date(i.discount_end_date) > new Date()).slice(0,5).map(i => ` • ${i.title} (-${i.discount_percent}%)`).join('')}
-                </div>
+            <div className="discount-marquee">
+            {items.some(i => ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()) && (
+              <div className="discount-marquee-inner">
+                <span className="marquee-text">
+                  🔥 HOT SALE: Đang có sản phẩm giảm giá! 
+                  {items.filter(i => ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()).slice(0,5).map(i => ` • ${i.title} (-${i.discount_amount && i.discount_amount > 0 ? (i.discount_amount / 1000) + 'k' : i.discount_percent + '%'})`).join('')}
+                </span> 
               </div>
             )}
+            </div>
 
             {/* 3-column layout: filter | listing | featured ads */}
             <div className={`page-layout ${isAdmin ? 'page-layout-admin' : ''}`}>
@@ -1108,10 +1084,10 @@ export default function HomeClient() {
                           </div>
                           <div className="item-footer">
                             <div className="item-price">
-                              {g.rep.discount_percent && g.rep.discount_percent > 0 && g.rep.discount_end_date && new Date(g.rep.discount_end_date) > new Date() ? (
+                              {((g.rep.discount_percent && g.rep.discount_percent > 0) || (g.rep.discount_amount && g.rep.discount_amount > 0)) && g.rep.discount_end_date && new Date(g.rep.discount_end_date) > new Date() ? (
                                 <>
                                   <span style={{ fontSize: 13, textDecoration: 'line-through', color: 'var(--muted)', marginRight: 6 }}>{fmtVND(g.rep.price)}</span>
-                                  <span style={{ color: '#dc2626' }}>{fmtVND(g.rep.price ? g.rep.price * (1 - g.rep.discount_percent! / 100) : null)}</span>
+                                  <span style={{ color: '#dc2626' }}>{fmtVND(g.rep.price ? (g.rep.discount_amount && g.rep.discount_amount > 0 ? g.rep.price - g.rep.discount_amount : g.rep.price * (1 - g.rep.discount_percent! / 100)) : null)}</span>
                                 </>
                               ) : fmtVND(g.rep.price)}
                             </div>
@@ -1149,8 +1125,8 @@ export default function HomeClient() {
                             ) : <span className="badge-avail">Còn hàng</span>}
                             {imgs.length>1 && <span className="badge-imgs">📷 {imgs.length}</span>}
                             {isAdmin && item.bin_location && <span className="badge-bin">📦 {item.bin_location}</span>}
-                            {item.discount_percent && item.discount_percent > 0 && item.discount_end_date && new Date(item.discount_end_date) > new Date() ? (
-                              <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>-{item.discount_percent}%</span>
+                            {((item.discount_percent && item.discount_percent > 0) || (item.discount_amount && item.discount_amount > 0)) && item.discount_end_date && new Date(item.discount_end_date) > new Date() ? (
+                              <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>-{item.discount_amount && item.discount_amount > 0 ? (item.discount_amount / 1000) + 'k' : item.discount_percent + '%'}</span>
                             ) : null}
                           </div>
                           <div className="item-title">{item.title}</div>
@@ -1177,10 +1153,10 @@ export default function HomeClient() {
                         )}
                         <div className="item-footer">
                           <div className="item-price">
-                            {item.discount_percent && item.discount_percent > 0 && item.discount_end_date && new Date(item.discount_end_date) > new Date() ? (
+                            {((item.discount_percent && item.discount_percent > 0) || (item.discount_amount && item.discount_amount > 0)) && item.discount_end_date && new Date(item.discount_end_date) > new Date() ? (
                               <>
                                 <span style={{ fontSize: 13, textDecoration: 'line-through', color: 'var(--muted)', marginRight: 6 }}>{fmtVND(item.price)}</span>
-                                <span style={{ color: '#dc2626' }}>{fmtVND(item.price ? item.price * (1 - item.discount_percent! / 100) : null)}</span>
+                                <span style={{ color: '#dc2626' }}>{fmtVND(item.price ? (item.discount_amount && item.discount_amount > 0 ? item.price - item.discount_amount : item.price * (1 - item.discount_percent! / 100)) : null)}</span>
                               </>
                             ) : fmtVND(item.price)}
                           </div>
@@ -1256,6 +1232,9 @@ export default function HomeClient() {
               </div>
               <div className="fg"><div className="lbl">% Giảm giá</div>
                 <input className="inp" type="number" min="0" max="100" placeholder="0" value={editItemForm.discount_percent} onChange={e=>setEditItemForm(p=>({...p,discount_percent:e.target.value}))}/>
+              </div>
+              <div className="fg"><div className="lbl">Giảm tiền (VNĐ)</div>
+                <input className="inp" type="number" min="0" placeholder="0" value={editItemForm.discount_amount} onChange={e=>setEditItemForm(p=>({...p,discount_amount:e.target.value}))}/>
               </div>
               <div className="fg"><div className="lbl">Hạn sale</div>
                 <input className="inp" type="datetime-local" value={editItemForm.discount_end_date} onChange={e=>setEditItemForm(p=>({...p,discount_end_date:e.target.value}))}/>
@@ -1503,24 +1482,7 @@ export default function HomeClient() {
 
       {toast && <div className="toast">{toast}</div>}
 
-      {/* FOOTER */}
-      <footer style={{ marginTop: 40, borderTop: '1px solid var(--border)', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div style={{ display: 'flex', gap: 16 }}>
-          <a href="/blog" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Blog</a>
-          <a href="/game" style={{ color: 'var(--muted)', textDecoration: 'none' }}>🎮 Game</a>
-        </div>
-        <div className="disp-ctrl">
-          {(['sm','md','lg'] as FontSize[]).map(fs => (
-            <button key={fs} className={`disp-btn${fontSize===fs?' disp-active':''}`} onClick={()=>pickFont(fs)}>
-              {FS_LABEL[fs]}
-            </button>
-          ))}
-          <span className="disp-sep"/>
-          <button className="disp-btn disp-btn-theme" onClick={toggleDark} title={darkMode?'Chế độ sáng':'Chế độ tối'}>
-            {darkMode ? '☀️' : '🌙'}
-          </button>
-        </div>
-      </footer>
+
     </>
   )
 }

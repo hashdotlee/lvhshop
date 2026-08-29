@@ -27,6 +27,9 @@ export type Item = {
   status: 'available' | 'sold' | 'incoming' | 'reserved'
   expected_date: string | null
   posted_by: string | null
+  discount_percent?: number | null
+  discount_amount?: number | null
+  discount_end_date?: string | null
   staff_id: number | null
   created_at: string
   // Inventory fields
@@ -34,9 +37,6 @@ export type Item = {
   bin_location: string | null
   cost_price: number | null
   batch_id: number | null
-  // Discount fields
-  discount_percent?: number | null
-  discount_end_date?: string | null
 }
 
 export type InventoryBatch = {

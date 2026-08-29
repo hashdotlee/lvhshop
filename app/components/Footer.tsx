@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import FooterControls from './FooterControls'
 
 export default function Footer() {
   return (
@@ -25,7 +26,10 @@ export default function Footer() {
             <li><Link href="/" style={{ color: '#a3a199', textDecoration: 'none', fontSize: 14 }}>Trang chủ</Link></li>
             <li><Link href="/account" style={{ color: '#a3a199', textDecoration: 'none', fontSize: 14 }}>Tài khoản của tôi</Link></li>
             <li><Link href="/order" style={{ color: '#a3a199', textDecoration: 'none', fontSize: 14 }}>Đăng nhập / Đăng ký</Link></li>
+            <li><Link href="/blog" style={{ color: '#a3a199', textDecoration: 'none', fontSize: 14 }}>Blog</Link></li>
+            <li><Link href="/game" style={{ color: '#a3a199', textDecoration: 'none', fontSize: 14 }}>Trò chơi (Game)</Link></li>
             <li><a href="https://fb.com/leviethoang.shop" target="_blank" rel="noreferrer" style={{ color: '#a3a199', textDecoration: 'none', fontSize: 14 }}>Fanpage Facebook</a></li>
+            <li style={{ marginTop: 8 }}><FooterControls /></li>
           </ul>
         </div>
 

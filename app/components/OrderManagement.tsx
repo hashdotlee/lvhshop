@@ -296,8 +296,8 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
 
   function selectItem(item: Item) {
     setCreateStagedItem(item)
-    const isSale = item.discount_percent && item.discount_percent > 0 && item.discount_end_date && new Date(item.discount_end_date) > new Date()
-    const finalPrice = isSale && item.price ? item.price * (1 - item.discount_percent! / 100) : item.price
+    const isSale = ((item.discount_percent && item.discount_percent > 0) || (item.discount_amount && item.discount_amount > 0)) && item.discount_end_date && new Date(item.discount_end_date) > new Date()
+    const finalPrice = isSale && item.price ? (item.discount_amount && item.discount_amount > 0 ? item.price - item.discount_amount : item.price * (1 - item.discount_percent! / 100)) : item.price
     setCreateStagedPrice(finalPrice ? String(finalPrice) : '')
     setItemSearch(item.title)
     setSearchedItems([])
