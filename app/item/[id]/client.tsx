@@ -519,7 +519,7 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                     <button className="btn-buy" onClick={() => {
                       const isSale = ((item.discount_percent && item.discount_percent > 0) || (item.discount_amount && item.discount_amount > 0)) && item.discount_end_date && new Date(item.discount_end_date) > new Date()
                       const finalPrice = isSale && item.price ? (item.discount_amount && item.discount_amount > 0 ? item.price - item.discount_amount : item.price * (1 - item.discount_percent! / 100)) : item.price
-                      const added = addToCart({ id: item.id, title: item.title, price: finalPrice ?? null })
+                      const added = addToCart({ id: item.id, title: item.title + (isSale ? ' (Đã giảm giá)' : ''), price: finalPrice ?? null })
                       const cnt = getCartCount()
                       setCartCount(cnt)
                       showToast(added ? 'Đã thêm vào giỏ hàng 🛒' : 'Sản phẩm đã có trong giỏ')

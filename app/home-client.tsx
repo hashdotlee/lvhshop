@@ -969,7 +969,11 @@ export default function HomeClient() {
                         <span>Đã chọn {selectedItemIds.length} mặt hàng</span>
                         <div style={{display:'flex',gap:8}}>
                           <button className="btn-dark" onClick={() => {
-                            const selected = items.filter(i => selectedItemIds.includes(i.id)).map(i => ({ id: i.id, title: i.title, price: i.price }))
+                            const selected = items.filter(i => selectedItemIds.includes(i.id)).map(i => {
+                              const isSale = ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()
+                              const finalPrice = isSale && i.price ? (i.discount_amount && i.discount_amount > 0 ? i.price - i.discount_amount : i.price * (1 - i.discount_percent! / 100)) : i.price
+                              return { id: i.id, title: i.title + (isSale ? ' (Đã giảm giá)' : ''), price: finalPrice, original_price: i.price }
+                            })
                             setInitialOrderItems(selected)
                             setAdminView('orders')
                           }}>+ Tạo đơn hàng</button>

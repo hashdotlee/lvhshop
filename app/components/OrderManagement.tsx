@@ -304,8 +304,12 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   }
 
   function addToCreateCart() {
-    const title = createStagedItem?.title ?? itemSearch.trim()
+    let title = createStagedItem?.title ?? itemSearch.trim()
     if (!title) return
+    if (createStagedItem) {
+      const isSale = ((createStagedItem.discount_percent && createStagedItem.discount_percent > 0) || (createStagedItem.discount_amount && createStagedItem.discount_amount > 0)) && createStagedItem.discount_end_date && new Date(createStagedItem.discount_end_date) > new Date()
+      if (isSale) title += ' (Đã giảm giá)'
+    }
     const price = createStagedPrice ? Number(createStagedPrice) : (createStagedItem?.price ?? null)
     const original_price = createStagedItem?.price ?? null
     const newItem = { id: createStagedItem?.id, title, price, original_price }
