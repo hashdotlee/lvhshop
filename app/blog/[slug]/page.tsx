@@ -38,13 +38,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       locale: 'vi_VN',
       publishedTime: post.created_at,
       modifiedTime: post.updated_at,
-      images: [{ url: `${siteUrl}/blog/${post.slug}/opengraph-image`, width: 1200, height: 630, alt: post.title }],
     },
     twitter: {
       card: 'summary_large_image',
       title: post.title,
       description: post.excerpt ?? undefined,
-      images: [`${siteUrl}/blog/${post.slug}/opengraph-image`],
     },
     alternates: { canonical: `${siteUrl}/blog/${post.slug}` },
   }
