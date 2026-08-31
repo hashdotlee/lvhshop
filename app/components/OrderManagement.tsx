@@ -417,11 +417,12 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     let carrierMetadata = null
 
     if (form.shipping_carrier === 'spx') {
-      finalCustomerAddress = [form.spx_detail, form.spx_ward, form.spx_district, form.spx_province].filter(Boolean).join(', ')
+      const spxDist = form.spx_address_type === 'new' ? '' : form.spx_district
+      finalCustomerAddress = [form.spx_detail, form.spx_ward, spxDist, form.spx_province].filter(Boolean).join(', ')
       carrierMetadata = {
         spx_address_type: form.spx_address_type,
         spx_province: form.spx_province,
-        spx_district: form.spx_district,
+        spx_district: spxDist,
         spx_ward: form.spx_ward,
         spx_detail: form.spx_detail,
         spx_service_partial: form.spx_service_partial,
@@ -1936,7 +1937,8 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                 }
 
                 if (editForm.shipping_carrier === 'spx') {
-                  const spxAddressParts = [editForm.spx_detail, editForm.spx_ward, editForm.spx_district, editForm.spx_province].filter(Boolean).join(', ')
+                  const spxDist = editForm.spx_address_type === 'new' ? '' : editForm.spx_district
+                  const spxAddressParts = [editForm.spx_detail, editForm.spx_ward, spxDist, editForm.spx_province].filter(Boolean).join(', ')
                   if (spxAddressParts) {
                     // Update the string representation for general UI
                     ;(payload as any).customer_address = spxAddressParts
@@ -1944,7 +1946,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   payload.carrier_metadata = {
                     spx_address_type: editForm.spx_address_type,
                     spx_province: editForm.spx_province,
-                    spx_district: editForm.spx_district,
+                    spx_district: spxDist,
                     spx_ward: editForm.spx_ward,
                     spx_detail: editForm.spx_detail,
                     spx_service_partial: editForm.spx_service_partial,

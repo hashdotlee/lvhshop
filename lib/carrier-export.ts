@@ -219,7 +219,17 @@ export async function generateSPXExcel(orders: OrderExportRow[]): Promise<Uint8A
   // Determine sheet name based on address type
   // Default to "Tạo đơn (địa chỉ cũ)", but if 'new' try "Tạo đơn (địa chỉ mới)"
   let sheetName = 'Tạo đơn (địa chỉ cũ)'
-  const addressType = orders.length > 0 && orders[0].carrier_metadata?.spx_address_type === 'new' ? 'new' : 'old'
+  let addressType = 'old'
+  if (orders.length > 0) {
+    if (orders[0].carrier_metadata?.spx_address_type === 'new') {
+      addressType = 'new'
+    } else if (!orders[0].carrier_metadata && orders[0].customer_address) {
+      // Fallback if schema cache issue hid carrier_metadata
+      const parts = orders[0].customer_address.split(',')
+      if (parts.length === 3) addressType = 'new'
+    }
+  }
+
   if (addressType === 'new') {
     const hasNewSheet = wb.getWorksheet('Tạo đơn (địa chỉ mới)')
     if (hasNewSheet) sheetName = 'Tạo đơn (địa chỉ mới)'
@@ -248,12 +258,40 @@ export async function generateSPXExcel(orders: OrderExportRow[]): Promise<Uint8A
     row.getCell(2).value = order.customer_name   // Tên người nhận
     row.getCell(3).value = order.customer_phone  // Số điện thoại
     
+    // Fallback parser if carrier_metadata is missing due to schema cache
+    let spxProvince = meta.spx_province || ''
+    let spxDistrict = meta.spx_district || ''
+    let spxWard = meta.spx_ward || ''
+    let spxDetail = meta.spx_detail || ''
+
+    if (!spxProvince && order.customer_address) {
+      const parts = order.customer_address.split(',').map(s => s.trim())
+      if (addressType === 'new') {
+        if (parts.length >= 3) {
+          spxProvince = parts.pop() || ''
+          spxWard = parts.pop() || ''
+          spxDetail = parts.join(', ')
+        } else {
+          spxDetail = order.customer_address
+        }
+      } else {
+        if (parts.length >= 4) {
+          spxProvince = parts.pop() || ''
+          spxDistrict = parts.pop() || ''
+          spxWard = parts.pop() || ''
+          spxDetail = parts.join(', ')
+        } else {
+          spxDetail = order.customer_address
+        }
+      }
+    }
+
     // Address mapping & columns depend on address type
     if (addressType === 'new') {
-      if (meta.spx_province) {
-        row.getCell(4).value = meta.spx_province
-        row.getCell(5).value = meta.spx_ward || ''
-        row.getCell(6).value = meta.spx_detail || ''
+      if (spxProvince) {
+        row.getCell(4).value = spxProvince
+        row.getCell(5).value = spxWard
+        row.getCell(6).value = spxDetail
       } else {
         row.getCell(4).value = ''
         row.getCell(5).value = ''
@@ -276,11 +314,11 @@ export async function generateSPXExcel(orders: OrderExportRow[]): Promise<Uint8A
       row.getCell(26).value = 'Người nhận trả'
       row.getCell(27).value = order.delivery_note || order.customer_note || ''
     } else {
-      if (meta.spx_province) {
-        row.getCell(4).value = meta.spx_province
-        row.getCell(5).value = meta.spx_district || ''
-        row.getCell(6).value = meta.spx_ward || ''
-        row.getCell(7).value = meta.spx_detail || ''
+      if (spxProvince) {
+        row.getCell(4).value = spxProvince
+        row.getCell(5).value = spxDistrict
+        row.getCell(6).value = spxWard
+        row.getCell(7).value = spxDetail
       } else {
         row.getCell(4).value = ''
         row.getCell(5).value = ''
