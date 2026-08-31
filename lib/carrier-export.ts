@@ -248,38 +248,63 @@ export async function generateSPXExcel(orders: OrderExportRow[]): Promise<Uint8A
     row.getCell(2).value = order.customer_name   // Tên người nhận
     row.getCell(3).value = order.customer_phone  // Số điện thoại
     
-    // Address mapping
-    if (meta.spx_province) {
-      row.getCell(4).value = meta.spx_province
-      row.getCell(5).value = meta.spx_district || ''
-      row.getCell(6).value = meta.spx_ward || ''
-      row.getCell(7).value = meta.spx_detail || ''
+    // Address mapping & columns depend on address type
+    if (addressType === 'new') {
+      if (meta.spx_province) {
+        row.getCell(4).value = meta.spx_province
+        row.getCell(5).value = meta.spx_ward || ''
+        row.getCell(6).value = meta.spx_detail || ''
+      } else {
+        row.getCell(4).value = ''
+        row.getCell(5).value = ''
+        row.getCell(6).value = order.customer_address
+      }
+      row.getCell(7).value = order.delivery_note || order.customer_note || '' // Lưu ý về địa chỉ
+      row.getCell(9).value = order.item_title
+      row.getCell(10).value = 1
+      row.getCell(11).value = order.total_amount ?? 0
+      row.getCell(12).value = order.weight_g ? order.weight_g / 1000 : 0.5
+      row.getCell(13).value = order.length_cm || ''
+      row.getCell(14).value = order.width_cm || ''
+      row.getCell(15).value = order.height_cm || ''
+      row.getCell(17).value = order.total_amount ?? 0
+      row.getCell(18).value = meta.spx_service_partial ? 'Y' : 'N'
+      row.getCell(19).value = 'N'
+      row.getCell(20).value = meta.spx_service_view ? 'Y' : 'N'
+      row.getCell(23).value = hasCOD ? 'Y' : 'N'
+      row.getCell(24).value = hasCOD ? cod : ''
+      row.getCell(26).value = 'Người nhận trả'
+      row.getCell(27).value = order.delivery_note || order.customer_note || ''
     } else {
-      row.getCell(4).value = ''
-      row.getCell(5).value = ''
-      row.getCell(6).value = ''
-      row.getCell(7).value = order.customer_address // Fallback
+      if (meta.spx_province) {
+        row.getCell(4).value = meta.spx_province
+        row.getCell(5).value = meta.spx_district || ''
+        row.getCell(6).value = meta.spx_ward || ''
+        row.getCell(7).value = meta.spx_detail || ''
+      } else {
+        row.getCell(4).value = ''
+        row.getCell(5).value = ''
+        row.getCell(6).value = ''
+        row.getCell(7).value = order.customer_address
+      }
+      row.getCell(8).value = order.delivery_note || order.customer_note || ''
+      row.getCell(10).value = order.item_title
+      row.getCell(11).value = 1
+      row.getCell(12).value = order.total_amount ?? 0
+      row.getCell(13).value = order.weight_g ? order.weight_g / 1000 : 0.5
+      row.getCell(14).value = order.length_cm || ''
+      row.getCell(15).value = order.width_cm || ''
+      row.getCell(16).value = order.height_cm || ''
+      row.getCell(18).value = order.total_amount ?? 0
+      row.getCell(19).value = meta.spx_service_partial ? 'Y' : 'N'
+      row.getCell(20).value = 'N'
+      row.getCell(21).value = meta.spx_service_view ? 'Y' : 'N'
+      row.getCell(24).value = hasCOD ? 'Y' : 'N'
+      row.getCell(25).value = hasCOD ? cod : ''
+      row.getCell(27).value = 'Người nhận trả'
+      row.getCell(28).value = order.delivery_note || order.customer_note || ''
     }
-
-    row.getCell(8).value = order.delivery_note || order.customer_note || '' // Lưu ý về địa chỉ
-    row.getCell(10).value = order.item_title     // Tên sản phẩm
-    row.getCell(11).value = 1                    // Số lượng
-    row.getCell(12).value = order.total_amount ?? 0 // Giá tiền
-    row.getCell(13).value = order.weight_g ? order.weight_g / 1000 : 0.5 // Cân nặng (KG)
     
-    // In SPX standard templates, Dài/Rộng/Cao are usually 14, 15, 16.
-    row.getCell(14).value = order.length_cm || '' // Chiều dài (cm)
-    row.getCell(15).value = order.width_cm || ''  // Chiều rộng (cm)
-    row.getCell(16).value = order.height_cm || '' // Chiều cao (cm)
-
-    row.getCell(18).value = order.total_amount ?? 0 // Giá trị đơn hàng
-    row.getCell(19).value = meta.spx_service_partial ? 'Y' : 'N' // Giao hàng một phần
-    row.getCell(20).value = 'N'                  // Cho phép thử hàng
-    row.getCell(21).value = meta.spx_service_view ? 'Y' : 'N' // Cho xem hàng, không cho thử
-    row.getCell(24).value = hasCOD ? 'Y' : 'N'  // Thu COD
-    row.getCell(25).value = hasCOD ? cod : ''    // Số tiền COD
-    row.getCell(27).value = 'Người nhận trả'    // Hình thức thanh toán cước ship
-    row.getCell(28).value = order.delivery_note || order.customer_note || '' // Lưu ý giao hàng
     row.commit()
   })
 

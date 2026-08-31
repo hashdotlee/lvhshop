@@ -1473,9 +1473,11 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                     </div>
                     <div className="om-form-grid" style={{ gap: 8 }}>
                       <input className="om-inp" placeholder="Tỉnh / Thành phố" value={form.spx_province} onChange={e => setForm(f => ({ ...f, spx_province: e.target.value }))} />
-                      <input className="om-inp" placeholder="Quận / Huyện" value={form.spx_district} onChange={e => setForm(f => ({ ...f, spx_district: e.target.value }))} />
+                      {form.spx_address_type !== 'new' && (
+                        <input className="om-inp" placeholder="Quận / Huyện" value={form.spx_district} onChange={e => setForm(f => ({ ...f, spx_district: e.target.value }))} />
+                      )}
                       <input className="om-inp" placeholder="Phường / Xã" value={form.spx_ward} onChange={e => setForm(f => ({ ...f, spx_ward: e.target.value }))} />
-                      <input className="om-inp" placeholder="Số nhà, Tên đường, Thôn/Xóm..." value={form.spx_detail} onChange={e => setForm(f => ({ ...f, spx_detail: e.target.value }))} />
+                      <input className="om-inp" placeholder={form.spx_address_type === 'new' ? 'Địa chỉ chi tiết (nhập Quận/Huyện, Số nhà, Đường...)' : 'Số nhà, Tên đường, Thôn/Xóm...'} value={form.spx_detail} onChange={e => setForm(f => ({ ...f, spx_detail: e.target.value }))} />
                     </div>
                   </div>
                 ) : (
@@ -1826,9 +1828,11 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   </div>
                   <div className="om-form-grid" style={{ gap: 8, marginBottom: 8 }}>
                     <input className="om-inp" placeholder="Tỉnh / Thành phố" value={editForm.spx_province} onChange={e => setEditForm(f => ({ ...f, spx_province: e.target.value }))} />
-                    <input className="om-inp" placeholder="Quận / Huyện" value={editForm.spx_district} onChange={e => setEditForm(f => ({ ...f, spx_district: e.target.value }))} />
+                    {editForm.spx_address_type !== 'new' && (
+                      <input className="om-inp" placeholder="Quận / Huyện" value={editForm.spx_district} onChange={e => setEditForm(f => ({ ...f, spx_district: e.target.value }))} />
+                    )}
                     <input className="om-inp" placeholder="Phường / Xã" value={editForm.spx_ward} onChange={e => setEditForm(f => ({ ...f, spx_ward: e.target.value }))} />
-                    <input className="om-inp" placeholder="Số nhà, Tên đường..." value={editForm.spx_detail} onChange={e => setEditForm(f => ({ ...f, spx_detail: e.target.value }))} />
+                    <input className="om-inp" placeholder={editForm.spx_address_type === 'new' ? 'Địa chỉ chi tiết (nhập Quận/Huyện, Số nhà...)' : 'Số nhà, Tên đường...'} value={editForm.spx_detail} onChange={e => setEditForm(f => ({ ...f, spx_detail: e.target.value }))} />
                   </div>
                   <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
