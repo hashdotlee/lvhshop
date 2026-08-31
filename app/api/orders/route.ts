@@ -240,6 +240,39 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // Update customer address book if it is a new address
+  const carrier_metadata = fields.carrier_metadata
+  if (carrier_metadata && data) {
+    const phone = (data as any).customer_phone?.trim()
+    if (phone) {
+      const { data: existingCust } = await db.from('customers').select('id').eq('phone', phone).maybeSingle()
+      if (existingCust) {
+        const custId = existingCust.id
+        const { spx_province, spx_district, spx_ward, spx_detail, spx_address_type } = carrier_metadata
+        const { data: existingAddrs } = await db.from('crm_customer_addresses').select('id, province, district, ward, detail').eq('customer_id', custId)
+        
+        const isNew = !existingAddrs?.some((a: any) => 
+          a.province === (spx_province || '') && 
+          a.district === (spx_district || '') && 
+          a.ward === (spx_ward || '') && 
+          a.detail === (spx_detail || '')
+        )
+        
+        if (isNew && spx_province && spx_ward && spx_detail) {
+          await db.from('crm_customer_addresses').insert({
+            customer_id: custId,
+            address_type: spx_address_type || 'new',
+            province: spx_province || '',
+            district: spx_district || '',
+            ward: spx_ward || '',
+            detail: spx_detail || '',
+            is_default: existingAddrs?.length === 0,
+          })
+        }
+      }
+    }
+  }
+
   // Return order with fresh order_items so client doesn't need to merge from local state
   const [withItems] = await attachOrderItems(db, [data as Record<string, unknown>])
   return NextResponse.json(withItems)

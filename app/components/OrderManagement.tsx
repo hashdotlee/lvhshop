@@ -116,7 +116,7 @@ const EMPTY_FORM = {
   width_cm: '',
   height_cm: '',
   delivery_note: '',
-  spx_address_type: 'old',
+  spx_address_type: 'new',
   spx_province: '',
   spx_district: '',
   spx_ward: '',
@@ -180,7 +180,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     width_cm: '',
     height_cm: '',
     delivery_note: '',
-    spx_address_type: 'old',
+    spx_address_type: 'new',
     spx_province: '',
     spx_district: '',
     spx_ward: '',
@@ -188,6 +188,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     spx_service_partial: false,
     spx_service_view: true,
   })
+  const [showEditAddressForm, setShowEditAddressForm] = useState(false)
 
   // Add-item-to-order state (in edit modal)
   const [addItemSearch, setAddItemSearch] = useState('')
@@ -806,7 +807,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       width_cm: order.width_cm ? String(order.width_cm) : '',
       height_cm: order.height_cm ? String(order.height_cm) : '',
       delivery_note: order.delivery_note ?? '',
-      spx_address_type: order.carrier_metadata?.spx_address_type ?? 'old',
+      spx_address_type: order.carrier_metadata?.spx_address_type ?? 'new',
       spx_province: order.carrier_metadata?.spx_province ?? '',
       spx_district: order.carrier_metadata?.spx_district ?? '',
       spx_ward: order.carrier_metadata?.spx_ward ?? '',
@@ -814,6 +815,8 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       spx_service_partial: order.carrier_metadata?.spx_service_partial ?? false,
       spx_service_view: order.carrier_metadata?.spx_service_view ?? true,
     })
+    const cust = allCustomers.find(c => c.phone === order.customer_phone)
+    setShowEditAddressForm(!(cust?.addresses?.length))
     setEditOrderItems(order.order_items ?? [])
     setAddItemSearch('')
     setAddItemResults([])
@@ -1895,24 +1898,64 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <label className="om-lbl" style={{ margin: 0 }}>Địa chỉ giao hàng *</label>
                   <div style={{ display: 'flex', gap: 12 }}>
-                    <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                      <input type="radio" checked={editForm.spx_address_type === 'old'} onChange={() => setEditForm(f => ({ ...f, spx_address_type: 'old' }))} />
-                      Địa chỉ cũ
-                    </label>
-                    <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                      <input type="radio" checked={editForm.spx_address_type === 'new'} onChange={() => setEditForm(f => ({ ...f, spx_address_type: 'new' }))} />
-                      Địa chỉ mới
-                    </label>
+                    {allCustomers.find(c => c.phone === editOrder.customer_phone)?.addresses?.length ? (
+                      <button className="om-btn-ghost" style={{ padding: '4px 8px', fontSize: 12 }} onClick={() => setShowEditAddressForm(!showEditAddressForm)}>
+                        {showEditAddressForm ? 'Chọn từ sổ địa chỉ' : '+ Thêm địa chỉ mới'}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
-                <div className="om-form-grid" style={{ gap: 8, marginBottom: 8 }}>
-                  <input className="om-inp" placeholder="Tỉnh / Thành phố" value={editForm.spx_province} onChange={e => setEditForm(f => ({ ...f, spx_province: e.target.value }))} />
-                  {editForm.spx_address_type !== 'new' && (
-                    <input className="om-inp" placeholder="Quận / Huyện" value={editForm.spx_district} onChange={e => setEditForm(f => ({ ...f, spx_district: e.target.value }))} />
-                  )}
-                  <input className="om-inp" placeholder="Phường / Xã" value={editForm.spx_ward} onChange={e => setEditForm(f => ({ ...f, spx_ward: e.target.value }))} />
-                  <input className="om-inp" placeholder={editForm.spx_address_type === 'new' ? 'Địa chỉ chi tiết (nhập Quận/Huyện, Số nhà...)' : 'Số nhà, Tên đường...'} value={editForm.spx_detail} onChange={e => setEditForm(f => ({ ...f, spx_detail: e.target.value }))} />
-                </div>
+                
+                {!showEditAddressForm && allCustomers.find(c => c.phone === editOrder.customer_phone)?.addresses?.length ? (
+                  <div className="om-form-grid" style={{ gap: 8 }}>
+                    <select className="om-inp om-fg-full" onChange={(e) => {
+                      const addr = allCustomers.find(c => c.phone === editOrder.customer_phone)?.addresses?.find(a => a.id === Number(e.target.value))
+                      if (addr) {
+                        setEditForm(f => ({
+                          ...f,
+                          spx_province: addr.province || '',
+                          spx_district: addr.district || '',
+                          spx_ward: addr.ward || '',
+                          spx_detail: addr.detail || '',
+                          spx_address_type: addr.address_type || 'new'
+                        }))
+                      }
+                    }}>
+                      {allCustomers.find(c => c.phone === editOrder.customer_phone)?.addresses?.map((a, idx) => {
+                        const isSelected = a.province === editForm.spx_province &&
+                          a.district === editForm.spx_district &&
+                          a.ward === editForm.spx_ward &&
+                          a.detail === editForm.spx_detail;
+                        return (
+                          <option key={a.id} value={a.id} selected={isSelected}>
+                            {a.detail}, {a.ward}, {a.district && a.district + ', '}{a.province} {a.is_default ? '(Mặc định)' : ''}
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+                      <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                        <input type="radio" checked={editForm.spx_address_type === 'old'} onChange={() => setEditForm(f => ({ ...f, spx_address_type: 'old' }))} />
+                        Địa chỉ cũ
+                      </label>
+                      <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                        <input type="radio" checked={editForm.spx_address_type === 'new'} onChange={() => setEditForm(f => ({ ...f, spx_address_type: 'new' }))} />
+                        Địa chỉ mới
+                      </label>
+                    </div>
+                    <div className="om-form-grid" style={{ gap: 8 }}>
+                      <input className="om-inp" placeholder="Tỉnh / Thành phố" value={editForm.spx_province} onChange={e => setEditForm(f => ({ ...f, spx_province: e.target.value }))} />
+                      {editForm.spx_address_type !== 'new' && (
+                        <input className="om-inp" placeholder="Quận / Huyện" value={editForm.spx_district} onChange={e => setEditForm(f => ({ ...f, spx_district: e.target.value }))} />
+                      )}
+                      <input className="om-inp" placeholder="Phường / Xã" value={editForm.spx_ward} onChange={e => setEditForm(f => ({ ...f, spx_ward: e.target.value }))} />
+                      <input className="om-inp" placeholder={editForm.spx_address_type === 'new' ? 'Địa chỉ chi tiết (nhập Quận/Huyện, Số nhà...)' : 'Số nhà, Tên đường...'} value={editForm.spx_detail} onChange={e => setEditForm(f => ({ ...f, spx_detail: e.target.value }))} />
+                    </div>
+                  </>
+                )}
               </div>
               {editForm.shipping_carrier === 'spx' && (
                 <div className="om-fg om-fg-full" style={{ background: '#fff3e0', padding: 12, borderRadius: 8, border: '1px solid #ffd8a8' }}>
