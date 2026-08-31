@@ -70,6 +70,22 @@ export async function GET(req: NextRequest) {
     order_items?: Array<{ item_title: string; quantity: number; item_price: number | null }>
   }>
 
+  const phones = Array.from(new Set(orders.map(o => o.customer_phone).filter(Boolean)))
+  const { data: custData } = await db
+    .from('customers')
+    .select('phone, crm_customer_addresses(id, address_type, province, district, ward, detail, is_default)')
+    .in('phone', phones)
+  
+  const addressBookMap = new Map()
+  if (custData) {
+    for (const c of custData) {
+      if (c.crm_customer_addresses && c.crm_customer_addresses.length > 0) {
+        const def = (c.crm_customer_addresses as any[]).find((a) => a.is_default) || c.crm_customer_addresses[0]
+        addressBookMap.set(c.phone, def)
+      }
+    }
+  }
+
   const rows: OrderExportRow[] = orders.map((o) => {
     // Build item title from order_items if available
     const itemTitle =
@@ -77,11 +93,35 @@ export async function GET(req: NextRequest) {
         ? o.order_items.map((i) => i.item_title).join(', ')
         : (o.item_title ?? 'Hàng hóa')
 
+    let customer_address = o.customer_address
+    let carrier_metadata = { ...(o.carrier_metadata || {}) }
+
+    const abAddr = addressBookMap.get(o.customer_phone)
+    if (abAddr) {
+      // Create full address string for VNPost
+      const parts = []
+      if (abAddr.detail) parts.push(abAddr.detail)
+      if (abAddr.ward) parts.push(abAddr.ward)
+      if (abAddr.district && abAddr.address_type !== 'new') parts.push(abAddr.district)
+      if (abAddr.province) parts.push(abAddr.province)
+      customer_address = parts.join(', ')
+      
+      // Override carrier_metadata for SPX
+      carrier_metadata = {
+        ...carrier_metadata,
+        spx_address_type: abAddr.address_type || 'new',
+        spx_province: abAddr.province || '',
+        spx_district: abAddr.district || '',
+        spx_ward: abAddr.ward || '',
+        spx_detail: abAddr.detail || '',
+      }
+    }
+
     return {
       order_number: o.order_number,
       customer_name: o.customer_name,
       customer_phone: o.customer_phone,
-      customer_address: o.customer_address,
+      customer_address: customer_address,
       item_title: itemTitle,
       total_amount: o.total_amount,
       shipping_fee: o.shipping_fee,
@@ -93,7 +133,7 @@ export async function GET(req: NextRequest) {
       width_cm: o.width_cm,
       height_cm: o.height_cm,
       delivery_note: o.delivery_note,
-      carrier_metadata: o.carrier_metadata,
+      carrier_metadata: carrier_metadata,
       raw_items: o.order_items?.map(i => ({
         title: i.item_title,
         quantity: i.quantity,
