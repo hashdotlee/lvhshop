@@ -254,12 +254,37 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   }
 
   function selectCustomer(c: typeof allCustomers[0]) {
+    let prov = '', dist = '', ward = '', detail = ''
+    let addressType = 'new'
+    if (c.address) {
+      const parts = c.address.split(',').map((s: string) => s.trim())
+      if (parts.length >= 4) {
+        prov = parts.pop() || ''
+        dist = parts.pop() || ''
+        ward = parts.pop() || ''
+        detail = parts.join(', ')
+        addressType = 'old'
+      } else if (parts.length === 3) {
+        prov = parts.pop() || ''
+        ward = parts.pop() || ''
+        detail = parts.join(', ')
+        addressType = 'new'
+      } else {
+        detail = c.address
+      }
+    }
+
     setForm(f => ({
       ...f,
       customer_name: c.name,
       customer_phone: c.phone,
       customer_address: c.address || f.customer_address,
       fb_psid: c.fb_psid || f.fb_psid,
+      spx_province: prov,
+      spx_district: dist,
+      spx_ward: ward,
+      spx_detail: detail,
+      spx_address_type: addressType as 'new' | 'old',
     }))
     setShowNameDropdown(false)
     setShowPhoneDropdown(false)
@@ -416,18 +441,22 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     let finalCustomerAddress = form.customer_address
     let carrierMetadata = null
 
-    if (form.shipping_carrier === 'spx') {
-      const spxDist = form.spx_address_type === 'new' ? '' : form.spx_district
-      finalCustomerAddress = [form.spx_detail, form.spx_ward, spxDist, form.spx_province].filter(Boolean).join(', ')
-      carrierMetadata = {
-        spx_address_type: form.spx_address_type,
-        spx_province: form.spx_province,
-        spx_district: spxDist,
-        spx_ward: form.spx_ward,
-        spx_detail: form.spx_detail,
-        spx_service_partial: form.spx_service_partial,
-        spx_service_view: form.spx_service_view
-      }
+    // For ALL carriers, we build the string from the separate fields
+    const spxDist = form.spx_address_type === 'new' ? '' : form.spx_district
+    const addrParts = [form.spx_detail, form.spx_ward, spxDist, form.spx_province].filter(Boolean)
+    if (addrParts.length > 0) {
+      finalCustomerAddress = addrParts.join(', ')
+    }
+    
+    // We store the structured data for all orders now, to be carrier agnostic
+    carrierMetadata = {
+      spx_address_type: form.spx_address_type,
+      spx_province: form.spx_province,
+      spx_district: spxDist,
+      spx_ward: form.spx_ward,
+      spx_detail: form.spx_detail,
+      spx_service_partial: form.spx_service_partial,
+      spx_service_view: form.spx_service_view
     }
 
     if (!form.customer_name || !form.customer_phone || !finalCustomerAddress) {
@@ -1457,37 +1486,29 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                     </div>
                   )}
                 </div>
-                {form.shipping_carrier === 'spx' ? (
-                  <div className="om-fg om-fg-full" style={{ background: '#f8f9fa', padding: 12, borderRadius: 8, border: '1px solid #e9ecef' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                      <label className="om-lbl" style={{ margin: 0 }}>Địa chỉ nhận (Shopee Express) *</label>
-                      <div style={{ display: 'flex', gap: 12 }}>
-                        <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <input type="radio" checked={form.spx_address_type === 'old'} onChange={() => setForm(f => ({ ...f, spx_address_type: 'old' }))} />
-                          Địa chỉ cũ
-                        </label>
-                        <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <input type="radio" checked={form.spx_address_type === 'new'} onChange={() => setForm(f => ({ ...f, spx_address_type: 'new' }))} />
-                          Địa chỉ mới
-                        </label>
-                      </div>
-                    </div>
-                    <div className="om-form-grid" style={{ gap: 8 }}>
-                      <input className="om-inp" placeholder="Tỉnh / Thành phố" value={form.spx_province} onChange={e => setForm(f => ({ ...f, spx_province: e.target.value }))} />
-                      {form.spx_address_type !== 'new' && (
-                        <input className="om-inp" placeholder="Quận / Huyện" value={form.spx_district} onChange={e => setForm(f => ({ ...f, spx_district: e.target.value }))} />
-                      )}
-                      <input className="om-inp" placeholder="Phường / Xã" value={form.spx_ward} onChange={e => setForm(f => ({ ...f, spx_ward: e.target.value }))} />
-                      <input className="om-inp" placeholder={form.spx_address_type === 'new' ? 'Địa chỉ chi tiết (nhập Quận/Huyện, Số nhà, Đường...)' : 'Số nhà, Tên đường, Thôn/Xóm...'} value={form.spx_detail} onChange={e => setForm(f => ({ ...f, spx_detail: e.target.value }))} />
+                <div className="om-fg om-fg-full" style={{ background: '#f8f9fa', padding: 12, borderRadius: 8, border: '1px solid #e9ecef' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <label className="om-lbl" style={{ margin: 0 }}>Địa chỉ giao hàng *</label>
+                    <div style={{ display: 'flex', gap: 12 }}>
+                      <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                        <input type="radio" checked={form.spx_address_type === 'old'} onChange={() => setForm(f => ({ ...f, spx_address_type: 'old' }))} />
+                        Địa chỉ cũ
+                      </label>
+                      <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                        <input type="radio" checked={form.spx_address_type === 'new'} onChange={() => setForm(f => ({ ...f, spx_address_type: 'new' }))} />
+                        Địa chỉ mới
+                      </label>
                     </div>
                   </div>
-                ) : (
-                  <div className="om-fg om-fg-full">
-                    <label className="om-lbl">Địa chỉ giao hàng *</label>
-                    <input className="om-inp" placeholder="Số nhà, đường, quận, tỉnh..." value={form.customer_address}
-                      onChange={e => setForm(f => ({ ...f, customer_address: e.target.value }))} />
+                  <div className="om-form-grid" style={{ gap: 8 }}>
+                    <input className="om-inp" placeholder="Tỉnh / Thành phố" value={form.spx_province} onChange={e => setForm(f => ({ ...f, spx_province: e.target.value }))} />
+                    {form.spx_address_type !== 'new' && (
+                      <input className="om-inp" placeholder="Quận / Huyện" value={form.spx_district} onChange={e => setForm(f => ({ ...f, spx_district: e.target.value }))} />
+                    )}
+                    <input className="om-inp" placeholder="Phường / Xã" value={form.spx_ward} onChange={e => setForm(f => ({ ...f, spx_ward: e.target.value }))} />
+                    <input className="om-inp" placeholder={form.spx_address_type === 'new' ? 'Địa chỉ chi tiết (nhập Quận/Huyện, Số nhà, Đường...)' : 'Số nhà, Tên đường, Thôn/Xóm...'} value={form.spx_detail} onChange={e => setForm(f => ({ ...f, spx_detail: e.target.value }))} />
                   </div>
-                )}
+                </div>
                 <div className="om-fg om-fg-full">
                   <label className="om-lbl">Ghi chú</label>
                   <input className="om-inp" placeholder="Ghi chú thêm cho đơn hàng..." value={form.customer_note}
@@ -1814,27 +1835,32 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                 <label className="om-lbl">Ghi chú giao hàng</label>
                 <input className="om-inp" value={editForm.delivery_note} onChange={e => setEditForm(f => ({ ...f, delivery_note: e.target.value }))} />
               </div>
-              {editForm.shipping_carrier === 'spx' && (
-                <div className="om-fg om-fg-full" style={{ background: '#fff3e0', padding: 12, borderRadius: 8, border: '1px solid #ffd8a8' }}>
-                  <div style={{ fontWeight: 600, color: '#d97706', marginBottom: 8, fontSize: 13 }}>Sửa cấu hình SPX</div>
-                  <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
-                    <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div className="om-fg om-fg-full" style={{ background: '#f8f9fa', padding: 12, borderRadius: 8, border: '1px solid #e9ecef' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <label className="om-lbl" style={{ margin: 0 }}>Địa chỉ giao hàng *</label>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
                       <input type="radio" checked={editForm.spx_address_type === 'old'} onChange={() => setEditForm(f => ({ ...f, spx_address_type: 'old' }))} />
                       Địa chỉ cũ
                     </label>
-                    <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
                       <input type="radio" checked={editForm.spx_address_type === 'new'} onChange={() => setEditForm(f => ({ ...f, spx_address_type: 'new' }))} />
                       Địa chỉ mới
                     </label>
                   </div>
-                  <div className="om-form-grid" style={{ gap: 8, marginBottom: 8 }}>
-                    <input className="om-inp" placeholder="Tỉnh / Thành phố" value={editForm.spx_province} onChange={e => setEditForm(f => ({ ...f, spx_province: e.target.value }))} />
-                    {editForm.spx_address_type !== 'new' && (
-                      <input className="om-inp" placeholder="Quận / Huyện" value={editForm.spx_district} onChange={e => setEditForm(f => ({ ...f, spx_district: e.target.value }))} />
-                    )}
-                    <input className="om-inp" placeholder="Phường / Xã" value={editForm.spx_ward} onChange={e => setEditForm(f => ({ ...f, spx_ward: e.target.value }))} />
-                    <input className="om-inp" placeholder={editForm.spx_address_type === 'new' ? 'Địa chỉ chi tiết (nhập Quận/Huyện, Số nhà...)' : 'Số nhà, Tên đường...'} value={editForm.spx_detail} onChange={e => setEditForm(f => ({ ...f, spx_detail: e.target.value }))} />
-                  </div>
+                </div>
+                <div className="om-form-grid" style={{ gap: 8, marginBottom: 8 }}>
+                  <input className="om-inp" placeholder="Tỉnh / Thành phố" value={editForm.spx_province} onChange={e => setEditForm(f => ({ ...f, spx_province: e.target.value }))} />
+                  {editForm.spx_address_type !== 'new' && (
+                    <input className="om-inp" placeholder="Quận / Huyện" value={editForm.spx_district} onChange={e => setEditForm(f => ({ ...f, spx_district: e.target.value }))} />
+                  )}
+                  <input className="om-inp" placeholder="Phường / Xã" value={editForm.spx_ward} onChange={e => setEditForm(f => ({ ...f, spx_ward: e.target.value }))} />
+                  <input className="om-inp" placeholder={editForm.spx_address_type === 'new' ? 'Địa chỉ chi tiết (nhập Quận/Huyện, Số nhà...)' : 'Số nhà, Tên đường...'} value={editForm.spx_detail} onChange={e => setEditForm(f => ({ ...f, spx_detail: e.target.value }))} />
+                </div>
+              </div>
+              {editForm.shipping_carrier === 'spx' && (
+                <div className="om-fg om-fg-full" style={{ background: '#fff3e0', padding: 12, borderRadius: 8, border: '1px solid #ffd8a8' }}>
+                  <div style={{ fontWeight: 600, color: '#d97706', marginBottom: 8, fontSize: 13 }}>Tùy chọn dịch vụ SPX</div>
                   <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
                       <input type="checkbox" checked={editForm.spx_service_view} onChange={e => setEditForm(f => ({ ...f, spx_service_view: e.target.checked }))} />
@@ -1936,22 +1962,20 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   delivery_note: editForm.delivery_note || null,
                 }
 
-                if (editForm.shipping_carrier === 'spx') {
-                  const spxDist = editForm.spx_address_type === 'new' ? '' : editForm.spx_district
-                  const spxAddressParts = [editForm.spx_detail, editForm.spx_ward, spxDist, editForm.spx_province].filter(Boolean).join(', ')
-                  if (spxAddressParts) {
-                    // Update the string representation for general UI
-                    ;(payload as any).customer_address = spxAddressParts
-                  }
-                  payload.carrier_metadata = {
-                    spx_address_type: editForm.spx_address_type,
-                    spx_province: editForm.spx_province,
-                    spx_district: spxDist,
-                    spx_ward: editForm.spx_ward,
-                    spx_detail: editForm.spx_detail,
-                    spx_service_partial: editForm.spx_service_partial,
-                    spx_service_view: editForm.spx_service_view
-                  }
+                const spxDist = editForm.spx_address_type === 'new' ? '' : editForm.spx_district
+                const spxAddressParts = [editForm.spx_detail, editForm.spx_ward, spxDist, editForm.spx_province].filter(Boolean)
+                if (spxAddressParts.length > 0) {
+                  // Update the string representation for general UI
+                  ;(payload as any).customer_address = spxAddressParts.join(', ')
+                }
+                payload.carrier_metadata = {
+                  spx_address_type: editForm.spx_address_type,
+                  spx_province: editForm.spx_province,
+                  spx_district: spxDist,
+                  spx_ward: editForm.spx_ward,
+                  spx_detail: editForm.spx_detail,
+                  spx_service_partial: editForm.spx_service_partial,
+                  spx_service_view: editForm.spx_service_view
                 }
 
                 updateOrder(editOrder.id, payload)
