@@ -238,6 +238,13 @@ export async function generateSPXExcel(orders: OrderExportRow[]): Promise<Uint8A
   const ws = wb.getWorksheet(sheetName)
   if (!ws) throw new Error(`Worksheet "${sheetName}" not found in SPX template`)
 
+  // Xóa các sheet không dùng đến để tránh lỗi hiển thị sheet rỗng khi mở file
+  wb.worksheets.forEach(sheet => {
+    if (sheet.name !== sheetName) {
+      wb.removeWorksheet(sheet.id)
+    }
+  })
+
   // Data starts at row 2 (row 1 is headers)
   const dataStartRow = 2
 

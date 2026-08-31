@@ -1397,6 +1397,47 @@ export default function HomeClient() {
               <div><label className="lbl">SĐT</label><input className="inp" value={editCust.phone??''} onChange={e=>setEditCust(c=>c?{...c,phone:e.target.value}:c)}/></div>
               <div style={{gridColumn:'1/-1'}}><label className="lbl">Địa chỉ</label><input className="inp" value={editCust.address??''} onChange={e=>setEditCust(c=>c?{...c,address:e.target.value}:c)}/></div>
               <div style={{gridColumn:'1/-1'}}><label className="lbl">Ghi chú</label><input className="inp" value={editCust.note??''} onChange={e=>setEditCust(c=>c?{...c,note:e.target.value}:c)}/></div>
+              <div style={{gridColumn:'1/-1', marginTop: 16}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 8}}>
+                  <label className="lbl" style={{fontWeight: 600}}>Sổ địa chỉ</label>
+                  <button className="btn-ghost" style={{padding:'2px 8px', fontSize: 12}} onClick={() => {
+                    const newAddr = { id: -Date.now(), customer_id: editCust.id, province: '', district: '', ward: '', detail: '', address_type: 'new', is_default: false, _isNew: true }
+                    setEditCust(c => c ? {...c, crm_customer_addresses: [...(c.crm_customer_addresses||[]), newAddr]} : c)
+                  }}>+ Thêm địa chỉ</button>
+                </div>
+                {editCust.crm_customer_addresses?.map((addr, idx) => (
+                  <div key={addr.id} style={{ border: '1px solid var(--border)', padding: 12, borderRadius: 8, marginBottom: 8, background: '#fafafa' }}>
+                    <div className="modal-grid" style={{gap:8}}>
+                      <div style={{gridColumn:'1/-1'}}><input className="inp" placeholder={addr.address_type === 'new' ? 'Địa chỉ chi tiết (Quận/Huyện, Số nhà...)' : 'Số nhà, Tên đường...'} value={addr.detail} onChange={e => {
+                        const arr = [...(editCust.crm_customer_addresses||[])]; arr[idx].detail = e.target.value; setEditCust({...editCust, crm_customer_addresses: arr})
+                      }} /></div>
+                      <div><input className="inp" placeholder="Phường/Xã" value={addr.ward} onChange={e => {
+                        const arr = [...(editCust.crm_customer_addresses||[])]; arr[idx].ward = e.target.value; setEditCust({...editCust, crm_customer_addresses: arr})
+                      }} /></div>
+                      {addr.address_type !== 'new' && (
+                        <div><input className="inp" placeholder="Quận/Huyện" value={addr.district} onChange={e => {
+                          const arr = [...(editCust.crm_customer_addresses||[])]; arr[idx].district = e.target.value; setEditCust({...editCust, crm_customer_addresses: arr})
+                        }} /></div>
+                      )}
+                      <div><input className="inp" placeholder="Tỉnh/Thành phố" value={addr.province} onChange={e => {
+                        const arr = [...(editCust.crm_customer_addresses||[])]; arr[idx].province = e.target.value; setEditCust({...editCust, crm_customer_addresses: arr})
+                      }} /></div>
+                    </div>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginTop:12, fontSize: 12 }}>
+                      <label style={{ display:'flex', gap:4, alignItems:'center', cursor:'pointer' }}>
+                        <input type="radio" checked={addr.is_default} onChange={() => {
+                          const arr = (editCust.crm_customer_addresses||[]).map((a, i) => ({...a, is_default: i === idx}))
+                          setEditCust({...editCust, crm_customer_addresses: arr})
+                        }} />
+                        Đặt làm Mặc định
+                      </label>
+                      <button className="btn-ghost" style={{color:'var(--red)', padding:0}} onClick={() => {
+                        const arr = (editCust.crm_customer_addresses||[]).filter(a => a.id !== addr.id); setEditCust({...editCust, crm_customer_addresses: arr})
+                      }}>Xóa địa chỉ</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="modal-actions">
               <button className="btn-ghost" onClick={()=>setEditCust(null)}>Hủy</button>

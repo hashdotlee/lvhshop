@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const db = adminClient()
   const { data, error } = await db
     .from('customers')
-    .select('*, items(title, price, order_code)')
+    .select('*, items(title, price, order_code), crm_customer_addresses(*)')
     .order('created_at', { ascending: false })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -104,14 +104,42 @@ export async function PATCH(req: NextRequest) {
   const { id, ...fields } = await req.json()
   if (!id) return NextResponse.json({ error: 'missing id' }, { status: 400 })
   const db = adminClient()
+
+  const { crm_customer_addresses, ...safeFields } = fields
+
   const { data, error } = await db
     .from('customers')
-    .update(fields)
+    .update(safeFields)
     .eq('id', id)
-    .select('*, items(title, price, order_code)')
+    .select('*, items(title, price, order_code), crm_customer_addresses(*)')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+
+  if (crm_customer_addresses !== undefined) {
+    await db.from('crm_customer_addresses').delete().eq('customer_id', id)
+    if (Array.isArray(crm_customer_addresses) && crm_customer_addresses.length > 0) {
+      await db.from('crm_customer_addresses').insert(
+        crm_customer_addresses.map(a => ({
+          customer_id: id,
+          address_type: a.address_type || 'new',
+          province: a.province || '',
+          district: a.district || '',
+          ward: a.ward || '',
+          detail: a.detail || '',
+          is_default: a.is_default || false
+        }))
+      )
+    }
+  }
+
+  // Fetch updated data with addresses
+  const { data: updatedData } = await db
+    .from('customers')
+    .select('*, items(title, price, order_code), crm_customer_addresses(*)')
+    .eq('id', id)
+    .single()
+
+  return NextResponse.json(updatedData || data)
 }
 
 export async function DELETE(req: NextRequest) {

@@ -147,19 +147,45 @@ export async function POST(req: NextRequest) {
       .eq('phone', phone)
       .maybeSingle()
 
+    let custId: number;
     if (existingCust) {
+      custId = existingCust.id;
       await db.from('customers').update({
         name: customer_name,
         address: customer_address,
         note: customer_note || null,
-      }).eq('id', existingCust.id)
+      }).eq('id', custId)
     } else {
-      await db.from('customers').insert({
+      const { data: newCust } = await db.from('customers').insert({
         phone,
         name: customer_name,
         address: customer_address,
         note: customer_note || null,
-      })
+      }).select('id').single()
+      if (newCust) custId = newCust.id;
+    }
+
+    // Save to crm_customer_addresses if not exists
+    if (carrier_metadata && custId!) {
+      const { spx_province, spx_district, spx_ward, spx_detail, spx_address_type } = carrier_metadata;
+      const { data: existingAddrs } = await db.from('crm_customer_addresses').select('id, province, district, ward, detail').eq('customer_id', custId);
+      const isNew = !existingAddrs?.some((a: any) => 
+        a.province === (spx_province || '') && 
+        a.district === (spx_district || '') && 
+        a.ward === (spx_ward || '') && 
+        a.detail === (spx_detail || '')
+      );
+      if (isNew) {
+        await db.from('crm_customer_addresses').insert({
+          customer_id: custId,
+          address_type: spx_address_type || 'new',
+          province: spx_province || '',
+          district: spx_district || '',
+          ward: spx_ward || '',
+          detail: spx_detail || '',
+          is_default: !existingCust || (existingAddrs?.length === 0),
+        });
+      }
     }
   }
 

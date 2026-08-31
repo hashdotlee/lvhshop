@@ -67,6 +67,15 @@ export type Customer = {
   order_count?: number
   total_spend?: number
   last_order_at?: string | null
+  crm_customer_addresses?: {
+    id: number
+    address_type: string
+    province: string
+    district: string
+    ward: string
+    detail: string
+    is_default: boolean
+  }[]
 }
 
 export type CustomerAddress = {

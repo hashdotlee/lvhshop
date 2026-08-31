@@ -204,13 +204,13 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   const [createStagedPrice, setCreateStagedPrice] = useState('')
 
   // Customers fetched from DB (bảng customers)
-  const [dbCustomers, setDbCustomers] = useState<Array<{ name: string; phone: string; address: string; fb_psid: string; order_count?: number }>>([])
+  const [dbCustomers, setDbCustomers] = useState<Array<{ name: string; phone: string; address: string; fb_psid: string; order_count?: number; crm_customer_addresses?: any[] }>>([])
 
   const allCustomers = useMemo(() => {
     // Start with DB customers as base
-    const map = new Map<string, { name: string; phone: string; address: string; fb_psid: string }>()
+    const map = new Map<string, { name: string; phone: string; address: string; fb_psid: string; addresses: any[] }>()
     for (const c of dbCustomers) {
-      if (c.phone) map.set(c.phone, { name: c.name, phone: c.phone, address: c.address ?? '', fb_psid: c.fb_psid ?? '' })
+      if (c.phone) map.set(c.phone, { name: c.name, phone: c.phone, address: c.address ?? '', fb_psid: c.fb_psid ?? '', addresses: c.crm_customer_addresses ?? [] })
     }
     // Merge from orders (may have fresher fb_psid)
     for (const o of orders) {
@@ -219,7 +219,8 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
           name: o.customer_name,
           phone: o.customer_phone,
           address: o.customer_address,
-          fb_psid: o.fb_psid ?? ''
+          fb_psid: o.fb_psid ?? '',
+          addresses: [],
         })
       } else if (o.fb_psid) {
         // Update fb_psid if order has one
@@ -232,6 +233,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
 
   const [showNameDropdown, setShowNameDropdown] = useState(false)
   const [showPhoneDropdown, setShowPhoneDropdown] = useState(false)
+  const [showAddressForm, setShowAddressForm] = useState(false)
   const [custSearchResults, setCustSearchResults] = useState<typeof allCustomers>([])
 
   function handleCustomerSearch(val: string, type: 'name' | 'phone', isFocus = false) {
@@ -256,7 +258,17 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   function selectCustomer(c: typeof allCustomers[0]) {
     let prov = '', dist = '', ward = '', detail = ''
     let addressType = 'new'
-    if (c.address) {
+    
+    const defAddr = c.addresses?.find(a => a.is_default) || c.addresses?.[0]
+    
+    if (defAddr) {
+      prov = defAddr.province || ''
+      dist = defAddr.district || ''
+      ward = defAddr.ward || ''
+      detail = defAddr.detail || ''
+      addressType = defAddr.address_type || 'new'
+      setShowAddressForm(false) // Show dropdown if they have addresses
+    } else if (c.address) {
       const parts = c.address.split(',').map((s: string) => s.trim())
       if (parts.length >= 4) {
         prov = parts.pop() || ''
@@ -272,6 +284,9 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       } else {
         detail = c.address
       }
+      setShowAddressForm(true)
+    } else {
+      setShowAddressForm(true)
     }
 
     setForm(f => ({
@@ -1490,24 +1505,65 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <label className="om-lbl" style={{ margin: 0 }}>Địa chỉ giao hàng *</label>
                     <div style={{ display: 'flex', gap: 12 }}>
-                      <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                        <input type="radio" checked={form.spx_address_type === 'old'} onChange={() => setForm(f => ({ ...f, spx_address_type: 'old' }))} />
-                        Địa chỉ cũ
-                      </label>
-                      <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                        <input type="radio" checked={form.spx_address_type === 'new'} onChange={() => setForm(f => ({ ...f, spx_address_type: 'new' }))} />
-                        Địa chỉ mới
-                      </label>
+                      {allCustomers.find(c => c.phone === form.customer_phone)?.addresses?.length ? (
+                        <button className="om-btn-ghost" style={{ padding: '4px 8px', fontSize: 12 }} onClick={() => setShowAddressForm(!showAddressForm)}>
+                          {showAddressForm ? 'Chọn từ sổ địa chỉ' : '+ Thêm địa chỉ mới'}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
-                  <div className="om-form-grid" style={{ gap: 8 }}>
-                    <input className="om-inp" placeholder="Tỉnh / Thành phố" value={form.spx_province} onChange={e => setForm(f => ({ ...f, spx_province: e.target.value }))} />
-                    {form.spx_address_type !== 'new' && (
-                      <input className="om-inp" placeholder="Quận / Huyện" value={form.spx_district} onChange={e => setForm(f => ({ ...f, spx_district: e.target.value }))} />
-                    )}
-                    <input className="om-inp" placeholder="Phường / Xã" value={form.spx_ward} onChange={e => setForm(f => ({ ...f, spx_ward: e.target.value }))} />
-                    <input className="om-inp" placeholder={form.spx_address_type === 'new' ? 'Địa chỉ chi tiết (nhập Quận/Huyện, Số nhà, Đường...)' : 'Số nhà, Tên đường, Thôn/Xóm...'} value={form.spx_detail} onChange={e => setForm(f => ({ ...f, spx_detail: e.target.value }))} />
-                  </div>
+                  
+                  {!showAddressForm && allCustomers.find(c => c.phone === form.customer_phone)?.addresses?.length ? (
+                    <div className="om-form-grid" style={{ gap: 8 }}>
+                      <select className="om-inp om-fg-full" onChange={(e) => {
+                        const addr = allCustomers.find(c => c.phone === form.customer_phone)?.addresses?.find(a => a.id === Number(e.target.value))
+                        if (addr) {
+                          setForm(f => ({
+                            ...f,
+                            spx_province: addr.province || '',
+                            spx_district: addr.district || '',
+                            spx_ward: addr.ward || '',
+                            spx_detail: addr.detail || '',
+                            spx_address_type: addr.address_type || 'new'
+                          }))
+                        }
+                      }}>
+                        {allCustomers.find(c => c.phone === form.customer_phone)?.addresses?.map((a, idx) => {
+                          const isSelected = a.province === form.spx_province &&
+                            a.district === form.spx_district &&
+                            a.ward === form.spx_ward &&
+                            a.detail === form.spx_detail;
+                          // If form fields don't exactly match any, the first option might be selected by browser but we should set value attribute.
+                          return (
+                            <option key={a.id} value={a.id} selected={isSelected}>
+                              {a.detail}, {a.ward}, {a.district && a.district + ', '}{a.province} {a.is_default ? '(Mặc định)' : ''}
+                            </option>
+                          )
+                        })}
+                      </select>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+                        <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                          <input type="radio" checked={form.spx_address_type === 'old'} onChange={() => setForm(f => ({ ...f, spx_address_type: 'old' }))} />
+                          Địa chỉ cũ
+                        </label>
+                        <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                          <input type="radio" checked={form.spx_address_type === 'new'} onChange={() => setForm(f => ({ ...f, spx_address_type: 'new' }))} />
+                          Địa chỉ mới
+                        </label>
+                      </div>
+                      <div className="om-form-grid" style={{ gap: 8 }}>
+                        <input className="om-inp" placeholder="Tỉnh / Thành phố" value={form.spx_province} onChange={e => setForm(f => ({ ...f, spx_province: e.target.value }))} />
+                        {form.spx_address_type !== 'new' && (
+                          <input className="om-inp" placeholder="Quận / Huyện" value={form.spx_district} onChange={e => setForm(f => ({ ...f, spx_district: e.target.value }))} />
+                        )}
+                        <input className="om-inp" placeholder="Phường / Xã" value={form.spx_ward} onChange={e => setForm(f => ({ ...f, spx_ward: e.target.value }))} />
+                        <input className="om-inp" placeholder={form.spx_address_type === 'new' ? 'Địa chỉ chi tiết (nhập Quận/Huyện, Số nhà, Đường...)' : 'Số nhà, Tên đường, Thôn/Xóm...'} value={form.spx_detail} onChange={e => setForm(f => ({ ...f, spx_detail: e.target.value }))} />
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="om-fg om-fg-full">
                   <label className="om-lbl">Ghi chú</label>
