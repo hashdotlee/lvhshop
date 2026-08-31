@@ -3,7 +3,7 @@ import type { Item } from '@/lib/supabase'
 import HomeClient from './home-client'
 import { buildProductJsonLd, getCategory } from '@/lib/product-utils'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.leviethoang.shop'
 
 function db() {
   return createClient(

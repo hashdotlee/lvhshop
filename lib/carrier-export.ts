@@ -80,6 +80,12 @@ export interface OrderExportRow {
   is_free_shipping: boolean | null
   payment_method: 'cod' | 'bank_transfer'
   customer_note?: string | null
+  weight_g?: number | null
+  length_cm?: number | null
+  width_cm?: number | null
+  height_cm?: number | null
+  delivery_note?: string | null
+  carrier_metadata?: any
   raw_items?: Array<{ title: string; quantity: number; price: number | null }>
 }
 
@@ -210,45 +216,70 @@ export async function generateSPXExcel(orders: OrderExportRow[]): Promise<Uint8A
   const wb = new ExcelJS.Workbook()
   await wb.xlsx.readFile(templatePath)
 
-  // Use "Tạo đơn (địa chỉ cũ)" sheet (sheet1) which is the primary upload sheet
-  const ws = wb.getWorksheet('Tạo đơn (địa chỉ cũ)')
-  if (!ws) throw new Error('Worksheet "Tạo đơn (địa chỉ cũ)" not found in SPX template')
+  // Determine sheet name based on address type
+  // Default to "Tạo đơn (địa chỉ cũ)", but if 'new' try "Tạo đơn (địa chỉ mới)"
+  let sheetName = 'Tạo đơn (địa chỉ cũ)'
+  const addressType = orders.length > 0 && orders[0].carrier_metadata?.spx_address_type === 'new' ? 'new' : 'old'
+  if (addressType === 'new') {
+    const hasNewSheet = wb.getWorksheet('Tạo đơn (địa chỉ mới)')
+    if (hasNewSheet) sheetName = 'Tạo đơn (địa chỉ mới)'
+  }
+
+  const ws = wb.getWorksheet(sheetName)
+  if (!ws) throw new Error(`Worksheet "${sheetName}" not found in SPX template`)
 
   // Data starts at row 2 (row 1 is headers)
   const dataStartRow = 2
 
   orders.forEach((order, idx) => {
     const rowNum = dataStartRow + idx
-    const cod = calcCarrierCOD({
-      shipping_fee: order.shipping_fee,
-      is_free_shipping: order.is_free_shipping,
-      payment_method: order.payment_method,
-      total_amount: order.total_amount,
-    })
+    const meta = order.carrier_metadata || {}
+
+    // For SPX, shipping fee is calculated and collected directly by SPX ("Người nhận trả").
+    // Therefore, we do NOT include our shipping_fee into the COD. The COD is exactly the item subtotal.
+    let cod = 0
+    if (order.payment_method === 'cod') {
+      cod = order.total_amount ?? 0
+    }
     const hasCOD = cod > 0
 
     const row = ws.getRow(rowNum)
     row.getCell(1).value = order.order_number    // Mã đơn hàng
     row.getCell(2).value = order.customer_name   // Tên người nhận
     row.getCell(3).value = order.customer_phone  // Số điện thoại
-    // Cols 4-6 (tỉnh/quận/phường): leave blank — use full address in col 7
-    row.getCell(4).value = ''
-    row.getCell(5).value = ''
-    row.getCell(6).value = ''
-    row.getCell(7).value = order.customer_address // Địa chỉ chi tiết
-    row.getCell(8).value = order.customer_note || '' // Lưu ý về địa chỉ
+    
+    // Address mapping
+    if (meta.spx_province) {
+      row.getCell(4).value = meta.spx_province
+      row.getCell(5).value = meta.spx_district || ''
+      row.getCell(6).value = meta.spx_ward || ''
+      row.getCell(7).value = meta.spx_detail || ''
+    } else {
+      row.getCell(4).value = ''
+      row.getCell(5).value = ''
+      row.getCell(6).value = ''
+      row.getCell(7).value = order.customer_address // Fallback
+    }
+
+    row.getCell(8).value = order.delivery_note || order.customer_note || '' // Lưu ý về địa chỉ
     row.getCell(10).value = order.item_title     // Tên sản phẩm
     row.getCell(11).value = 1                    // Số lượng
     row.getCell(12).value = order.total_amount ?? 0 // Giá tiền
-    row.getCell(13).value = 0.5                  // Cân nặng mặc định (KG)
+    row.getCell(13).value = order.weight_g ? order.weight_g / 1000 : 0.5 // Cân nặng (KG)
+    
+    // In SPX standard templates, Dài/Rộng/Cao are usually 14, 15, 16.
+    row.getCell(14).value = order.length_cm || '' // Chiều dài (cm)
+    row.getCell(15).value = order.width_cm || ''  // Chiều rộng (cm)
+    row.getCell(16).value = order.height_cm || '' // Chiều cao (cm)
+
     row.getCell(18).value = order.total_amount ?? 0 // Giá trị đơn hàng
-    row.getCell(19).value = 'N'                  // Giao hàng một phần
+    row.getCell(19).value = meta.spx_service_partial ? 'Y' : 'N' // Giao hàng một phần
     row.getCell(20).value = 'N'                  // Cho phép thử hàng
-    row.getCell(21).value = 'Y'                  // Cho xem hàng, không cho thử
+    row.getCell(21).value = meta.spx_service_view ? 'Y' : 'N' // Cho xem hàng, không cho thử
     row.getCell(24).value = hasCOD ? 'Y' : 'N'  // Thu COD
     row.getCell(25).value = hasCOD ? cod : ''    // Số tiền COD
-    row.getCell(27).value = 'Người gửi trả'     // Hình thức thanh toán cước ship
-    row.getCell(28).value = order.customer_note || '' // Lưu ý giao hàng
+    row.getCell(27).value = 'Người nhận trả'    // Hình thức thanh toán cước ship
+    row.getCell(28).value = order.delivery_note || order.customer_note || '' // Lưu ý giao hàng
     row.commit()
   })
 

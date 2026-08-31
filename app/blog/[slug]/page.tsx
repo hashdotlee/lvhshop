@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.leviethoang.shop'
 
 function db() {
   return createClient(

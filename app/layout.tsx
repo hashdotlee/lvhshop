@@ -5,7 +5,7 @@ import FacebookPixel from './components/FacebookPixel'
 import FacebookSDK from './components/FacebookSDK'
 import CatChaser from './components/CatChaser'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.leviethoang.shop'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

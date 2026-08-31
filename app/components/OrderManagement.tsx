@@ -41,6 +41,13 @@ export type Order = {
   created_by: string | null
   created_at: string
   updated_at: string
+  weight_g?: number | null
+  length_cm?: number | null
+  width_cm?: number | null
+  height_cm?: number | null
+  delivery_note?: string | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  carrier_metadata?: any
   items?: { title: string; price: number | null; order_code: string; images: string[] } | null
   order_items?: OrderItem[]
 }
@@ -104,6 +111,18 @@ const EMPTY_FORM = {
   newProductCategory: '',
   item_discount: 0,
   shipping_discount: 0,
+  weight_g: '',
+  length_cm: '',
+  width_cm: '',
+  height_cm: '',
+  delivery_note: '',
+  spx_address_type: 'old',
+  spx_province: '',
+  spx_district: '',
+  spx_ward: '',
+  spx_detail: '',
+  spx_service_partial: false,
+  spx_service_view: true,
 }
 
 // ─── Main Component ───────────────────────────────────────────────
@@ -136,6 +155,18 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     shipping_carrier: string
     shipping_fee: string
     fb_psid: string
+    weight_g: string
+    length_cm: string
+    width_cm: string
+    height_cm: string
+    delivery_note: string
+    spx_address_type: string
+    spx_province: string
+    spx_district: string
+    spx_ward: string
+    spx_detail: string
+    spx_service_partial: boolean
+    spx_service_view: boolean
   }>({
     order_status: 'pending',
     payment_status: 'pending',
@@ -144,6 +175,18 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     shipping_carrier: 'spx',
     shipping_fee: '',
     fb_psid: '',
+    weight_g: '',
+    length_cm: '',
+    width_cm: '',
+    height_cm: '',
+    delivery_note: '',
+    spx_address_type: 'old',
+    spx_province: '',
+    spx_district: '',
+    spx_ward: '',
+    spx_detail: '',
+    spx_service_partial: false,
+    spx_service_view: true,
   })
 
   // Add-item-to-order state (in edit modal)
@@ -370,7 +413,23 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
 
   // ── Create order ───────────────────────────────────────────────
   async function createOrder() {
-    if (!form.customer_name || !form.customer_phone || !form.customer_address) {
+    let finalCustomerAddress = form.customer_address
+    let carrierMetadata = null
+
+    if (form.shipping_carrier === 'spx') {
+      finalCustomerAddress = [form.spx_detail, form.spx_ward, form.spx_district, form.spx_province].filter(Boolean).join(', ')
+      carrierMetadata = {
+        spx_address_type: form.spx_address_type,
+        spx_province: form.spx_province,
+        spx_district: form.spx_district,
+        spx_ward: form.spx_ward,
+        spx_detail: form.spx_detail,
+        spx_service_partial: form.spx_service_partial,
+        spx_service_view: form.spx_service_view
+      }
+    }
+
+    if (!form.customer_name || !form.customer_phone || !finalCustomerAddress) {
       onToast('Vui lòng nhập đầy đủ thông tin khách hàng')
       return
     }
@@ -412,7 +471,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
           cart_items: cartItems.length > 0 ? cartItems : undefined,
           customer_name: form.customer_name,
           customer_phone: form.customer_phone,
-          customer_address: form.customer_address,
+          customer_address: finalCustomerAddress,
           customer_note: form.customer_note || null,
           shipping_carrier: form.shipping_carrier,
           tracking_number: form.tracking_number || null,
@@ -424,6 +483,12 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
           created_by: form.created_by || 'admin',
           item_discount: form.item_discount,
           shipping_discount: form.shipping_discount,
+          weight_g: form.weight_g ? Number(form.weight_g) : null,
+          length_cm: form.length_cm ? Number(form.length_cm) : null,
+          width_cm: form.width_cm ? Number(form.width_cm) : null,
+          height_cm: form.height_cm ? Number(form.height_cm) : null,
+          delivery_note: form.delivery_note || null,
+          carrier_metadata: carrierMetadata,
         }),
       })
       if (!r.ok) { onToast('Lỗi tạo đơn hàng'); return }
@@ -691,6 +756,18 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       shipping_carrier: order.shipping_carrier,
       shipping_fee: order.shipping_fee != null ? String(order.shipping_fee) : '',
       fb_psid: order.fb_psid ?? '',
+      weight_g: order.weight_g ? String(order.weight_g) : '',
+      length_cm: order.length_cm ? String(order.length_cm) : '',
+      width_cm: order.width_cm ? String(order.width_cm) : '',
+      height_cm: order.height_cm ? String(order.height_cm) : '',
+      delivery_note: order.delivery_note ?? '',
+      spx_address_type: order.carrier_metadata?.spx_address_type ?? 'old',
+      spx_province: order.carrier_metadata?.spx_province ?? '',
+      spx_district: order.carrier_metadata?.spx_district ?? '',
+      spx_ward: order.carrier_metadata?.spx_ward ?? '',
+      spx_detail: order.carrier_metadata?.spx_detail ?? '',
+      spx_service_partial: order.carrier_metadata?.spx_service_partial ?? false,
+      spx_service_view: order.carrier_metadata?.spx_service_view ?? true,
     })
     setEditOrderItems(order.order_items ?? [])
     setAddItemSearch('')
@@ -1379,11 +1456,35 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                     </div>
                   )}
                 </div>
-                <div className="om-fg om-fg-full">
-                  <label className="om-lbl">Địa chỉ giao hàng *</label>
-                  <input className="om-inp" placeholder="Số nhà, đường, quận, tỉnh..." value={form.customer_address}
-                    onChange={e => setForm(f => ({ ...f, customer_address: e.target.value }))} />
-                </div>
+                {form.shipping_carrier === 'spx' ? (
+                  <div className="om-fg om-fg-full" style={{ background: '#f8f9fa', padding: 12, borderRadius: 8, border: '1px solid #e9ecef' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <label className="om-lbl" style={{ margin: 0 }}>Địa chỉ nhận (Shopee Express) *</label>
+                      <div style={{ display: 'flex', gap: 12 }}>
+                        <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <input type="radio" checked={form.spx_address_type === 'old'} onChange={() => setForm(f => ({ ...f, spx_address_type: 'old' }))} />
+                          Địa chỉ cũ
+                        </label>
+                        <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <input type="radio" checked={form.spx_address_type === 'new'} onChange={() => setForm(f => ({ ...f, spx_address_type: 'new' }))} />
+                          Địa chỉ mới
+                        </label>
+                      </div>
+                    </div>
+                    <div className="om-form-grid" style={{ gap: 8 }}>
+                      <input className="om-inp" placeholder="Tỉnh / Thành phố" value={form.spx_province} onChange={e => setForm(f => ({ ...f, spx_province: e.target.value }))} />
+                      <input className="om-inp" placeholder="Quận / Huyện" value={form.spx_district} onChange={e => setForm(f => ({ ...f, spx_district: e.target.value }))} />
+                      <input className="om-inp" placeholder="Phường / Xã" value={form.spx_ward} onChange={e => setForm(f => ({ ...f, spx_ward: e.target.value }))} />
+                      <input className="om-inp" placeholder="Số nhà, Tên đường, Thôn/Xóm..." value={form.spx_detail} onChange={e => setForm(f => ({ ...f, spx_detail: e.target.value }))} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="om-fg om-fg-full">
+                    <label className="om-lbl">Địa chỉ giao hàng *</label>
+                    <input className="om-inp" placeholder="Số nhà, đường, quận, tỉnh..." value={form.customer_address}
+                      onChange={e => setForm(f => ({ ...f, customer_address: e.target.value }))} />
+                  </div>
+                )}
                 <div className="om-fg om-fg-full">
                   <label className="om-lbl">Ghi chú</label>
                   <input className="om-inp" placeholder="Ghi chú thêm cho đơn hàng..." value={form.customer_note}
@@ -1410,6 +1511,50 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   <input className="om-inp" placeholder="Nhập tracking..." value={form.tracking_number}
                     onChange={e => setForm(f => ({ ...f, tracking_number: e.target.value }))} />
                 </div>
+                
+                {/* Dimensions & Weight */}
+                <div className="om-fg om-fg-full" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                  <div>
+                    <label className="om-lbl">Cân nặng (g)</label>
+                    <input className="om-inp" type="number" placeholder="500" value={form.weight_g} onChange={e => setForm(f => ({ ...f, weight_g: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="om-lbl">Dài (cm)</label>
+                    <input className="om-inp" type="number" placeholder="10" value={form.length_cm} onChange={e => setForm(f => ({ ...f, length_cm: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="om-lbl">Rộng (cm)</label>
+                    <input className="om-inp" type="number" placeholder="10" value={form.width_cm} onChange={e => setForm(f => ({ ...f, width_cm: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="om-lbl">Cao (cm)</label>
+                    <input className="om-inp" type="number" placeholder="10" value={form.height_cm} onChange={e => setForm(f => ({ ...f, height_cm: e.target.value }))} />
+                  </div>
+                </div>
+
+                <div className="om-fg om-fg-full">
+                  <label className="om-lbl">Ghi chú giao hàng (In lên Bill)</label>
+                  <input className="om-inp" placeholder="Ví dụ: Gọi khách trước khi giao..." value={form.delivery_note} onChange={e => setForm(f => ({ ...f, delivery_note: e.target.value }))} />
+                </div>
+
+                {form.shipping_carrier === 'spx' && (
+                  <div className="om-fg om-fg-full" style={{ background: '#fff3e0', padding: 12, borderRadius: 8, border: '1px solid #ffd8a8', fontSize: 13 }}>
+                    <div style={{ fontWeight: 600, color: '#d97706', marginBottom: 8 }}>Tuỳ chọn Shopee Express</div>
+                    <div style={{ display: 'flex', gap: 16 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={form.spx_service_view} onChange={e => setForm(f => ({ ...f, spx_service_view: e.target.checked }))} />
+                        Cho xem hàng, không thử
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={form.spx_service_partial} onChange={e => setForm(f => ({ ...f, spx_service_partial: e.target.checked }))} />
+                        Giao hàng một phần
+                      </label>
+                    </div>
+                    <div style={{ marginTop: 8, fontSize: 12, color: '#92400e' }}>
+                      * Phí ship SPX mặc định do <strong>Người nhận thanh toán</strong>, do đó Tiền thu hộ (COD) sẽ không bao gồm cước vận chuyển.
+                    </div>
+                  </div>
+                )}
                 <div className="om-fg">
                   <label className="om-lbl">Phí vận chuyển (VNĐ)</label>
                   <input className="om-inp" type="number" placeholder="0"
@@ -1644,6 +1789,59 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                 <input className="om-inp" type="number" placeholder="0" value={editForm.shipping_fee}
                   onChange={e => setEditForm(f => ({ ...f, shipping_fee: e.target.value }))} />
               </div>
+              <div className="om-fg om-fg-full" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                <div>
+                  <label className="om-lbl">Cân nặng (g)</label>
+                  <input className="om-inp" type="number" value={editForm.weight_g} onChange={e => setEditForm(f => ({ ...f, weight_g: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="om-lbl">Dài (cm)</label>
+                  <input className="om-inp" type="number" value={editForm.length_cm} onChange={e => setEditForm(f => ({ ...f, length_cm: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="om-lbl">Rộng (cm)</label>
+                  <input className="om-inp" type="number" value={editForm.width_cm} onChange={e => setEditForm(f => ({ ...f, width_cm: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="om-lbl">Cao (cm)</label>
+                  <input className="om-inp" type="number" value={editForm.height_cm} onChange={e => setEditForm(f => ({ ...f, height_cm: e.target.value }))} />
+                </div>
+              </div>
+              <div className="om-fg om-fg-full">
+                <label className="om-lbl">Ghi chú giao hàng</label>
+                <input className="om-inp" value={editForm.delivery_note} onChange={e => setEditForm(f => ({ ...f, delivery_note: e.target.value }))} />
+              </div>
+              {editForm.shipping_carrier === 'spx' && (
+                <div className="om-fg om-fg-full" style={{ background: '#fff3e0', padding: 12, borderRadius: 8, border: '1px solid #ffd8a8' }}>
+                  <div style={{ fontWeight: 600, color: '#d97706', marginBottom: 8, fontSize: 13 }}>Sửa cấu hình SPX</div>
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+                    <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <input type="radio" checked={editForm.spx_address_type === 'old'} onChange={() => setEditForm(f => ({ ...f, spx_address_type: 'old' }))} />
+                      Địa chỉ cũ
+                    </label>
+                    <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <input type="radio" checked={editForm.spx_address_type === 'new'} onChange={() => setEditForm(f => ({ ...f, spx_address_type: 'new' }))} />
+                      Địa chỉ mới
+                    </label>
+                  </div>
+                  <div className="om-form-grid" style={{ gap: 8, marginBottom: 8 }}>
+                    <input className="om-inp" placeholder="Tỉnh / Thành phố" value={editForm.spx_province} onChange={e => setEditForm(f => ({ ...f, spx_province: e.target.value }))} />
+                    <input className="om-inp" placeholder="Quận / Huyện" value={editForm.spx_district} onChange={e => setEditForm(f => ({ ...f, spx_district: e.target.value }))} />
+                    <input className="om-inp" placeholder="Phường / Xã" value={editForm.spx_ward} onChange={e => setEditForm(f => ({ ...f, spx_ward: e.target.value }))} />
+                    <input className="om-inp" placeholder="Số nhà, Tên đường..." value={editForm.spx_detail} onChange={e => setEditForm(f => ({ ...f, spx_detail: e.target.value }))} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editForm.spx_service_view} onChange={e => setEditForm(f => ({ ...f, spx_service_view: e.target.checked }))} />
+                      Cho xem hàng, không thử
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={editForm.spx_service_partial} onChange={e => setEditForm(f => ({ ...f, spx_service_partial: e.target.checked }))} />
+                      Giao hàng một phần
+                    </label>
+                  </div>
+                </div>
+              )}
               <div className="om-fg om-fg-full">
                 <label className="om-lbl">Phương thức thanh toán</label>
                 <div className="om-radio-group">
@@ -1716,7 +1914,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                 }
                 if (editSd > editSf) editSd = editSf
 
-                updateOrder(editOrder.id, {
+                const payload: Partial<Order> = {
                   order_status: editForm.order_status,
                   payment_status: editForm.payment_status,
                   payment_method: editForm.payment_method,
@@ -1726,7 +1924,31 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   shipping_discount: editSd,
                   total_amount: editItemsTotal, // ensure total_amount stays accurate
                   fb_psid: editForm.fb_psid || null,
-                })
+                  weight_g: editForm.weight_g ? Number(editForm.weight_g) : null,
+                  length_cm: editForm.length_cm ? Number(editForm.length_cm) : null,
+                  width_cm: editForm.width_cm ? Number(editForm.width_cm) : null,
+                  height_cm: editForm.height_cm ? Number(editForm.height_cm) : null,
+                  delivery_note: editForm.delivery_note || null,
+                }
+
+                if (editForm.shipping_carrier === 'spx') {
+                  const spxAddressParts = [editForm.spx_detail, editForm.spx_ward, editForm.spx_district, editForm.spx_province].filter(Boolean).join(', ')
+                  if (spxAddressParts) {
+                    // Update the string representation for general UI
+                    ;(payload as any).customer_address = spxAddressParts
+                  }
+                  payload.carrier_metadata = {
+                    spx_address_type: editForm.spx_address_type,
+                    spx_province: editForm.spx_province,
+                    spx_district: editForm.spx_district,
+                    spx_ward: editForm.spx_ward,
+                    spx_detail: editForm.spx_detail,
+                    spx_service_partial: editForm.spx_service_partial,
+                    spx_service_view: editForm.spx_service_view
+                  }
+                }
+
+                updateOrder(editOrder.id, payload)
               }} disabled={saving}>
                 {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
@@ -1866,21 +2088,34 @@ const omStyles = `
 .invoice-print-wrap{display:none}
 @page{size:74mm 105mm;margin:0}
 @media print{
-  html, body { width: 74mm !important; height: 105mm !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; background: white !important; }
-  body *{visibility:hidden}
-  .invoice-print-wrap{
-    display:block!important;visibility:visible;
-    position:absolute;left:0;top:0;z-index:9999;
-    width:74mm;height:105mm;min-height:105mm;max-height:105mm;
-    box-sizing:border-box;background:white;
-    padding:4mm 5mm;
-    font-family:'Be Vietnam Pro',Arial,Helvetica,sans-serif;font-size:8.5pt;color:#000;
-    line-height:1.3;
-    overflow:hidden;
-    margin:0;
-    page-break-inside:avoid;
+  html, body { 
+    margin: 0 !important; padding: 0 !important; 
+    min-height: 0 !important; height: auto !important; 
+    background: white !important; 
   }
-  .invoice-print-wrap *{visibility:visible}
+  header, footer, nav { display: none !important; }
+  .om-header, .om-stats, .om-controls, .om-table-wrap, .om-pagination, .om-modal { display: none !important; }
+  
+  .om-modal-overlay {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+  
+  .invoice-print-wrap {
+    display: block !important;
+    width: 74mm;
+    box-sizing: border-box;
+    background: white;
+    padding: 4mm 5mm;
+    font-family: 'Be Vietnam Pro', Arial, Helvetica, sans-serif;
+    font-size: 8.5pt;
+    color: #000;
+    line-height: 1.3;
+    margin: 0;
+    page-break-after: auto;
+    page-break-inside: avoid;
+  }
 }
 .inv-shop{font-size:13pt;font-weight:800;letter-spacing:-.3px;text-align:center;display:block}
 .inv-shop span{font-weight:300;color:#555}

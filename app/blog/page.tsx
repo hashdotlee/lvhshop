@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import BlogAdminClient from './admin-client'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.leviethoang.shop'
 
 export const metadata: Metadata = {
   title: 'Blog',

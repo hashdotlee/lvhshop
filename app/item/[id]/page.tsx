@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const title = titleParts.filter(Boolean).join(' · ')
 
   const desc = buildSeoDescription(item)
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.leviethoang.shop'
 
   // Keywords: tên sản phẩm + danh mục + từ khóa Nhật nếu phù hợp
   const keywords = [
@@ -79,7 +79,7 @@ export default async function ItemPage({ params }: { params: { id: string } }) {
   const item = await getItem(params.id)
   if (!item) notFound()
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://leviethoang.shop'
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.leviethoang.shop'
   const jsonLd = buildProductJsonLd(item, siteUrl)
 
   return (

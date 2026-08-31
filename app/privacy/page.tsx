@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   description: 'Chính sách bảo mật và quyền riêng tư của leviethoang.shop',
 }
 
-const SITE = 'https://leviethoang.shop'
+const SITE = 'https://www.leviethoang.shop'
 const CONTACT_EMAIL = 'contact@leviethoang.shop'
 const UPDATED = '21/05/2026'
 

@@ -61,6 +61,12 @@ export async function GET(req: NextRequest) {
     shipping_fee: number | null
     is_free_shipping: boolean | null
     payment_method: 'cod' | 'bank_transfer'
+    weight_g?: number | null
+    length_cm?: number | null
+    width_cm?: number | null
+    height_cm?: number | null
+    delivery_note?: string | null
+    carrier_metadata?: any
     order_items?: Array<{ item_title: string; quantity: number; item_price: number | null }>
   }>
 
@@ -82,6 +88,12 @@ export async function GET(req: NextRequest) {
       is_free_shipping: o.is_free_shipping,
       payment_method: o.payment_method,
       customer_note: o.customer_note,
+      weight_g: o.weight_g,
+      length_cm: o.length_cm,
+      width_cm: o.width_cm,
+      height_cm: o.height_cm,
+      delivery_note: o.delivery_note,
+      carrier_metadata: o.carrier_metadata,
       raw_items: o.order_items?.map(i => ({
         title: i.item_title,
         quantity: i.quantity,
