@@ -2226,14 +2226,20 @@ const omStyles = `
 @media print{
   html, body { 
     margin: 0 !important; padding: 0 !important; 
-    min-height: 0 !important; height: auto !important; 
     background: white !important; 
   }
-  header, footer, nav { display: none !important; }
-  .om-header, .om-stats-wrap, .om-filter-bar, .om-table-wrap, .om-overlay { display: none !important; }
+  body * {
+    visibility: hidden;
+  }
+  .invoice-print-wrap, .invoice-print-wrap * {
+    visibility: visible;
+  }
   
   .invoice-print-wrap {
     display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
     width: 74mm;
     box-sizing: border-box;
     background: white;
