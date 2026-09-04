@@ -125,6 +125,13 @@ export async function generateVNPostExcel(orders: OrderExportRow[]): Promise<Uin
   const ws = wb.getWorksheet('DS Đơn hàng')
   if (!ws) throw new Error('Worksheet "DS Đơn hàng" not found in template')
 
+  // Xóa các sheet không dùng đến (như Hướng dẫn, Danh sách bưu cục...)
+  wb.worksheets.forEach(sheet => {
+    if (sheet.id !== ws.id) {
+      wb.removeWorksheet(sheet.id)
+    }
+  })
+
   // Copy header row style from row 2 (sample) for data rows — row 1 is the header
   const headerRowNum = 1
   const sampleRowNum = 2
@@ -396,9 +403,19 @@ export async function generateGHNExcel(orders: OrderExportRow[]): Promise<Uint8A
   const ws = wb.worksheets[0] // GHN file usually has data in the first sheet
   if (!ws) throw new Error('Worksheet not found in GHN template')
 
-  // Clear sample row at row 5 (and row 6 just in case)
+  // Xóa các sheet không dùng đến để tránh lỗi hiển thị/nhầm lẫn
+  wb.worksheets.forEach(sheet => {
+    if (sheet.id !== ws.id) {
+      wb.removeWorksheet(sheet.id)
+    }
+  })
+
+  // Clear all sample rows from row 5 downwards
   const dataStartRow = 5
-  ws.spliceRows(dataStartRow, 2)
+  if (ws.rowCount >= dataStartRow) {
+    // We remove all rows starting from dataStartRow to ensure no sample data is left
+    ws.spliceRows(dataStartRow, ws.rowCount - dataStartRow + 1)
+  }
 
   orders.forEach((order, idx) => {
     const rowNum = dataStartRow + idx
@@ -419,9 +436,9 @@ export async function generateGHNExcel(orders: OrderExportRow[]): Promise<Uint8A
     row.getCell(5).value = cod
     row.getCell(6).value = 1 // 1 = Cho xem, không thử
     row.getCell(7).value = order.weight_g || 200 // Default 200 gram
-    row.getCell(8).value = order.length_cm || ''
-    row.getCell(9).value = order.width_cm || ''
-    row.getCell(10).value = order.height_cm || ''
+    row.getCell(8).value = order.length_cm || 10
+    row.getCell(9).value = order.width_cm || 10
+    row.getCell(10).value = order.height_cm || 10
     row.getCell(11).value = 'x' // Có khai giá
     row.getCell(12).value = order.total_amount || 0
     row.getCell(13).value = order.shipping_fee === null ? '' : 'x' // Shop trả ship

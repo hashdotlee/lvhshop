@@ -996,7 +996,8 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     const bankId = process.env.NEXT_PUBLIC_BANK_ID ?? ''
     const bankAccount = process.env.NEXT_PUBLIC_BANK_ACCOUNT ?? ''
     const bankName = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME ?? ''
-    return `https://img.vietqr.io/image/${bankId}-${bankAccount}-compact2.png?amount=${order.total_amount ?? 0}&addInfo=${encodeURIComponent(order.order_number)}&accountName=${encodeURIComponent(bankName)}`
+    const amount = (order.total_amount ?? 0) + (order.shipping_fee ?? 0) - (order.shipping_discount ?? 0) - (order.item_discount ?? 0)
+    return `https://img.vietqr.io/image/${bankId}-${bankAccount}-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(order.order_number)}&accountName=${encodeURIComponent(bankName)}`
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -2165,7 +2166,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
             {/* Shipping & Discounts */}
             <div className="inv-divider" />
             <div className="inv-shipping">
-              Phí ship ({CARRIER_LABEL[printOrder.shipping_carrier] || printOrder.shipping_carrier}): <strong style={{float:'right'}}>{fmtVND(printOrder.shipping_fee || 0)}</strong>
+              Phí ship ({CARRIER_LABEL[printOrder.shipping_carrier] || printOrder.shipping_carrier}): <strong style={{float:'right'}}>{printOrder.shipping_fee === null ? 'Khách trả cước' : fmtVND(printOrder.shipping_fee)}</strong>
               {printOrder.tracking_number && <div className="inv-tracking" style={{marginTop:2}}>Mã VĐ: {printOrder.tracking_number}</div>}
             </div>
             {(printOrder.shipping_discount ?? 0) > 0 && (
@@ -2229,13 +2230,7 @@ const omStyles = `
     background: white !important; 
   }
   header, footer, nav { display: none !important; }
-  .om-header, .om-stats, .om-controls, .om-table-wrap, .om-pagination, .om-modal { display: none !important; }
-  
-  .om-modal-overlay {
-    position: static !important;
-    background: transparent !important;
-    padding: 0 !important;
-  }
+  .om-header, .om-stats-wrap, .om-filter-bar, .om-table-wrap, .om-overlay { display: none !important; }
   
   .invoice-print-wrap {
     display: block !important;
