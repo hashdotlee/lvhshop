@@ -72,6 +72,7 @@ function fmtDate(iso: string) {
 const CARRIER_LABEL: Record<string, string> = {
   vnpost: 'VNPost',
   spx: 'Shopee Express',
+  ghn: 'GHN (Giao Hàng Nhanh)',
   viettelpost: 'ViettelPost',
   other: 'Khác',
 }
@@ -607,7 +608,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
   }
 
   // ── Export carrier file ────────────────────────────────────────
-  async function exportCarrier(carrier: 'vnpost' | 'spx', ids?: number[]) {
+  async function exportCarrier(carrier: 'vnpost' | 'spx' | 'ghn', ids?: number[]) {
     let url = `/api/orders/export-carrier?carrier=${carrier}`
     if (ids && ids.length > 0) url += `&ids=${ids.join(',')}`
     try {
@@ -643,6 +644,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
 
     const vnpostIds = targetOrders.filter(o => o.shipping_carrier === 'vnpost').map(o => o.id)
     const spxIds = targetOrders.filter(o => o.shipping_carrier === 'spx').map(o => o.id)
+    const ghnIds = targetOrders.filter(o => o.shipping_carrier === 'ghn').map(o => o.id)
 
     let exported = 0
     if (vnpostIds.length > 0) {
@@ -653,9 +655,13 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       await exportCarrier('spx', spxIds)
       exported++
     }
+    if (ghnIds.length > 0) {
+      await exportCarrier('ghn', ghnIds)
+      exported++
+    }
 
     if (exported === 0) {
-      onToast('Không có đơn hàng VNPost hoặc SPX nào để xuất')
+      onToast('Không có đơn hàng VNPost, SPX hoặc GHN nào để xuất')
     } else {
       onToast(`Đã xuất ${exported} file giao hàng`)
       setTimeout(fetchOrders, 1000)
@@ -1033,7 +1039,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
             Xuất CSV
           </button>
-          <button className="om-btn-ghost" title="Tự động phân loại và xuất file Excel giao hàng (VNPost & SPX)"
+          <button className="om-btn-ghost" title="Tự động phân loại và xuất file Excel giao hàng (VNPost, SPX & GHN)"
             onClick={exportAllCarriers}>
             📦 Tạo file giao hàng{selectedOrderIds.size > 0 ? ` (${selectedOrderIds.size})` : ''}
           </button>
@@ -1585,6 +1591,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                     onChange={e => setForm(f => ({ ...f, shipping_carrier: e.target.value }))}>
                     <option value="spx">Shopee Express (SPX)</option>
                     <option value="vnpost">VNPost</option>
+                    <option value="ghn">GHN (Giao Hàng Nhanh)</option>
                     <option value="viettelpost">ViettelPost</option>
                     <option value="other">Khác</option>
                   </select>
@@ -1858,6 +1865,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   onChange={e => setEditForm(f => ({ ...f, shipping_carrier: e.target.value }))}>
                   <option value="spx">Shopee Express (SPX)</option>
                   <option value="vnpost">VNPost</option>
+                  <option value="ghn">GHN (Giao Hàng Nhanh)</option>
                   <option value="viettelpost">ViettelPost</option>
                   <option value="other">Khác</option>
                 </select>

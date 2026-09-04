@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { generateVNPostExcel, generateSPXExcel } from '@/lib/carrier-export'
+import { generateVNPostExcel, generateSPXExcel, generateGHNExcel } from '@/lib/carrier-export'
 import type { OrderExportRow } from '@/lib/carrier-export'
 
 function adminClient() {
@@ -23,11 +23,11 @@ export async function GET(req: NextRequest) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const url = new URL(req.url)
-  const carrier = url.searchParams.get('carrier') as 'vnpost' | 'spx' | null
+  const carrier = url.searchParams.get('carrier') as 'vnpost' | 'spx' | 'ghn' | null
   const idsParam = url.searchParams.get('ids')
 
-  if (!carrier || !['vnpost', 'spx'].includes(carrier)) {
-    return NextResponse.json({ error: 'carrier must be "vnpost" or "spx"' }, { status: 400 })
+  if (!carrier || !['vnpost', 'spx', 'ghn'].includes(carrier)) {
+    return NextResponse.json({ error: 'carrier must be "vnpost", "spx", or "ghn"' }, { status: 400 })
   }
 
   const db = adminClient()
@@ -152,6 +152,9 @@ export async function GET(req: NextRequest) {
     if (carrier === 'vnpost') {
       buffer = await generateVNPostExcel(rows)
       filename = `vnpost_orders_${new Date().toISOString().slice(0, 10)}.xlsx`
+    } else if (carrier === 'ghn') {
+      buffer = await generateGHNExcel(rows)
+      filename = `ghn_orders_${new Date().toISOString().slice(0, 10)}.xlsx`
     } else {
       buffer = await generateSPXExcel(rows)
       filename = `spx_orders_${new Date().toISOString().slice(0, 10)}.xlsx`

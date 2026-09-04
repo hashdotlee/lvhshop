@@ -10,6 +10,7 @@ import path from 'path'
 export const CARRIERS = {
   vnpost: { label: 'VNPost', key: 'vnpost' },
   spx: { label: 'Shopee Express', key: 'spx' },
+  ghn: { label: 'GHN (Giao Hàng Nhanh)', key: 'ghn' },
 } as const
 
 export type Carrier = keyof typeof CARRIERS
@@ -349,6 +350,75 @@ export async function generateSPXExcel(orders: OrderExportRow[]): Promise<Uint8A
       row.getCell(27).value = 'Người nhận trả'
       row.getCell(28).value = order.delivery_note || order.customer_note || ''
     }
+    
+    row.commit()
+  })
+
+  const buf = await wb.xlsx.writeBuffer()
+  return new Uint8Array(buf)
+}
+
+/**
+ * Generates a GHN batch-creation Excel file based on GHN_FileMauChuyenPhat_HangNhe_2023.xlsx.
+ *
+ * Data starts at row 5.
+ * 1: Tên người nhận
+ * 2: SĐT
+ * 3: Địa chỉ chi tiết
+ * 4: Gói cước (2 = Chuyển phát TMĐT)
+ * 5: Tiền thu hộ (Sử dụng `calcCarrierCOD` giống VNPost để cộng cả phí ship)
+ * 6: Yêu cầu đơn hàng (1 = Cho xem, không thử)
+ * 7: Khối lượng (gram)
+ * 8,9,10: Dài, Rộng, Cao
+ * 11: Khai giá Có/Không ('x')
+ * 12: Giá trị hàng hoá (total_amount)
+ * 13: Shop trả ship ('x')
+ * 14: Gửi hàng tại bưu cục (Bỏ trống)
+ * 15: Mã đơn hàng riêng
+ * 16: Sản phẩm
+ * 17: Ghi chú thêm
+ * 18: Ca lấy (1 = Sáng)
+ */
+export async function generateGHNExcel(orders: OrderExportRow[]): Promise<Uint8Array> {
+  const templatePath = path.join(process.cwd(), 'docs', 'GHN_FileMauChuyenPhat_HangNhe_2023.xlsx')
+  const wb = new ExcelJS.Workbook()
+  await wb.xlsx.readFile(templatePath)
+
+  const ws = wb.worksheets[0] // GHN file usually has data in the first sheet
+  if (!ws) throw new Error('Worksheet not found in GHN template')
+
+  // Clear sample row at row 5 (and row 6 just in case)
+  const dataStartRow = 5
+  ws.spliceRows(dataStartRow, 2)
+
+  orders.forEach((order, idx) => {
+    const rowNum = dataStartRow + idx
+    const cod = calcCarrierCOD({
+      shipping_fee: order.shipping_fee,
+      is_free_shipping: order.is_free_shipping,
+      payment_method: order.payment_method,
+      total_amount: order.total_amount,
+    })
+
+    const row = ws.getRow(rowNum)
+    row.getCell(1).value = order.customer_name
+    row.getCell(2).value = order.customer_phone
+    row.getCell(3).value = order.customer_address
+    row.getCell(4).value = 2 // 2 = Chuyển phát TMĐT
+    row.getCell(5).value = cod
+    row.getCell(6).value = 1 // 1 = Cho xem, không thử
+    row.getCell(7).value = order.weight_g || 200 // Default 200 gram
+    row.getCell(8).value = order.length_cm || ''
+    row.getCell(9).value = order.width_cm || ''
+    row.getCell(10).value = order.height_cm || ''
+    row.getCell(11).value = 'x' // Có khai giá
+    row.getCell(12).value = order.total_amount || 0
+    row.getCell(13).value = 'x' // Shop trả ship
+    row.getCell(14).value = ''  // Không gửi bưu cục (lấy tận nơi)
+    row.getCell(15).value = order.order_number
+    row.getCell(16).value = order.item_title
+    row.getCell(17).value = order.delivery_note || order.customer_note || ''
+    row.getCell(18).value = 1 // Ca lấy sáng
     
     row.commit()
   })
