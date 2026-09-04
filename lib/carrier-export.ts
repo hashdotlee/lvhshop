@@ -412,9 +412,12 @@ export async function generateGHNExcel(orders: OrderExportRow[]): Promise<Uint8A
 
   // Clear all sample rows from row 5 downwards
   const dataStartRow = 5
-  if (ws.rowCount >= dataStartRow) {
-    // We remove all rows starting from dataStartRow to ensure no sample data is left
-    ws.spliceRows(dataStartRow, ws.rowCount - dataStartRow + 1)
+  const maxRow = Math.max(ws.rowCount, 500)
+  for (let i = dataStartRow; i <= maxRow; i++) {
+    const r = ws.getRow(i)
+    r.eachCell(c => {
+      c.value = null
+    })
   }
 
   orders.forEach((order, idx) => {
