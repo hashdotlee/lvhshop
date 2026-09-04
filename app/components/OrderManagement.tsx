@@ -2225,7 +2225,10 @@ const omStyles = `
 @page{size:74mm 105mm;margin:0}
 @media print{
   html, body { 
-    margin: 0 !important; padding: 0 !important; 
+    margin: 0 !important; 
+    padding: 0 !important; 
+    min-height: 0 !important; 
+    height: auto !important; 
     background: white !important; 
   }
   
@@ -2252,8 +2255,6 @@ const omStyles = `
     color: #000;
     line-height: 1.3;
     margin: 0;
-    page-break-after: auto;
-    page-break-inside: avoid;
   }
 }
 .inv-shop{font-size:13pt;font-weight:800;letter-spacing:-.3px;text-align:center;display:block}
