@@ -480,10 +480,6 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       onToast('Vui lòng nhập đầy đủ thông tin khách hàng')
       return
     }
-    if (form.shipping_fee === '' || form.shipping_fee == null) {
-      onToast('Vui lòng nhập phí vận chuyển (nhập 0 nếu miễn phí)')
-      return
-    }
     setSaving(true)
     try {
       const cartItems = [...createCartItems]
@@ -522,7 +518,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
           customer_note: form.customer_note || null,
           shipping_carrier: form.shipping_carrier,
           tracking_number: form.tracking_number || null,
-          shipping_fee: form.shipping_fee ? Number(form.shipping_fee) : 0,
+          shipping_fee: form.shipping_fee === '' ? null : Number(form.shipping_fee),
           is_free_shipping: form.is_free_shipping,
           payment_method: form.payment_method,
           total_amount: form.total_amount ? Number(form.total_amount) : null,
@@ -1005,14 +1001,15 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
 
   // ─────────────────────────────────────────────────────────────
   const editItemsTotal = editOrder ? (editOrderItems.reduce((acc, oi) => acc + (oi.item_price ?? 0) * oi.quantity, 0) || (editOrder.item_price ?? 0)) : 0
-  const editSf = editForm.shipping_fee ? Number(editForm.shipping_fee) : 0
+  const editSf = editForm.shipping_fee === '' ? null : Number(editForm.shipping_fee)
+  const editSfVal = editSf ?? 0
   let editSd = 0
   if (editForm.payment_method === 'bank_transfer') {
     if (editItemsTotal >= 500000) editSd = 50000
     else if (editItemsTotal >= 200000) editSd = 20000
   }
-  if (editSd > editSf) editSd = editSf
-  const editFinalTotal = editOrder ? (editItemsTotal + editSf - editSd - (editOrder.item_discount ?? 0)) : 0
+  if (editSd > editSfVal) editSd = editSfVal
+  const editFinalTotal = editOrder ? (editItemsTotal + editSfVal - editSd - (editOrder.item_discount ?? 0)) : 0
 
   return (
     <>
@@ -2044,13 +2041,14 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
               <button className="om-btn-ghost" onClick={() => setEditOrder(null)}>Hủy</button>
               <button className="om-btn-primary" onClick={() => {
                 const editItemsTotal = editOrderItems.reduce((acc, oi) => acc + (oi.item_price ?? 0) * oi.quantity, 0) || (editOrder.item_price ?? 0)
-                const editSf = editForm.shipping_fee ? Number(editForm.shipping_fee) : 0
+                const editSf = editForm.shipping_fee === '' ? null : Number(editForm.shipping_fee)
+                const editSfVal = editSf ?? 0
                 let editSd = 0
                 if (editForm.payment_method === 'bank_transfer') {
                   if (editItemsTotal >= 500000) editSd = 50000
                   else if (editItemsTotal >= 200000) editSd = 20000
                 }
-                if (editSd > editSf) editSd = editSf
+                if (editSd > editSfVal) editSd = editSfVal
 
                 const payload: Partial<Order> = {
                   order_status: editForm.order_status,

@@ -134,12 +134,14 @@ export async function generateVNPostExcel(orders: OrderExportRow[]): Promise<Uin
 
   orders.forEach((order, idx) => {
     const rowNum = sampleRowNum + idx
-    const cod = calcCarrierCOD({
-      shipping_fee: order.shipping_fee,
-      is_free_shipping: order.is_free_shipping,
-      payment_method: order.payment_method,
-      total_amount: order.total_amount,
-    })
+    const cod = order.shipping_fee === null
+      ? (order.payment_method === 'cod' ? (order.total_amount ?? 0) : 0)
+      : calcCarrierCOD({
+          shipping_fee: order.shipping_fee,
+          is_free_shipping: order.is_free_shipping,
+          payment_method: order.payment_method,
+          total_amount: order.total_amount,
+        })
 
     const gtgt: string[] = []
     if (cod > 0) gtgt.push('GTG021') // Phát hàng thu tiền COD
@@ -253,11 +255,18 @@ export async function generateSPXExcel(orders: OrderExportRow[]): Promise<Uint8A
     const rowNum = dataStartRow + idx
     const meta = order.carrier_metadata || {}
 
-    // For SPX, shipping fee is calculated and collected directly by SPX ("Người nhận trả").
-    // Therefore, we do NOT include our shipping_fee into the COD. The COD is exactly the item subtotal.
+    // If shipping_fee is null, COD is just item subtotal, SPX collects shipping directly.
+    // If shipping_fee is not null, shop pays SPX ("Người gửi trả"), so COD must include shipping_fee.
     let cod = 0
-    if (order.payment_method === 'cod') {
-      cod = order.total_amount ?? 0
+    if (order.shipping_fee === null) {
+      if (order.payment_method === 'cod') cod = order.total_amount ?? 0
+    } else {
+      cod = calcCarrierCOD({
+        shipping_fee: order.shipping_fee,
+        is_free_shipping: order.is_free_shipping,
+        payment_method: order.payment_method,
+        total_amount: order.total_amount,
+      })
     }
     const hasCOD = cod > 0
 
@@ -319,7 +328,7 @@ export async function generateSPXExcel(orders: OrderExportRow[]): Promise<Uint8A
       row.getCell(20).value = meta.spx_service_view ? 'Y' : 'N'
       row.getCell(23).value = hasCOD ? 'Y' : 'N'
       row.getCell(24).value = hasCOD ? cod : ''
-      row.getCell(26).value = 'Người nhận trả'
+      row.getCell(26).value = order.shipping_fee === null ? 'Người nhận trả' : 'Người gửi trả'
       row.getCell(27).value = order.delivery_note || order.customer_note || ''
     } else {
       if (spxProvince) {
@@ -347,7 +356,7 @@ export async function generateSPXExcel(orders: OrderExportRow[]): Promise<Uint8A
       row.getCell(21).value = meta.spx_service_view ? 'Y' : 'N'
       row.getCell(24).value = hasCOD ? 'Y' : 'N'
       row.getCell(25).value = hasCOD ? cod : ''
-      row.getCell(27).value = 'Người nhận trả'
+      row.getCell(27).value = order.shipping_fee === null ? 'Người nhận trả' : 'Người gửi trả'
       row.getCell(28).value = order.delivery_note || order.customer_note || ''
     }
     
@@ -393,12 +402,14 @@ export async function generateGHNExcel(orders: OrderExportRow[]): Promise<Uint8A
 
   orders.forEach((order, idx) => {
     const rowNum = dataStartRow + idx
-    const cod = calcCarrierCOD({
-      shipping_fee: order.shipping_fee,
-      is_free_shipping: order.is_free_shipping,
-      payment_method: order.payment_method,
-      total_amount: order.total_amount,
-    })
+    const cod = order.shipping_fee === null
+      ? (order.payment_method === 'cod' ? (order.total_amount ?? 0) : 0)
+      : calcCarrierCOD({
+          shipping_fee: order.shipping_fee,
+          is_free_shipping: order.is_free_shipping,
+          payment_method: order.payment_method,
+          total_amount: order.total_amount,
+        })
 
     const row = ws.getRow(rowNum)
     row.getCell(1).value = order.customer_name
@@ -413,7 +424,7 @@ export async function generateGHNExcel(orders: OrderExportRow[]): Promise<Uint8A
     row.getCell(10).value = order.height_cm || ''
     row.getCell(11).value = 'x' // Có khai giá
     row.getCell(12).value = order.total_amount || 0
-    row.getCell(13).value = 'x' // Shop trả ship
+    row.getCell(13).value = order.shipping_fee === null ? '' : 'x' // Shop trả ship
     row.getCell(14).value = ''  // Không gửi bưu cục (lấy tận nơi)
     row.getCell(15).value = order.order_number
     row.getCell(16).value = order.item_title
