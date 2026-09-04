@@ -2228,18 +2228,21 @@ const omStyles = `
     margin: 0 !important; padding: 0 !important; 
     background: white !important; 
   }
-  body * {
-    visibility: hidden;
+  
+  /* Ẩn toàn bộ các phần tử không chứa khối in, không phải khối in, và không nằm trong khối in */
+  body *:not(:has(.invoice-print-wrap)):not(.invoice-print-wrap):not(.invoice-print-wrap *) {
+    display: none !important;
   }
-  .invoice-print-wrap, .invoice-print-wrap * {
-    visibility: visible;
+  
+  /* Xoá padding/margin của các thẻ cha chứa khối in để hoá đơn sát góc */
+  body *:has(.invoice-print-wrap) {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
   }
   
   .invoice-print-wrap {
     display: block !important;
-    position: absolute;
-    left: 0;
-    top: 0;
     width: 74mm;
     box-sizing: border-box;
     background: white;
