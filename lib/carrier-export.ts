@@ -382,13 +382,13 @@ export async function generateSPXExcel(orders: OrderExportRow[]): Promise<Uint8A
  * 2: SĐT
  * 3: Địa chỉ chi tiết
  * 4: Gói cước (2 = Chuyển phát TMĐT)
- * 5: Tiền thu hộ (Sử dụng `calcCarrierCOD` giống VNPost để cộng cả phí ship)
+ * 5: Tiền thu hộ (Tiền hàng nếu thanh toán COD, 0 nếu chuyển khoản)
  * 6: Yêu cầu đơn hàng (1 = Cho xem, không thử)
  * 7: Khối lượng (gram)
  * 8,9,10: Dài, Rộng, Cao
  * 11: Khai giá Có/Không ('x')
  * 12: Giá trị hàng hoá (total_amount)
- * 13: Shop trả ship ('x')
+ * 13: Shop trả ship ('x' nếu đơn miễn phí vận chuyển - người gửi trả; để trống nếu người nhận trả)
  * 14: Gửi hàng tại bưu cục (Bỏ trống)
  * 15: Mã đơn hàng riêng
  * 16: Sản phẩm
@@ -422,14 +422,8 @@ export async function generateGHNExcel(orders: OrderExportRow[]): Promise<Uint8A
 
   orders.forEach((order, idx) => {
     const rowNum = dataStartRow + idx
-    const cod = order.shipping_fee === null
-      ? (order.payment_method === 'cod' ? (order.total_amount ?? 0) : 0)
-      : calcCarrierCOD({
-          shipping_fee: order.shipping_fee,
-          is_free_shipping: order.is_free_shipping,
-          payment_method: order.payment_method,
-          total_amount: order.total_amount,
-        })
+    const isFreeShipping = Boolean(order.is_free_shipping)
+    const cod = order.payment_method === 'cod' ? (order.total_amount ?? 0) : 0
 
     const row = ws.getRow(rowNum)
     row.getCell(1).value = order.customer_name
@@ -444,7 +438,7 @@ export async function generateGHNExcel(orders: OrderExportRow[]): Promise<Uint8A
     row.getCell(10).value = order.height_cm || 10
     row.getCell(11).value = 'x' // Có khai giá
     row.getCell(12).value = order.total_amount || 0
-    row.getCell(13).value = order.shipping_fee === null ? '' : 'x' // Shop trả ship
+    row.getCell(13).value = isFreeShipping ? 'x' : '' // Đơn miễn phí vận chuyển: người gửi trả ('x'), còn lại người nhận trả ('')
     row.getCell(14).value = ''  // Không gửi bưu cục (lấy tận nơi)
     row.getCell(15).value = order.order_number
     row.getCell(16).value = order.item_title
