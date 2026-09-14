@@ -42,48 +42,55 @@ export async function GET(req: NextRequest) {
   const db = getDb()
 
   // First try selecting with lookup_count & last_lookup_at
-  let query = db.from('orders').select(SELECT_FIELDS_WITH_LOOKUP)
+  let query: any = db.from('orders').select(SELECT_FIELDS_WITH_LOOKUP)
   if (isOrderNumber) {
     query = query.eq('order_number', rawQuery.toUpperCase())
   } else {
     query = query.eq('customer_phone', phone)
   }
 
-  let { data, error } = await query.order('created_at', { ascending: false }).limit(50)
+  let resultData: any[] | null = null
+  let resultError: any = null
+
+  const res = await query.order('created_at', { ascending: false }).limit(50)
+  resultData = res.data
+  resultError = res.error
 
   // If column does not exist yet (before migration), fallback gracefully
-  if (error && (error.message?.includes('lookup_count') || error.message?.includes('last_lookup_at'))) {
-    let fallbackQuery = db.from('orders').select(SELECT_FIELDS_FALLBACK)
+  if (resultError && (resultError.message?.includes('lookup_count') || resultError.message?.includes('last_lookup_at'))) {
+    let fallbackQuery: any = db.from('orders').select(SELECT_FIELDS_FALLBACK)
     if (isOrderNumber) {
       fallbackQuery = fallbackQuery.eq('order_number', rawQuery.toUpperCase())
     } else {
       fallbackQuery = fallbackQuery.eq('customer_phone', phone)
     }
     const fallbackRes = await fallbackQuery.order('created_at', { ascending: false }).limit(50)
-    data = fallbackRes.data
-    error = fallbackRes.error
+    resultData = fallbackRes.data
+    resultError = fallbackRes.error
   }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (resultError) return NextResponse.json({ error: resultError.message }, { status: 500 })
 
-  const orders = data ?? []
+  const orders: any[] = resultData ?? []
   if (orders.length > 0) {
     const now = new Date().toISOString()
     // Record lookup count and timestamp in database asynchronously
-    Promise.allSettled(
-      orders.map(order =>
-        db
-          .from('orders')
-          .update({
-            lookup_count: (Number(order.lookup_count) || 0) + 1,
-            last_lookup_at: now,
-          })
-          .eq('id', order.id)
+    try {
+      await Promise.allSettled(
+        orders.map((order: any) =>
+          db
+            .from('orders')
+            .update({
+              lookup_count: (Number(order.lookup_count) || 0) + 1,
+              last_lookup_at: now,
+            })
+            .eq('id', order.id)
+        )
       )
-    ).catch(() => {})
+    } catch {}
 
     // Return updated counts immediately to caller
-    const updated = orders.map(order => ({
+    const updated = orders.map((order: any) => ({
       ...order,
       lookup_count: (Number(order.lookup_count) || 0) + 1,
       last_lookup_at: now,

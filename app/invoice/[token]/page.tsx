@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import { unstable_noStore as noStore } from 'next/cache'
-import { cache } from 'react'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -32,7 +31,7 @@ type Order = {
   order_items: OrderItem[]
 }
 
-const getOrder = cache(async (token: string): Promise<Order | null> => {
+async function getOrder(token: string): Promise<Order | null> {
   noStore()
   const db = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,20 +43,8 @@ const getOrder = cache(async (token: string): Promise<Order | null> => {
     .eq('share_token', token)
     .single()
 
-  if (data?.id) {
-    const now = new Date().toISOString()
-    const nextCount = (Number(data.lookup_count) || 0) + 1
-    db.from('orders')
-      .update({ lookup_count: nextCount, last_lookup_at: now })
-      .eq('id', data.id)
-      .then(() => {})
-      .catch(() => {})
-    data.lookup_count = nextCount
-    data.last_lookup_at = now
-  }
-
   return data as Order | null
-})
+}
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const order = await getOrder(params.token)
@@ -94,7 +81,8 @@ function fmtVND(v: number | null | undefined) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v)
 }
 
-function fmtDate(iso: string) {
+function fmtDate(iso?: string | null) {
+  if (!iso) return '—'
   return new Date(iso).toLocaleDateString('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
@@ -109,6 +97,23 @@ function maskPhone(phone: string) {
 export default async function InvoicePage({ params }: { params: { token: string } }) {
   const order = await getOrder(params.token)
   if (!order) notFound()
+
+  // Track customer lookup on invoice view
+  if (order.id) {
+    const nextCount = (Number(order.lookup_count) || 0) + 1
+    const now = new Date().toISOString()
+    const db = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
+    )
+    db.from('orders')
+      .update({ lookup_count: nextCount, last_lookup_at: now })
+      .eq('id', order.id)
+      .then(() => {})
+      .catch(() => {})
+    order.lookup_count = nextCount
+    order.last_lookup_at = now
+  }
 
   const items = order.order_items ?? []
   const itemsTotal = order.total_amount ??

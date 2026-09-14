@@ -120,7 +120,7 @@ export default function HomeClient() {
 
   const [adminView, setAdminView]     = useState<'listing'|'customers'|'orders'>('listing')
   const [selectedItemIds, setSelectedItemIds] = useState<number[]>([])
-  const [initialOrderItems, setInitialOrderItems] = useState<{ id: number, title: string, price: number | null }[]>([])
+  const [initialOrderItems, setInitialOrderItems] = useState<{ id: number, title: string, price: number | null, original_price?: number | null }[]>([])
 
   function switchAdminView(view: 'listing'|'customers'|'orders') {
     setAdminView(view)
@@ -1087,7 +1087,7 @@ export default function HomeClient() {
                                   <span style={{ fontSize: 11, textDecoration: 'line-through', color: 'var(--muted)', display: 'block', fontWeight: 400 }}>{fmtVND(item.price)}</span>
                                   <span style={{ color: '#dc2626' }}>{fmtVND(getItemFinalPrice(item))}</span>
                                   <span style={{ marginLeft: 4, background: '#fef2f2', color: '#dc2626', padding: '1px 4px', borderRadius: 3, fontSize: 10, fontWeight: 700 }}>
-                                    -{item.discount_amount && item.discount_amount > 0 ? (item.discount_amount / 1000) + 'k' : item.discount_percent + '%'}
+                                    -{item.discount_amount && item.discount_amount > 0 ? (item.discount_amount / 1000) + 'k' : `${item.discount_percent ?? 0}%`}
                                   </span>
                                 </div>
                               ) : fmtVND(item.price)}
@@ -1215,7 +1215,7 @@ export default function HomeClient() {
                             {imgs.length>1 && <span className="badge-imgs">📷 {imgs.length}</span>}
                             {isAdmin && item.bin_location && <span className="badge-bin">📦 {item.bin_location}</span>}
                             {isItemSale(item) && (
-                              <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>-{item.discount_amount && item.discount_amount > 0 ? (item.discount_amount / 1000) + 'k' : item.discount_percent + '%'}</span>
+                              <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>-{item.discount_amount && item.discount_amount > 0 ? (item.discount_amount / 1000) + 'k' : `${item.discount_percent ?? 0}%`}</span>
                             )}
                           </div>
                           <div className="item-title">{item.title}</div>

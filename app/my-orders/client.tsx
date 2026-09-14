@@ -38,10 +38,12 @@ function fmtVND(v: number | null | undefined) {
   if (v === 0) return '0 ₫'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v)
 }
-function fmtDate(iso: string) {
+function fmtDate(iso?: string | null) {
+  if (!iso) return '—'
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
-function fmtDateTime(iso: string) {
+function fmtDateTime(iso?: string | null) {
+  if (!iso) return '—'
   return new Date(iso).toLocaleString('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',

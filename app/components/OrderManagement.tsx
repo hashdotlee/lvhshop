@@ -71,7 +71,7 @@ function fmtVND(v: number | null | undefined) {
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
-function fmtDateTime(iso: string) {
+function fmtDateTime(iso?: string | null) {
   if (!iso) return '—'
   return new Date(iso).toLocaleString('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric',

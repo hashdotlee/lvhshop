@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
-  const body = await req.json()
+  const body = await req.json().catch(() => ({}))
   const { discount_percent, discount_amount, discount_end_date, target } = body
 
   const db = adminClient()
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     discount_end_date: discount_end_date || null,
   }
 
-  let query = db.from('items').update(updateData)
+  let query: any = db.from('items').update(updateData)
   if (target === 'all_including_sold') {
     query = query.neq('id', 0)
   } else {
