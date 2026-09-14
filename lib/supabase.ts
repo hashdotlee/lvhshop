@@ -131,11 +131,13 @@ export type Order = {
   last_lookup_at?: string | null
 }
 
-export function isItemSale(item: {
+export function isItemSale(item?: {
   discount_percent?: number | null
   discount_amount?: number | null
   discount_end_date?: string | null
-}): boolean {
+  [key: string]: any
+} | null | any): boolean {
+  if (!item) return false
   const hasDiscount = (item.discount_percent != null && item.discount_percent > 0) ||
                       (item.discount_amount != null && item.discount_amount > 0)
   if (!hasDiscount) return false
@@ -144,13 +146,14 @@ export function isItemSale(item: {
   return new Date(item.discount_end_date) > new Date()
 }
 
-export function getItemFinalPrice(item: {
-  price: number | null
+export function getItemFinalPrice(item?: {
+  price?: number | null
   discount_percent?: number | null
   discount_amount?: number | null
   discount_end_date?: string | null
-}): number | null {
-  if (item.price == null) return null
+  [key: string]: any
+} | null | any): number | null {
+  if (!item || item.price == null) return null
   if (!isItemSale(item)) return item.price
   if (item.discount_amount && item.discount_amount > 0) {
     return Math.max(0, item.price - item.discount_amount)

@@ -17,6 +17,10 @@ export interface OrderItem {
   id: number
   title: string
   price: number | null
+  original_price?: number | null
+  discount_percent?: number | null
+  discount_amount?: number | null
+  discount_end_date?: string | null
 }
 
 interface Props {
