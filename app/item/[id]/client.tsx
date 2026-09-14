@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Item } from '@/lib/supabase'
+import { isItemSale, getItemFinalPrice } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
 import CartDrawer from '@/app/components/CartDrawer'
 import { addToCart, getCartCount } from '@/lib/cart'
@@ -463,10 +464,10 @@ export default function ItemDetailClient({ item }: { item: Item }) {
             <h1 className="item-title">{item.title}</h1>
 
             <div className="item-price">
-              {((item.discount_percent && item.discount_percent > 0) || (item.discount_amount && item.discount_amount > 0)) && item.discount_end_date && new Date(item.discount_end_date) > new Date() ? (
+              {isItemSale(item) ? (
                 <>
                   <span style={{ fontSize: 18, textDecoration: 'line-through', color: 'var(--muted)', marginRight: 10 }}>{fmtVND(item.price)}</span>
-                  <span style={{ color: '#dc2626' }}>{fmtVND(item.price ? (item.discount_amount && item.discount_amount > 0 ? item.price - item.discount_amount : item.price * (1 - item.discount_percent! / 100)) : null)}</span>
+                  <span style={{ color: '#dc2626' }}>{fmtVND(getItemFinalPrice(item))}</span>
                 </>
               ) : fmtVND(item.price)}
             </div>
@@ -517,8 +518,8 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                 ) : (
                   <>
                     <button className="btn-buy" onClick={() => {
-                      const isSale = ((item.discount_percent && item.discount_percent > 0) || (item.discount_amount && item.discount_amount > 0)) && item.discount_end_date && new Date(item.discount_end_date) > new Date()
-                      const finalPrice = isSale && item.price ? (item.discount_amount && item.discount_amount > 0 ? item.price - item.discount_amount : item.price * (1 - item.discount_percent! / 100)) : item.price
+                      const isSale = isItemSale(item)
+                      const finalPrice = getItemFinalPrice(item)
                       const added = addToCart({ id: item.id, title: item.title + (isSale ? ' (Đã giảm giá)' : ''), price: finalPrice ?? null })
                       const cnt = getCartCount()
                       setCartCount(cnt)

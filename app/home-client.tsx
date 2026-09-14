@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Item, Customer, Staff, InventoryBatch } from '@/lib/supabase'
-import { supabase } from '@/lib/supabase'
+import { supabase, isItemSale, getItemFinalPrice } from '@/lib/supabase'
 import { compressToWebP } from '@/lib/compress'
 import DailyQuizBanner from './components/DailyQuizBanner'
 import OrderManagement from './components/OrderManagement'
@@ -181,6 +181,7 @@ export default function HomeClient() {
   })
   const [savingEdit, setSavingEdit]   = useState(false)
   const [deletingItem, setDeletingItem] = useState(false)
+  const [applyingBulkDiscount, setApplyingBulkDiscount] = useState(false)
 
   const [supaUser, setSupaUser]       = useState<{email:string;name:string}|null>(null)
   const [showUserAuth, setShowUserAuth] = useState(false)
@@ -409,6 +410,61 @@ export default function HomeClient() {
     finally { setSavingEdit(false) }
   }
 
+  async function applyDiscountToAll() {
+    const pct = editItemForm.discount_percent ? Number(editItemForm.discount_percent) : 0
+    const amt = editItemForm.discount_amount ? Number(editItemForm.discount_amount) : 0
+    const hasDisc = pct > 0 || amt > 0
+    let discDesc = ''
+    if (pct > 0 && amt > 0) discDesc = `${pct}% và -${fmtVND(amt)}`
+    else if (pct > 0) discDesc = `${pct}%`
+    else if (amt > 0) discDesc = `-${fmtVND(amt)}`
+
+    const msg = hasDisc
+      ? `Bạn có chắc chắn muốn áp dụng mức giảm giá (${discDesc}) cho toàn bộ đơn hàng (tất cả mặt hàng đang bán) không?`
+      : 'Bạn đang không nhập mức giảm giá. Bạn có chắc chắn muốn XÓA giảm giá cho toàn bộ đơn hàng (tất cả mặt hàng đang bán) không?'
+
+    if (!confirm(msg)) return
+
+    setApplyingBulkDiscount(true)
+    try {
+      const newEndDate = editItemForm.discount_end_date ? new Date(editItemForm.discount_end_date + '+07:00').toISOString() : null
+      const r = await fetch('/api/items/bulk-discount', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey.current },
+        body: JSON.stringify({
+          discount_percent: pct || null,
+          discount_amount: amt || null,
+          discount_end_date: newEndDate,
+        }),
+      })
+      if (!r.ok) {
+        const err = await r.json()
+        showToast(`Lỗi: ${err.error ?? r.status}`)
+        return
+      }
+      const res = await r.json()
+      setItems(prev => prev.map(i => i.status !== 'sold' ? {
+        ...i,
+        discount_percent: pct || null,
+        discount_amount: amt || null,
+        discount_end_date: newEndDate,
+      } : i))
+      if (editItem) {
+        setEditItem(prev => prev ? {
+          ...prev,
+          discount_percent: pct || null,
+          discount_amount: amt || null,
+          discount_end_date: newEndDate,
+        } : null)
+      }
+      showToast(`Đã áp dụng giảm giá cho ${res.count ?? 'toàn bộ'} mặt hàng`)
+    } catch {
+      showToast('Lỗi kết nối server')
+    } finally {
+      setApplyingBulkDiscount(false)
+    }
+  }
+
   async function deleteItem(id: number) {
     if (!confirm('Bạn có chắc chắn muốn xóa mặt hàng này? Hành động này không thể hoàn tác.')) return
     setDeletingItem(true)
@@ -477,8 +533,14 @@ export default function HomeClient() {
     finally { setSubmittingBuy(false) }
   }
 
-  function addToCartAndToast(item: OrderItem) {
-    const added = addToCart({ id: item.id, title: item.title, price: item.price })
+  function addToCartAndToast(item: Item | OrderItem) {
+    const isSale = isItemSale(item)
+    const finalPrice = getItemFinalPrice(item)
+    const added = addToCart({
+      id: item.id,
+      title: item.title + (isSale ? ' (Đã giảm giá)' : ''),
+      price: finalPrice ?? null
+    })
     const count = getCartCount()
     setCartCount(count)
     showToast(added ? `Đã thêm vào giỏ hàng 🛒` : 'Sản phẩm đã có trong giỏ')
@@ -829,12 +891,12 @@ export default function HomeClient() {
             {!isAdmin && <DailyQuizBanner />}
 
             {/* DISCOUNT MARQUEE */}
-            {items.some(i => i.status !== 'sold' && ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()) && (
+            {items.some(i => i.status !== 'sold' && isItemSale(i)) && (
               <div className="discount-marquee">
                 <div className="discount-marquee-inner">
                   <span className="marquee-text">
                     🔥 HOT SALE: Đang có sản phẩm giảm giá! 
-                    {items.filter(i => i.status !== 'sold' && ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()).slice(0,5).map(i => ` • ${i.title} (-${i.discount_amount && i.discount_amount > 0 ? (i.discount_amount / 1000) + 'k' : i.discount_percent + '%'})`).join('')}
+                    {items.filter(i => i.status !== 'sold' && isItemSale(i)).slice(0,5).map(i => ` • ${i.title} (-${i.discount_amount && i.discount_amount > 0 ? (i.discount_amount / 1000) + 'k' : i.discount_percent + '%'})`).join('')}
                   </span> 
                 </div>
               </div>
@@ -984,8 +1046,8 @@ export default function HomeClient() {
                         <div style={{display:'flex',gap:8}}>
                           <button className="btn-dark" onClick={() => {
                             const selected = items.filter(i => selectedItemIds.includes(i.id)).map(i => {
-                              const isSale = ((i.discount_percent && i.discount_percent > 0) || (i.discount_amount && i.discount_amount > 0)) && i.discount_end_date && new Date(i.discount_end_date) > new Date()
-                              const finalPrice = isSale && i.price ? (i.discount_amount && i.discount_amount > 0 ? i.price - i.discount_amount : i.price * (1 - i.discount_percent! / 100)) : i.price
+                              const isSale = isItemSale(i)
+                              const finalPrice = getItemFinalPrice(i)
                               return { id: i.id, title: i.title + (isSale ? ' (Đã giảm giá)' : ''), price: finalPrice, original_price: i.price }
                             })
                             setInitialOrderItems(selected)
@@ -1019,8 +1081,17 @@ export default function HomeClient() {
                             }} /></td>
                             <td>{getImages(item)[0] && <img src={getImages(item)[0]} alt="" style={{width: 36, height: 36, objectFit: 'cover', borderRadius: 4, display:'block'}} />}</td>
                             <td><div style={{fontSize: 12, fontWeight: 'bold'}}>{item.order_code}</div><div style={{fontSize: 11, color: '#666'}}>{item.sku}</div></td>
-                            <td style={{maxWidth: 250, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={item.title}>{item.title}</td>
-                            <td style={{fontWeight: 600, color: 'var(--green)'}}>{fmtVND(item.price)}</td>
+                            <td style={{fontWeight: 600, color: 'var(--green)'}}>
+                              {isItemSale(item) ? (
+                                <div>
+                                  <span style={{ fontSize: 11, textDecoration: 'line-through', color: 'var(--muted)', display: 'block', fontWeight: 400 }}>{fmtVND(item.price)}</span>
+                                  <span style={{ color: '#dc2626' }}>{fmtVND(getItemFinalPrice(item))}</span>
+                                  <span style={{ marginLeft: 4, background: '#fef2f2', color: '#dc2626', padding: '1px 4px', borderRadius: 3, fontSize: 10, fontWeight: 700 }}>
+                                    -{item.discount_amount && item.discount_amount > 0 ? (item.discount_amount / 1000) + 'k' : item.discount_percent + '%'}
+                                  </span>
+                                </div>
+                              ) : fmtVND(item.price)}
+                            </td>
                             <td style={{fontSize: 13}}>{item.condition}</td>
                             <td style={{fontSize: 13, fontWeight: 600}}>{item.bin_location}</td>
                             <td>
@@ -1102,10 +1173,10 @@ export default function HomeClient() {
                           </div>
                           <div className="item-footer">
                             <div className="item-price">
-                              {((g.rep.discount_percent && g.rep.discount_percent > 0) || (g.rep.discount_amount && g.rep.discount_amount > 0)) && g.rep.discount_end_date && new Date(g.rep.discount_end_date) > new Date() ? (
+                              {isItemSale(g.rep) ? (
                                 <>
                                   <span style={{ fontSize: 13, textDecoration: 'line-through', color: 'var(--muted)', marginRight: 6 }}>{fmtVND(g.rep.price)}</span>
-                                  <span style={{ color: '#dc2626' }}>{fmtVND(g.rep.price ? (g.rep.discount_amount && g.rep.discount_amount > 0 ? g.rep.price - g.rep.discount_amount : g.rep.price * (1 - g.rep.discount_percent! / 100)) : null)}</span>
+                                  <span style={{ color: '#dc2626' }}>{fmtVND(getItemFinalPrice(g.rep))}</span>
                                 </>
                               ) : fmtVND(g.rep.price)}
                             </div>
@@ -1143,9 +1214,9 @@ export default function HomeClient() {
                             ) : <span className="badge-avail">Còn hàng</span>}
                             {imgs.length>1 && <span className="badge-imgs">📷 {imgs.length}</span>}
                             {isAdmin && item.bin_location && <span className="badge-bin">📦 {item.bin_location}</span>}
-                            {((item.discount_percent && item.discount_percent > 0) || (item.discount_amount && item.discount_amount > 0)) && item.discount_end_date && new Date(item.discount_end_date) > new Date() ? (
+                            {isItemSale(item) && (
                               <span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>-{item.discount_amount && item.discount_amount > 0 ? (item.discount_amount / 1000) + 'k' : item.discount_percent + '%'}</span>
-                            ) : null}
+                            )}
                           </div>
                           <div className="item-title">{item.title}</div>
                           <div className="item-desc">{item.description}</div>
@@ -1171,10 +1242,10 @@ export default function HomeClient() {
                         )}
                         <div className="item-footer">
                           <div className="item-price">
-                            {((item.discount_percent && item.discount_percent > 0) || (item.discount_amount && item.discount_amount > 0)) && item.discount_end_date && new Date(item.discount_end_date) > new Date() ? (
+                            {isItemSale(item) ? (
                               <>
                                 <span style={{ fontSize: 13, textDecoration: 'line-through', color: 'var(--muted)', marginRight: 6 }}>{fmtVND(item.price)}</span>
-                                <span style={{ color: '#dc2626' }}>{fmtVND(item.price ? (item.discount_amount && item.discount_amount > 0 ? item.price - item.discount_amount : item.price * (1 - item.discount_percent! / 100)) : null)}</span>
+                                <span style={{ color: '#dc2626' }}>{fmtVND(getItemFinalPrice(item))}</span>
                               </>
                             ) : fmtVND(item.price)}
                           </div>
@@ -1254,8 +1325,24 @@ export default function HomeClient() {
               <div className="fg"><div className="lbl">Giảm tiền (VNĐ)</div>
                 <input className="inp" type="number" min="0" placeholder="0" value={editItemForm.discount_amount} onChange={e=>setEditItemForm(p=>({...p,discount_amount:e.target.value}))}/>
               </div>
-              <div className="fg"><div className="lbl">Hạn sale</div>
+              <div className="fg"><div className="lbl">Hạn sale <span style={{fontWeight:'normal',fontSize:11,color:'var(--muted)'}}>(Trống = Không thời hạn)</span></div>
                 <input className="inp" type="datetime-local" value={editItemForm.discount_end_date} onChange={e=>setEditItemForm(p=>({...p,discount_end_date:e.target.value}))}/>
+              </div>
+              <div className="fg full" style={{background:'rgba(37,99,235,0.06)',border:'1px dashed #93c5fd',borderRadius:8,padding:'10px 14px',margin:'2px 0 6px'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+                  <div style={{fontSize:12,color:'#1e40af'}}>
+                    🏷️ <strong>Tùy chọn:</strong> Áp dụng mức giảm giá trên cho tất cả đơn hàng / mặt hàng đang bán
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    style={{padding:'5px 12px',fontSize:12,fontWeight:600,color:'#2563eb',borderColor:'#93c5fd',background:'white',cursor:'pointer',borderRadius:6}}
+                    onClick={applyDiscountToAll}
+                    disabled={applyingBulkDiscount}
+                  >
+                    {applyingBulkDiscount ? 'Đang áp dụng...' : '⚡ Áp dụng cho toàn bộ đơn hàng'}
+                  </button>
+                </div>
               </div>
               <div className="fg"><div className="lbl">Vị trí thùng</div>
                 <input className="inp" value={editItemForm.bin_location} onChange={e=>setEditItemForm(p=>({...p,bin_location:e.target.value}))}/>

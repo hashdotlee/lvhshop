@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState, useMemo } from 'react'
 import type { Item } from '@/lib/supabase'
+import { isItemSale, getItemFinalPrice } from '@/lib/supabase'
 
 // ─── Types ────────────────────────────────────────────────────────
 export type OrderItem = {
@@ -48,6 +49,8 @@ export type Order = {
   delivery_note?: string | null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   carrier_metadata?: any
+  lookup_count?: number | null
+  last_lookup_at?: string | null
   items?: { title: string; price: number | null; order_code: string; images: string[] } | null
   order_items?: OrderItem[]
 }
@@ -67,6 +70,13 @@ function fmtVND(v: number | null | undefined) {
 }
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+function fmtDateTime(iso: string) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
 }
 
 const CARRIER_LABEL: Record<string, string> = {
@@ -381,8 +391,8 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
 
   function selectItem(item: Item) {
     setCreateStagedItem(item)
-    const isSale = ((item.discount_percent && item.discount_percent > 0) || (item.discount_amount && item.discount_amount > 0)) && item.discount_end_date && new Date(item.discount_end_date) > new Date()
-    const finalPrice = isSale && item.price ? (item.discount_amount && item.discount_amount > 0 ? item.price - item.discount_amount : item.price * (1 - item.discount_percent! / 100)) : item.price
+    const isSale = isItemSale(item)
+    const finalPrice = getItemFinalPrice(item)
     setCreateStagedPrice(finalPrice ? String(finalPrice) : '')
     setItemSearch(item.title)
     setSearchedItems([])
@@ -392,7 +402,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     let title = createStagedItem?.title ?? itemSearch.trim()
     if (!title) return
     if (createStagedItem) {
-      const isSale = ((createStagedItem.discount_percent && createStagedItem.discount_percent > 0) || (createStagedItem.discount_amount && createStagedItem.discount_amount > 0)) && createStagedItem.discount_end_date && new Date(createStagedItem.discount_end_date) > new Date()
+      const isSale = isItemSale(createStagedItem)
       if (isSale) title += ' (Đã giảm giá)'
     }
     const price = createStagedPrice ? Number(createStagedPrice) : (createStagedItem?.price ?? null)
@@ -970,6 +980,9 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
     }
     const topCustomers = Array.from(custMap.values()).sort((a, b) => b.count - a.count || b.spend - a.spend).slice(0, 5)
 
+    const lookedUpOrders = rangeOrders.filter(o => (o.lookup_count ?? 0) > 0)
+    const totalLookups = rangeOrders.reduce((s, o) => s + (o.lookup_count ?? 0), 0)
+
     return {
       total: rangeOrders.length,
       pending: byStatus('pending').length,
@@ -978,6 +991,8 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
       delivered: deliveredOrders.length,
       cancelled: byStatus('cancelled').length,
       needsAction: byStatus('pending').length,
+      lookedUpOrdersCount: lookedUpOrders.length,
+      totalLookups,
       revenue, pendingRevenue, completionRate, avgOrderValue, codCount, bankCount,
       totalCustomers, newCustomers, returningCustomers, avgOrdersPerCustomer, topCustomers,
     }
@@ -1116,6 +1131,12 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
           <div className="om-stat-card">
             <div className="om-stat-label">Chuyển khoản</div>
             <div className="om-stat-value">{stats.bankCount}</div>
+          </div>
+          <div className="om-stat-card" title={`Tổng cộng ${stats.totalLookups} lượt tra cứu đơn`}>
+            <div className="om-stat-label">Khách tra cứu</div>
+            <div className="om-stat-value om-stat-blue">
+              {stats.lookedUpOrdersCount}/{stats.total} đơn
+            </div>
           </div>
         </div>
 
@@ -1263,6 +1284,7 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                 <th>SĐT</th>
                 <th>TT Thanh toán</th>
                 <th>TT Đơn</th>
+                <th>Tra cứu</th>
                 <th>Vận chuyển</th>
                 <th>Ngày</th>
                 <th>Thao tác</th>
@@ -1314,6 +1336,22 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                     <span className={`om-badge om-status-${order.order_status}`}>
                       {ORDER_STATUS_LABEL[order.order_status] || order.order_status}
                     </span>
+                  </td>
+                  <td>
+                    {order.lookup_count && order.lookup_count > 0 ? (
+                      <div>
+                        <span className="om-badge" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 600, display: 'inline-block' }}>
+                          👁️ {order.lookup_count} lần
+                        </span>
+                        {order.last_lookup_at && (
+                          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, whiteSpace: 'nowrap' }} title={fmtDateTime(order.last_lookup_at)}>
+                            {fmtDateTime(order.last_lookup_at)}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>Chưa tra cứu</span>
+                    )}
                   </td>
                   <td>
                     <div style={{ fontSize: 12 }}>{CARRIER_LABEL[order.shipping_carrier] || order.shipping_carrier}</div>
@@ -1766,6 +1804,22 @@ export default function OrderManagement({ adminKey, onToast, initialSelectedItem
                   </a>
                 </div>
               )}
+              <div style={{ marginTop: 6, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  background: (editOrder.lookup_count && editOrder.lookup_count > 0) ? '#e0f2fe' : 'var(--border, #eee)',
+                  color: (editOrder.lookup_count && editOrder.lookup_count > 0) ? '#0369a1' : 'var(--muted, #888)',
+                  fontWeight: 600,
+                }}>
+                  👁️ {(editOrder.lookup_count && editOrder.lookup_count > 0) ? `Khách đã tra cứu ${editOrder.lookup_count} lần` : 'Khách chưa tra cứu'}
+                </span>
+                {editOrder.last_lookup_at && (
+                  <span style={{ color: 'var(--muted, #888)' }}>
+                    Lần cuối: {fmtDateTime(editOrder.last_lookup_at)}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Items list */}

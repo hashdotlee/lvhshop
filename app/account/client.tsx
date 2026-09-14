@@ -24,6 +24,13 @@ function fmtVND(v: number | null | undefined) {
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
+function fmtDateTime(iso: string) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
 
 type OrderWithItem = Order & {
   items?: { title: string; price: number | null; order_code: string; images: string[] } | null
@@ -375,10 +382,16 @@ function OrdersTab() {
   }
 
   function submit() {
-    const p = phone.trim().replace(/\s/g, '')
-    if (p.length < 9) { setError('Số điện thoại không hợp lệ'); return }
-    try { localStorage.setItem('ord_customer_phone', p) } catch {}
-    setSavedPhone(p); fetchOrders(p)
+    const p = phone.trim()
+    const isOrderNumber = p.toUpperCase().startsWith('DH-')
+    const cleanPhone = p.replace(/\s/g, '')
+    if (!isOrderNumber && cleanPhone.length < 9) {
+      setError('Số điện thoại hoặc mã đơn không hợp lệ')
+      return
+    }
+    const val = isOrderNumber ? p.toUpperCase() : cleanPhone
+    try { localStorage.setItem('ord_customer_phone', val) } catch {}
+    setSavedPhone(val); fetchOrders(val)
   }
 
   return (
@@ -387,10 +400,10 @@ function OrdersTab() {
 
       {!savedPhone ? (
         <div className="ac-card">
-          <div className="ac-card-title">Nhập số điện thoại đặt hàng</div>
-          <p className="ac-card-desc">Nhập số điện thoại bạn đã dùng khi đặt hàng để xem trạng thái đơn.</p>
+          <div className="ac-card-title">Nhập số điện thoại hoặc mã đơn</div>
+          <p className="ac-card-desc">Nhập số điện thoại hoặc mã đơn hàng (DH-...) bạn đã dùng khi đặt hàng để xem trạng thái đơn.</p>
           <div className="ac-phone-row">
-            <input className="ac-input" type="tel" placeholder="09xxxxxxxx"
+            <input className="ac-input" type="text" placeholder="09xxxxxxxx hoặc DH-..."
               value={phone} onChange={e => setPhone(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && submit()} autoFocus />
             <button className="ac-btn-primary" onClick={submit}>Tra cứu</button>
@@ -430,7 +443,12 @@ function OrdersTab() {
                       <div>
                         <div className="ac-order-num">{order.order_number}</div>
                         <div className="ac-order-title">{title}</div>
-                        <div className="ac-order-date">{fmtDate(order.created_at)}</div>
+                        <div className="ac-order-date">
+                          {fmtDate(order.created_at)}
+                          {order.lookup_count != null && order.lookup_count > 0 && (
+                            <span> · 👁️ {order.lookup_count} lượt tra cứu</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="ac-order-right">
@@ -468,6 +486,17 @@ function OrdersTab() {
                             <div className="ac-detail-value">{CARRIER_LABEL[order.shipping_carrier] ?? order.shipping_carrier}</div>
                           </div>
                         )}
+                        <div>
+                          <div className="ac-detail-label">Lượt tra cứu</div>
+                          <div className="ac-detail-value">
+                            <span style={{ fontWeight: 600, color: '#0369a1' }}>{order.lookup_count || 1} lần</span>
+                            {order.last_lookup_at && (
+                              <span style={{ fontSize: 11, color: '#8c8982', marginLeft: 6 }}>
+                                (Lần cuối: {fmtDateTime(order.last_lookup_at)})
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}

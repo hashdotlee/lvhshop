@@ -126,4 +126,37 @@ export type Order = {
   // Discount fields
   shipping_discount?: number | null
   item_discount?: number | null
+  // Lookup tracking
+  lookup_count?: number | null
+  last_lookup_at?: string | null
+}
+
+export function isItemSale(item: {
+  discount_percent?: number | null
+  discount_amount?: number | null
+  discount_end_date?: string | null
+}): boolean {
+  const hasDiscount = (item.discount_percent != null && item.discount_percent > 0) ||
+                      (item.discount_amount != null && item.discount_amount > 0)
+  if (!hasDiscount) return false
+  // Nếu không chọn ngày hết hạn thì mặc định không có thời hạn (luôn có hiệu lực)
+  if (!item.discount_end_date) return true
+  return new Date(item.discount_end_date) > new Date()
+}
+
+export function getItemFinalPrice(item: {
+  price: number | null
+  discount_percent?: number | null
+  discount_amount?: number | null
+  discount_end_date?: string | null
+}): number | null {
+  if (item.price == null) return null
+  if (!isItemSale(item)) return item.price
+  if (item.discount_amount && item.discount_amount > 0) {
+    return Math.max(0, item.price - item.discount_amount)
+  }
+  if (item.discount_percent && item.discount_percent > 0) {
+    return Math.max(0, Math.round(item.price * (1 - item.discount_percent / 100)))
+  }
+  return item.price
 }

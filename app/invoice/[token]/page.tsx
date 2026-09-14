@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import { unstable_noStore as noStore } from 'next/cache'
+import { cache } from 'react'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -26,10 +27,12 @@ type Order = {
   shipping_discount: number | null
   item_discount: number | null
   created_at: string
+  lookup_count?: number | null
+  last_lookup_at?: string | null
   order_items: OrderItem[]
 }
 
-async function getOrder(token: string): Promise<Order | null> {
+const getOrder = cache(async (token: string): Promise<Order | null> => {
   noStore()
   const db = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,8 +43,21 @@ async function getOrder(token: string): Promise<Order | null> {
     .select('*, order_items(id, item_title, item_price, quantity)')
     .eq('share_token', token)
     .single()
+
+  if (data?.id) {
+    const now = new Date().toISOString()
+    const nextCount = (Number(data.lookup_count) || 0) + 1
+    db.from('orders')
+      .update({ lookup_count: nextCount, last_lookup_at: now })
+      .eq('id', data.id)
+      .then(() => {})
+      .catch(() => {})
+    data.lookup_count = nextCount
+    data.last_lookup_at = now
+  }
+
   return data as Order | null
-}
+})
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const order = await getOrder(params.token)
@@ -141,10 +157,15 @@ export default async function InvoicePage({ params }: { params: { token: string 
           </div>
         </div>
 
-        <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 12px', borderRadius: 20, background: st.bg, color: st.color }}>
             {STATUS_LABEL[order.order_status] ?? order.order_status}
           </span>
+          {order.lookup_count != null && order.lookup_count > 0 && (
+            <span style={{ fontSize: 11, color: '#888' }} title={order.last_lookup_at ? `Lần cuối: ${fmtDate(order.last_lookup_at)}` : undefined}>
+              👁️ Đã xem {order.lookup_count} lần
+            </span>
+          )}
         </div>
 
         {divider}

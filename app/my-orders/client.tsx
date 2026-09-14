@@ -131,11 +131,17 @@ export default function MyOrdersClient() {
   }
 
   function handlePhoneSubmit() {
-    const p = phoneInput.trim().replace(/\s/g, '')
-    if (p.length < 9) { setFetchError('Số điện thoại không hợp lệ'); return }
-    try { localStorage.setItem(STORAGE_PHONE, p) } catch {}
-    setSavedPhone(p)
-    fetchOrders(p)
+    const p = phoneInput.trim()
+    const isOrderNumber = p.toUpperCase().startsWith('DH-')
+    const cleanPhone = p.replace(/\s/g, '')
+    if (!isOrderNumber && cleanPhone.length < 9) {
+      setFetchError('Số điện thoại hoặc mã đơn không hợp lệ')
+      return
+    }
+    const val = isOrderNumber ? p.toUpperCase() : cleanPhone
+    try { localStorage.setItem(STORAGE_PHONE, val) } catch {}
+    setSavedPhone(val)
+    fetchOrders(val)
   }
 
   function handleChangePhone() {
@@ -171,18 +177,18 @@ export default function MyOrdersClient() {
         <main className="mo-main">
           <div className="mo-hero">
             <h1 className="mo-title">Đơn hàng của tôi</h1>
-            <p className="mo-subtitle">Tra cứu trạng thái đơn hàng theo số điện thoại đặt hàng</p>
+            <p className="mo-subtitle">Tra cứu trạng thái đơn hàng theo số điện thoại hoặc mã đơn</p>
           </div>
 
           {!savedPhone && (
             <div className="mo-lookup-box">
-              <div className="mo-lookup-title">Nhập số điện thoại đặt hàng</div>
-              <p className="mo-lookup-desc">Nhập số điện thoại bạn đã dùng khi đặt hàng để xem trạng thái đơn.</p>
+              <div className="mo-lookup-title">Nhập số điện thoại hoặc mã đơn</div>
+              <p className="mo-lookup-desc">Nhập số điện thoại hoặc mã đơn hàng (DH-...) để xem chi tiết trạng thái đơn.</p>
               <div className="mo-phone-row">
                 <input
                   className="mo-phone-input"
-                  type="tel"
-                  placeholder="09xxxxxxxx"
+                  type="text"
+                  placeholder="09xxxxxxxx hoặc DH-..."
                   value={phoneInput}
                   onChange={e => setPhoneInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handlePhoneSubmit()}
@@ -400,7 +406,12 @@ function OrderList({
                   <div className="mo-order-meta">
                     <div className="mo-order-number">{order.order_number}</div>
                     <div className="mo-order-title">{title}</div>
-                    <div className="mo-order-date">{fmtDate(order.created_at)}</div>
+                    <div className="mo-order-date">
+                      {fmtDate(order.created_at)}
+                      {order.lookup_count != null && order.lookup_count > 0 && (
+                        <span> · 👁️ {order.lookup_count} lượt tra cứu</span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="mo-order-right">
@@ -478,6 +489,17 @@ function OrderList({
                     <div className="mo-detail-item">
                       <div className="mo-detail-label">Cập nhật lần cuối</div>
                       <div className="mo-detail-value">{fmtDate(order.updated_at)}</div>
+                    </div>
+                    <div className="mo-detail-item">
+                      <div className="mo-detail-label">Lượt tra cứu</div>
+                      <div className="mo-detail-value">
+                        <span style={{ fontWeight: 600, color: '#0369a1' }}>{order.lookup_count || 1} lần</span>
+                        {order.last_lookup_at && (
+                          <span style={{ fontSize: 11, color: '#666', marginLeft: 6 }}>
+                            (Lần cuối: {fmtDateTime(order.last_lookup_at)})
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
