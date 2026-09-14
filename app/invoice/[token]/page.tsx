@@ -106,11 +106,13 @@ export default async function InvoicePage({ params }: { params: { token: string 
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!
     )
-    db.from('orders')
-      .update({ lookup_count: nextCount, last_lookup_at: now })
-      .eq('id', order.id)
-      .then(() => {})
-      .catch(() => {})
+    try {
+      await db.from('orders')
+        .update({ lookup_count: nextCount, last_lookup_at: now })
+        .eq('id', order.id)
+    } catch {
+      // ignore if tracking fails
+    }
     order.lookup_count = nextCount
     order.last_lookup_at = now
   }
