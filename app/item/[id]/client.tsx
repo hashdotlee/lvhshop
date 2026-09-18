@@ -186,6 +186,11 @@ export default function ItemDetailClient({ item }: { item: Item }) {
   const isSold     = currentStatus === 'sold'
   const isIncoming = currentStatus === 'incoming'
   const isAvailable = currentStatus === 'available'
+  const saleLabel = item.discount_amount && item.discount_amount > 0
+    ? `-${fmtVND(item.discount_amount)}`
+    : item.discount_percent && item.discount_percent > 0
+      ? `-${item.discount_percent}%`
+      : ''
 
   function shareToFacebook() {
     window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank', 'width=600,height=400')
@@ -468,9 +473,19 @@ export default function ItemDetailClient({ item }: { item: Item }) {
                 <>
                   <span style={{ fontSize: 18, textDecoration: 'line-through', color: 'var(--muted)', marginRight: 10 }}>{fmtVND(item.price)}</span>
                   <span style={{ color: '#dc2626' }}>{fmtVND(getItemFinalPrice(item))}</span>
+                  {saleLabel && (
+                    <span style={{ marginLeft: 8, background: '#fef2f2', color: '#dc2626', padding: '2px 8px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+                      {saleLabel}
+                    </span>
+                  )}
                 </>
               ) : fmtVND(item.price)}
             </div>
+            {isItemSale(item) && item.discount_end_date && (
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)' }}>
+                Giảm giá đến hết ngày {fmtDate(item.discount_end_date)}
+              </div>
+            )}
 
             {/* Tags */}
             <div className="tags">
