@@ -13,7 +13,7 @@ const SELECT_FIELDS_WITH_LOOKUP = `
   customer_name, customer_address,
   shipping_carrier, tracking_number,
   payment_method, payment_status, order_status,
-  total_amount, created_at, updated_at,
+  total_amount, item_discount, shipping_discount, created_at, updated_at,
   lookup_count, last_lookup_at,
   items(title, price, order_code, images),
   order_items(id, item_title, item_price, quantity, order_code)
@@ -24,7 +24,7 @@ const SELECT_FIELDS_FALLBACK = `
   customer_name, customer_address,
   shipping_carrier, tracking_number,
   payment_method, payment_status, order_status,
-  total_amount, created_at, updated_at,
+  total_amount, item_discount, shipping_discount, created_at, updated_at,
   items(title, price, order_code, images),
   order_items(id, item_title, item_price, quantity, order_code)
 `

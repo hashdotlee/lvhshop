@@ -460,6 +460,22 @@ function OrderList({
                       <div className="mo-detail-label">Giá trị đơn hàng</div>
                       <div className="mo-detail-value">{fmtVND(order.total_amount ?? order.item_price)}</div>
                     </div>
+                    {(order.item_discount ?? 0) > 0 && (
+                      <div className="mo-detail-item">
+                        <div className="mo-detail-label">Giảm giá sản phẩm</div>
+                        <div className="mo-detail-value" style={{ color: '#dc2626', fontWeight: 600 }}>
+                          -{fmtVND(order.item_discount)}
+                        </div>
+                      </div>
+                    )}
+                    {(order.shipping_discount ?? 0) > 0 && (
+                      <div className="mo-detail-item">
+                        <div className="mo-detail-label">Giảm giá vận chuyển</div>
+                        <div className="mo-detail-value" style={{ color: '#dc2626', fontWeight: 600 }}>
+                          -{fmtVND(order.shipping_discount)}
+                        </div>
+                      </div>
+                    )}
                     <div className="mo-detail-item">
                       <div className="mo-detail-label">Địa chỉ giao hàng</div>
                       <div className="mo-detail-value">{order.customer_address}</div>
