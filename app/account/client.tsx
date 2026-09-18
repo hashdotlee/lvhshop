@@ -468,6 +468,20 @@ function OrdersTab() {
                         <div><div className="ac-detail-label">Giá trị</div>
                           <div className="ac-detail-value">{fmtVND(order.total_amount ?? order.item_price)}</div>
                         </div>
+                        {(order.item_discount ?? 0) > 0 && (
+                          <div><div className="ac-detail-label">Giảm giá sản phẩm</div>
+                            <div className="ac-detail-value" style={{ color: '#dc2626', fontWeight: 600 }}>
+                              -{fmtVND(order.item_discount)}
+                            </div>
+                          </div>
+                        )}
+                        {(order.shipping_discount ?? 0) > 0 && (
+                          <div><div className="ac-detail-label">Giảm giá vận chuyển</div>
+                            <div className="ac-detail-value" style={{ color: '#dc2626', fontWeight: 600 }}>
+                              -{fmtVND(order.shipping_discount)}
+                            </div>
+                          </div>
+                        )}
                         <div><div className="ac-detail-label">Địa chỉ</div>
                           <div className="ac-detail-value">{order.customer_address}</div>
                         </div>
