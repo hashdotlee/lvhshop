@@ -5,6 +5,9 @@ import ItemDetailClient from './client'
 import type { Item } from '@/lib/supabase'
 import { buildProductJsonLd, buildSeoDescription, getCategory } from '@/lib/product-utils'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 function db() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
